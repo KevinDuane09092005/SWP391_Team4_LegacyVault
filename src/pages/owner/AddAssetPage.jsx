@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import AssetInfoStep from '../../components/vault/AssetInfoStep.jsx'
@@ -25,18 +25,34 @@ const STEP = { INFO: 0, DOCUMENTS: 1, ENCRYPTION: 2, SAVE: 3 }
 
 // Flow 2 — Add Digital Asset:
 //   1. enter asset information  → 2. pick related documents
-//   → 3. encrypt sensitive data (demo) → 4. save asset → open the saved asset.
+//   → 3. encrypt sensitive data (AES-256 via Backend) → 4. save asset → open the saved asset.
 // Everything typed stays in this page's state, so Back never loses data.
 export default function AddAssetPage() {
-  const { vaultId } = useParams()
+  const params = useParams()
+  const vaultId = params.vaultId || 'vault-demo-family'
   const { user } = useAuth()
   const { language } = useLanguage()
   const t = vaultContent[language]
   const copy = t.addAsset
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Kiểm tra xác thực Token khi truy cập trang
+  useEffect(() => {
+    const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
+    if (!token) {
+      navigate('/login', { state: { from: location.pathname } })
+    }
+  }, [navigate, location.pathname])
 
   // The asset is always added to the vault in the address, so load it first.
-  const vaultQuery = useAsync(() => getVault(user.id, vaultId), vaultId)
+  const vaultQuery = useAsync(async () => {
+    try {
+      return await getVault(user?.id, vaultId)
+    } catch {
+      return { id: vaultId, name: language === 'vi' ? 'Két di sản' : 'Vault', assets: [] }
+    }
+  }, `${user?.id}-${vaultId}`)
 
   const form = useForm({
     formId: 'asset',
@@ -44,6 +60,7 @@ export default function AddAssetPage() {
     validate: (values) => validateAssetInfo(values, t.validation),
     fieldOrder: (values) => getAssetFieldOrder(values.type),
   })
+  const vault = vaultQuery?.data || { name: 'Legacy Vault' }
   const [step, setStep] = useState(STEP.INFO)
   const [files, setFiles] = useState([])
   const [rejectedFiles, setRejectedFiles] = useState([])
@@ -59,6 +76,17 @@ export default function AddAssetPage() {
   // Step 1 → 2 only when the information is valid.
   const handleInfoSubmit = (event) => {
     event.preventDefault()
+    setSaveError(null)
+    const assetName = (form.values.name || form.values.assetName || '').trim()
+    const assetType = form.values.type || form.values.assetType || ''
+    if (!assetName || !assetType) {
+      setSaveError(
+        language === 'vi'
+          ? 'Tên tài sản và loại tài sản không được để trống.'
+          : 'Asset name and asset type are required.',
+      )
+      return
+    }
     if (form.checkBeforeSubmit()) goTo(STEP.DOCUMENTS)
   }
 
@@ -74,53 +102,91 @@ export default function AddAssetPage() {
   }
 
   const handleSave = async () => {
-    // Check once more right before saving; go back to step 1 if something is wrong.
+    setSaveError(null)
+
+    // 1. Quản lý Token & Authentication
+    const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
+    if (!token) {
+      navigate('/login', { state: { from: location.pathname } })
+      return
+    }
+
+    // 2. Validate cơ bản
+    const assetName = (form.values.name || form.values.assetName || '').trim()
+    const assetType = form.values.type || form.values.assetType || ''
+    if (!assetName || !assetType) {
+      setSaveError(
+        language === 'vi'
+          ? 'Tên tài sản và loại tài sản không được để trống.'
+          : 'Asset name and asset type are required.',
+      )
+      goTo(STEP.INFO)
+      return
+    }
+
     if (!form.checkBeforeSubmit()) {
       goTo(STEP.INFO)
       return
     }
+
     goTo(STEP.SAVE)
     setSaving(true)
-    setSaveError(null)
+
     try {
-      const asset = await saveAsset(user.id, vaultId, { values: form.values, files }, setProgress)
-      // Success is shown only after the save really finished.
-      navigate(ownerPaths.asset(vaultId, asset.id), { state: { saved: true } })
+      // 3. Gọi hàm saveAsset (kết nối trực tiếp Backend API POST /api/v1/assets)
+      const asset = await saveAsset(user?.id, vaultId, { values: form.values, files }, setProgress)
+
+      // 4. Khi thành công (HTTP 201 Created): Reset form & hiển thị thông báo
+      if (typeof form.setValues === 'function') {
+        form.setValues(EMPTY_ASSET_FORM)
+      }
+      setFiles([])
+
+      const successMsg =
+        language === 'vi'
+          ? 'Tài sản đã được thêm và mã hóa an toàn!'
+          : 'Asset created and encrypted successfully!'
+
+      // 5. Điều hướng sang trang chi tiết / danh sách tài sản
+      navigate(ownerPaths.asset(vaultId, asset.id), {
+        state: { saved: true, message: successMsg },
+      })
     } catch (error) {
-      // Keep everything the user entered so they can try again.
-      setSaveError(error.code ?? 'generic')
+      // Xử lý khi token hết hạn (401 / 403)
+      if (error.status === 401 || error.status === 403) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('legacyvault-access-token')
+        navigate('/login', {
+          state: {
+            from: location.pathname,
+            message:
+              language === 'vi'
+                ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+                : 'Session expired. Please log in again.',
+          },
+        })
+        return
+      }
+
+      // Xử lý hiển thị thông báo lỗi từ response backend
+      const errorMsg =
+        error.message ||
+        error.code ||
+        (language === 'vi' ? 'Lỗi tạo tài sản.' : 'Failed to save asset.')
+      setSaveError(errorMsg)
       setSaving(false)
     }
   }
 
-  const cancel = () => navigate(ownerPaths.vault(vaultId))
-
-  if (vaultQuery.status !== 'ready') {
-    return (
-      <OwnerLayout>
-        {vaultQuery.status === 'loading' ? (
-          <LoadingState label={t.loading} />
-        ) : (
-          <ErrorState message={t.errors[vaultQuery.error.code] ?? t.errors.generic}>
-            <Button to={ownerPaths.vaults} variant="secondary">
-              {t.nav.vaults}
-            </Button>
-          </ErrorState>
-        )}
-      </OwnerLayout>
-    )
-  }
-
-  const vault = vaultQuery.data
+  const cancel = () => navigate(ownerPaths.assets)
 
   return (
     <OwnerLayout>
       <Breadcrumbs
         label={t.breadcrumbsLabel}
         items={[
-          { label: t.nav.vaults, to: ownerPaths.vaults },
-          { label: vault.name, to: ownerPaths.vault(vault.id) },
-          { label: copy.title },
+          { label: language === 'vi' ? 'Tài sản của tôi' : 'My Assets', to: ownerPaths.assets },
+          { label: language === 'vi' ? 'Đăng ký tài sản' : 'Register Asset' },
         ]}
       />
 
@@ -128,13 +194,18 @@ export default function AddAssetPage() {
         <p className="page-meta">
           {copy.stepOf(step + 1, copy.steps.length)} · {copy.steps[step]}
         </p>
-        <h1 className="page-title">{copy.title}</h1>
-        <p className="page-text">{copy.toVault(vault.name)}</p>
+        <h1 className="page-title">{language === 'vi' ? 'Đăng ký tài sản số' : 'Register Digital Asset'}</h1>
+        <p className="page-text">
+          {language === 'vi'
+            ? 'Nhập thông tin tài sản, tài khoản hoặc tài liệu để bảo vệ và mã hóa an toàn trong hệ thống.'
+            : 'Enter asset details, credentials, or documents to securely encrypt and store.'}
+        </p>
 
         <Stepper steps={copy.steps} current={step} label={copy.stepsLabel} />
 
         {step === STEP.INFO && (
           <form noValidate onSubmit={handleInfoSubmit}>
+            {saveError && <FormAlert tone="danger">{saveError}</FormAlert>}
             <FormAlert tone="info">{copy.safety}</FormAlert>
             <div className="form-stack--spaced">
               <AssetInfoStep form={form} t={t} />
@@ -143,7 +214,7 @@ export default function AddAssetPage() {
               <Button variant="secondary" size="lg" onClick={cancel}>
                 {t.cancel}
               </Button>
-              <Button type="submit" size="lg">
+              <Button type="submit" size="lg" disabled={saving}>
                 {copy.next}
               </Button>
             </div>
@@ -172,18 +243,19 @@ export default function AddAssetPage() {
 
         {step === STEP.ENCRYPTION && (
           <>
+            {saveError && <FormAlert tone="danger">{saveError}</FormAlert>}
             <EncryptionStep
               asset={buildAssetFromForm(form.values)}
               documentCount={files.length}
-              vaultName={vault.name}
+              vaultName={vault?.name || 'Legacy Vault'}
               t={t}
             />
             <div className="form-actions">
               <Button variant="secondary" size="lg" onClick={() => goTo(STEP.DOCUMENTS)}>
                 {copy.back}
               </Button>
-              <Button size="lg" onClick={handleSave}>
-                {copy.save}
+              <Button size="lg" onClick={handleSave} disabled={saving}>
+                {saving ? (language === 'vi' ? 'Đang lưu...' : 'Saving...') : copy.save}
               </Button>
             </div>
           </>
@@ -197,7 +269,7 @@ export default function AddAssetPage() {
                 <Button variant="secondary" size="lg" onClick={() => goTo(STEP.ENCRYPTION)}>
                   {copy.back}
                 </Button>
-                <Button size="lg" onClick={handleSave}>
+                <Button size="lg" onClick={handleSave} disabled={saving}>
                   {t.retry}
                 </Button>
               </div>

@@ -1,0 +1,647 @@
+openapi: 3.0.3
+info:
+  title: LegacyVault - Contacts & Assignments API
+  description: >
+    API specification cho Flow 3 của LegacyVault, gồm 2 nhóm chức năng:
+      1) Contact Book: thêm & quản lý người liên hệ tin cậy (Beneficiary/Executor)
+      2) Assignment Wizard: quy trình 4 bước gán Tài sản cho Beneficiary/Executor
+
+    Nguồn thiết kế:
+      - Sequence diagram "Flow 3": Phần 1 "Thiết lập Sổ liên lạc", Phần 2
+        "Gán Thụ Hưởng & Thi Hành (Quy trình 4 bước)"
+      - DB schema: bảng `contacts`, `asset_assignments`, `assignment_beneficiaries`
+      - UI Prototype: flow3-contact (rỗng & đã có liên hệ), flow3-add-contact-modal,
+        flow3-Select Asset to Assign (step1), flow3-Select Beneficiary & Executor
+        (step2), flow3-Allocation & Handover Instructions (step3), flow3-review
+        (step4), flow3-success
+
+    ⚠️ ĐIỂM QUAN TRỌNG CẦN XÁC NHẬN LẠI VỚI TEAM (assumptions):
+      1. **Không lưu `split_percentage` dưới dạng field riêng** (quyết định của
+         Product Owner): tỷ lệ phân chia giữa các Beneficiary (vd "Tran Thi B
+         (Spouse): 60%, Nguyen Van C (Friend): 40%") KHÔNG được lưu thành cột
+         số liệu có thể validate (không có ràng buộc tổng = 100%), mà được Vault
+         Owner tự gõ như một phần nội dung tự do trong trường
+         `handover_instructions` (textarea "Handover Instructions & Conditions").
+         Hệ quả: BE không thể validate tổng % tự động, không có dữ liệu structured
+         để tính toán % thừa kế sau này (vd khi Executor thực thi handover) —
+         toàn bộ nằm trong text do Vault Owner tự viết. Bảng `assignment_beneficiaries`
+         vì vậy chỉ cần lưu quan hệ assignment-beneficiary (không cần cột %).
+      2. **"Expected Role" là single-select** trên form Add Contact (Beneficiary
+         HOẶC Executor), trong khi DB có 2 cột boolean riêng `is_beneficiary` và
+         `is_executor` (có thể cả hai = true). Spec giả định tại thời điểm tạo
+         contact, chỉ 1 flag được set theo lựa chọn trên form; muốn gán thêm vai
+         trò thứ 2 cần endpoint cập nhật contact riêng (không nằm trong 8 màn
+         hình được cung cấp).
+      3. **Danh sách `relationship` đầy đủ**: dropdown trên UI chỉ thấy "Spouse"
+         (mặc định) + dữ liệu mẫu "Attorney", "Friend", "Child" trong bảng Contact
+         Book. Enum dưới đây tạm liệt kê các giá trị phổ biến, cần xác nhận lại
+         danh sách đầy đủ của dropdown.
+      4. **"Select Asset to Assign" (step 1)** cho phép chọn 1 trong nhiều loại
+         tài sản (Crypto Wallet, Bank Account, Cloud Storage...) bằng radio
+         button (chọn đơn) — khớp với constraint `asset_id UNIQUE` trong bảng
+         `asset_assignments` (1 asset chỉ có đúng 1 assignment). API dùng lại
+         `GET /assets` đã thiết kế ở Flow 2 (asset dashboard) để lấy danh sách
+         này, lọc thêm `status=unassigned`.
+      5. **Cảnh báo "Pending" ở bước Review**: khi 1 beneficiary/executor đang ở
+         trạng thái `pending` (chưa xác minh email), BE trả cảnh báo (không chặn
+         lưu) và tự động gửi lại email nhắc nhở kèm thông tin asset sau khi lưu
+         thành công — đúng theo nhánh `alt` trong sequence diagram.
+  version: "1.0.0"
+  contact:
+    name: LegacyVault Backend Team
+
+servers:
+  - url: https://api.legacyvault.io/v1
+    description: Production
+  - url: https://staging-api.legacyvault.io/v1
+    description: Staging
+
+tags:
+  - name: Contacts
+    description: Flow 3 (Phần 1) - Sổ liên lạc (Contact Book)
+  - name: Assignments
+    description: Flow 3 (Phần 2) - Assignment Wizard (4 bước)
+
+paths:
+  /contacts:
+    get:
+      tags: [Contacts]
+      summary: Lấy danh sách người liên hệ (Contact Book)
+      description: >
+        Dùng cho màn "Contact Book" (cả trạng thái rỗng "No Contacts Yet" và
+        trạng thái đã có danh sách với cột Name/Relationship/Email/Expected
+        Role/Status), và cho bước 2 của Assignment Wizard (chọn Beneficiary/Executor).
+      operationId: listContacts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          description: 'Tìm theo tên/email - khớp ô "Search contacts...".'
+          schema:
+            type: string
+        - name: expected_role
+          in: query
+          required: false
+          description: Lọc theo vai trò dự kiến - dùng khi load danh sách cho ô "Select Beneficiary" / "Select Executor" ở step 2.
+          schema:
+            type: string
+            enum: [beneficiary, executor]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, verified]
+      responses:
+        '200':
+          description: Danh sách liên hệ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 4
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contact'
+              examples:
+                default:
+                  value:
+                    total: 4
+                    data:
+                      - contact_id: "c1b2c3d4-0000-1111-2222-333344445555"
+                        full_name: "Tran Thi B"
+                        relationship: "spouse"
+                        email: "tranthib@email.com"
+                        phone_number: null
+                        is_beneficiary: true
+                        is_executor: false
+                        status: "verified"
+                        created_at: "2026-09-10T08:00:00Z"
+                      - contact_id: "c1b2c3d4-0000-1111-2222-333344446666"
+                        full_name: "Le Van D"
+                        relationship: "attorney"
+                        email: "levand@email.com"
+                        phone_number: null
+                        is_beneficiary: false
+                        is_executor: true
+                        status: "verified"
+                        created_at: "2026-09-11T08:00:00Z"
+                      - contact_id: "c1b2c3d4-0000-1111-2222-333344447777"
+                        full_name: "Nguyen Van C"
+                        relationship: "friend"
+                        email: "nguyenc@email.com"
+                        phone_number: null
+                        is_beneficiary: true
+                        is_executor: false
+                        status: "pending"
+                        created_at: "2026-09-12T08:00:00Z"
+                      - contact_id: "c1b2c3d4-0000-1111-2222-333344448888"
+                        full_name: "Pham Minh E"
+                        relationship: "child"
+                        email: "phame@email.com"
+                        phone_number: null
+                        is_beneficiary: true
+                        is_executor: false
+                        status: "pending"
+                        created_at: "2026-09-13T08:00:00Z"
+        '401':
+          description: Chưa đăng nhập hoặc token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Contacts]
+      summary: Thêm người liên hệ mới (Add New Contact)
+      description: >
+        Tương ứng bước (1)-(13) trong sequence diagram phần 1: FE hiển thị modal
+        "Add New Contact" -> VO nhập Full Name, Relationship, Email, Expected
+        Role -> FE gửi POST /contacts -> BE kiểm tra email đã có tài khoản
+        LegacyVault hay chưa:
+          - Nếu CHƯA có tài khoản: lưu contact với status "pending", trigger
+            gửi email mời đăng ký/xác nhận.
+          - Nếu ĐÃ có tài khoản: lưu contact với status "verified", gửi email
+            thông báo đã được thêm vào sổ liên lạc (không cần xác nhận thêm).
+        BE trả kết quả, FE cập nhật lại bảng Contact Book.
+      operationId: createContact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+            examples:
+              default:
+                value:
+                  full_name: "John Doe"
+                  relationship: "spouse"
+                  email: "name@example.com"
+                  expected_role: "beneficiary"
+      responses:
+        '201':
+          description: Thêm liên hệ thành công (status trả về tuỳ email đã có tài khoản LegacyVault hay chưa)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateContactResponse'
+              examples:
+                pending:
+                  summary: Email chưa có tài khoản LegacyVault
+                  value:
+                    message: "Đã thêm liên hệ. Email mời xác nhận đã được gửi tới name@example.com."
+                    contact:
+                      contact_id: "c1b2c3d4-0000-1111-2222-333344449999"
+                      full_name: "John Doe"
+                      relationship: "spouse"
+                      email: "name@example.com"
+                      phone_number: null
+                      is_beneficiary: true
+                      is_executor: false
+                      status: "pending"
+                      created_at: "2026-09-26T10:00:00Z"
+                verified:
+                  summary: Email đã có tài khoản LegacyVault
+                  value:
+                    message: "Đã thêm liên hệ. name@example.com đã được xác minh (tài khoản LegacyVault có sẵn)."
+                    contact:
+                      contact_id: "c1b2c3d4-0000-1111-2222-333344440000"
+                      full_name: "Jane Smith"
+                      relationship: "spouse"
+                      email: "jane@example.com"
+                      phone_number: null
+                      is_beneficiary: true
+                      is_executor: false
+                      status: "verified"
+                      created_at: "2026-09-26T10:05:00Z"
+        '400':
+          description: Thiếu trường bắt buộc (full_name, relationship, email, expected_role) hoặc sai định dạng email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email này đã tồn tại trong Sổ liên lạc của bạn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /contacts/{contact_id}/resend-invite:
+    post:
+      tags: [Contacts]
+      summary: Gửi lại email mời xác nhận cho liên hệ đang "Pending" (bonus)
+      description: >
+        Suy ra từ ghi chú trên màn "Assignment Success": "Pending invites expire
+        in 30 days. You can resend them from Settings." Không nằm trực tiếp
+        trong 8 màn hình được cung cấp cho Flow 3, nhưng cần thiết để UI đó hoạt
+        động — đánh dấu rõ để team xác nhận có cần hay không.
+      operationId: resendContactInvite
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contact_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Email mời đã được gửi lại
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Đã gửi lại email mời tới tranthib@email.com."
+        '400':
+          description: Liên hệ đã ở trạng thái "verified", không cần gửi lại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy liên hệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /assignments/validate:
+    post:
+      tags: [Assignments]
+      summary: Validate cấu hình gán tài sản trước khi lưu chính thức (Review step)
+      description: >
+        Tương ứng bước (23)-(26): FE gửi Draft Config (chưa lưu DB) để BE kiểm
+        tra: asset_id hợp lệ & chưa được gán, executor_contact_id hợp lệ,
+        danh sách beneficiary_contact_ids tồn tại và hợp lệ. BE trả về kết
+        quả kèm cảnh báo (vd: có người đang "Pending") để FE hiển thị tại màn
+        "Review Configuration" (banner vàng). Nội dung % phân chia (nếu Vault
+        Owner có viết trong `handover_instructions`) không được BE kiểm tra.
+      operationId: validateAssignmentDraft
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentDraft'
+      responses:
+        '200':
+          description: Kết quả validate (có thể valid=true kèm warnings, hoặc valid=false kèm errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+              examples:
+                default:
+                  value:
+                    valid: true
+                    errors: []
+                    warnings:
+                      - contact_id: "c1b2c3d4-0000-1111-2222-333344447777"
+                        message: 'Nguyen Van C is currently in "Pending" status. An invitation email will be automatically sent upon saving.'
+
+  /assignments:
+    post:
+      tags: [Assignments]
+      summary: Lưu cấu hình gán tài sản chính thức (Save Configuration)
+      description: >
+        Tương ứng bước (27)-(31): VO nhấn "Save Configuration" tại màn Review ->
+        FE gọi POST /assignments (Asset ID, Beneficiary IDs, Executor ID,
+        Hướng dẫn bàn giao kèm % tự viết) -> BE lưu vào `asset_assignments` +
+        `assignment_beneficiaries` -> nếu có beneficiary/executor đang
+        "pending", gửi lại email nhắc nhở kèm thông tin asset -> trả 200 OK ->
+        FE hiển thị màn "Beneficiary Assigned Successfully!".
+      operationId: createAssignment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentDraft'
+            examples:
+              default:
+                value:
+                  asset_id: "a1b2c3d4-0000-1111-2222-333344446666"
+                  executor_contact_id: "c1b2c3d4-0000-1111-2222-333344446666"
+                  beneficiary_contact_ids:
+                    - "c1b2c3d4-0000-1111-2222-333344445555"
+                    - "c1b2c3d4-0000-1111-2222-333344447777"
+                  handover_instructions: >-
+                    Transfer all crypto assets to the designated beneficiaries
+                    upon triggering. Split allocation: Tran Thi B (Spouse):
+                    60%, Nguyen Van C (Friend): 40%. Ensure two-factor
+                    authentication is verified before any transfer. Executor
+                    must verify identity with legal documentation.
+      responses:
+        '200':
+          description: >
+            Lưu thành công. Tương ứng màn "Beneficiary Assigned Successfully!"
+            ("The asset assignment has been securely saved to your vault.
+            Notifications have been dispatched.")
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAssignmentResponse'
+              examples:
+                default:
+                  value:
+                    message: "Beneficiary Assigned Successfully!"
+                    notice: "Pending invites expire in 30 days. You can resend them from Settings."
+                    assignment:
+                      assignment_id: "as1b2c3d-0000-1111-2222-333344445555"
+                      asset_id: "a1b2c3d4-0000-1111-2222-333344446666"
+                      asset_name: "MetaMask Wallet (ETH)"
+                      executor_contact_id: "c1b2c3d4-0000-1111-2222-333344446666"
+                      beneficiary_contact_ids:
+                        - "c1b2c3d4-0000-1111-2222-333344445555"
+                        - "c1b2c3d4-0000-1111-2222-333344447777"
+                      handover_instructions: "Transfer all crypto assets... Split allocation: Tran Thi B (Spouse): 60%, Nguyen Van C (Friend): 40%."
+                      created_at: "2026-09-26T10:30:00Z"
+        '400':
+          description: Dữ liệu không hợp lệ (xem chi tiết lỗi trong errors[]), vd thiếu beneficiary/executor hoặc asset_id không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+        '401':
+          description: Chưa đăng nhập hoặc token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Asset này đã được gán cho một assignment khác (asset_id là UNIQUE trong asset_assignments)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /assignments/{assignment_id}:
+    get:
+      tags: [Assignments]
+      summary: Lấy chi tiết một assignment (bonus, dùng cho xem lại/chỉnh sửa sau này)
+      operationId: getAssignmentById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assignment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Chi tiết assignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAssignmentResponse'
+        '404':
+          description: Không tìm thấy assignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateContactRequest:
+      type: object
+      description: Khớp với modal "Add New Contact" (Full Name, Relationship, Email Address, Expected Role).
+      required: [full_name, relationship, email, expected_role]
+      properties:
+        full_name:
+          type: string
+          maxLength: 100
+          description: 'Placeholder: "e.g. John Doe".'
+          example: "John Doe"
+        relationship:
+          type: string
+          enum: [spouse, child, parent, sibling, friend, attorney, other]
+          description: >
+            Theo dropdown "Relationship" (mặc định "Spouse"); xem Assumption #3
+            ở info.description về danh sách đầy đủ.
+          example: "spouse"
+        email:
+          type: string
+          format: email
+          maxLength: 150
+          description: 'Placeholder: "name@example.com".'
+          example: "name@example.com"
+        phone_number:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: Không có trên form UI hiện tại nhưng cột này tồn tại trong DB (optional).
+        expected_role:
+          type: string
+          enum: [beneficiary, executor]
+          description: >
+            Theo dropdown "Expected Role" (mặc định "Beneficiary"). Map vào
+            is_beneficiary/is_executor trong DB — xem Assumption #2.
+          example: "beneficiary"
+
+    CreateContactResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        contact:
+          $ref: '#/components/schemas/Contact'
+
+    Contact:
+      type: object
+      description: Ánh xạ từ bảng `contacts` trong DB schema
+      properties:
+        contact_id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        relationship:
+          type: string
+          enum: [spouse, child, parent, sibling, friend, attorney, other]
+        email:
+          type: string
+          format: email
+        phone_number:
+          type: string
+          nullable: true
+        is_beneficiary:
+          type: boolean
+        is_executor:
+          type: boolean
+        status:
+          type: string
+          enum: [pending, verified]
+          description: >
+            "pending" = Email chưa có tài khoản LegacyVault, đang chờ xác nhận
+            lời mời. "verified" = Email đã có tài khoản LegacyVault hoặc đã
+            xác nhận lời mời. Khớp 2 badge màu trên bảng Contact Book.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AssignmentDraft:
+      type: object
+      description: >
+        Payload dùng chung cho cả /assignments/validate (draft) và /assignments
+        (lưu chính thức). Khớp dữ liệu thu thập qua 3 bước đầu của wizard:
+        Select Asset (step1), Select Beneficiary & Executor (step2), Allocation
+        & Handover Instructions (step3).
+
+        Ghi chú UI mới nhất (step3): màn hình chia làm 2 khối —
+          - "Beneficiaries" ("People assigned to receive the selected asset
+            collection."): chỉ là danh sách tên + quan hệ (vd "Tran Thi B
+            (Spouse)") của những người đã chọn ở Step 2 — không có input số %
+            riêng cho từng người.
+          - "Handover Instructions & Conditions" (textarea): Vault Owner tự
+            gõ toàn bộ nội dung hướng dẫn bàn giao, BAO GỒM CẢ tỷ lệ phân chia
+            (vd dòng "Split allocation: • Tran Thi B (Spouse): 60% •
+            Nguyen Van C (Friend): 40%") như một đoạn text tự do, không phải
+            field có cấu trúc. Xem Assumption #1 ở info.description: BE không
+            validate hay tính toán được tỷ lệ này, chỉ lưu nguyên văn.
+      required: [asset_id, executor_contact_id, beneficiary_contact_ids, handover_instructions]
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+          description: Tài sản được chọn ở Step 1 (radio - chọn đúng 1 asset).
+          example: "a1b2c3d4-0000-1111-2222-333344446666"
+        executor_contact_id:
+          type: string
+          format: uuid
+          description: Người thi hành (Executor) được chọn ở Step 2 (chọn đúng 1).
+          example: "c1b2c3d4-0000-1111-2222-333344446666"
+        beneficiary_contact_ids:
+          type: array
+          minItems: 1
+          description: >
+            Danh sách contact_id của những người thụ hưởng được chọn ở Step 2.
+            Không kèm tỷ lệ % (xem Assumption #1) — chỉ là danh sách người
+            tham gia nhận tài sản, hiển thị ở khối "Beneficiaries" trên UI.
+          items:
+            type: string
+            format: uuid
+          example:
+            - "c1b2c3d4-0000-1111-2222-333344445555"
+            - "c1b2c3d4-0000-1111-2222-333344447777"
+        handover_instructions:
+          type: string
+          description: >
+            Trường "Handover Instructions & Conditions" (textarea) - placeholder
+            gợi ý: "Specify the trigger conditions, steps, or custom messages
+            the executor must process." Vault Owner viết tự do, bao gồm cả tỷ
+            lệ phân chia (%) giữa các beneficiary nếu muốn — BE lưu nguyên văn,
+            không bóc tách hay validate phần % trong này.
+          example: >-
+            Transfer all crypto assets to the designated beneficiaries upon
+            triggering. Split allocation: Tran Thi B (Spouse): 60%, Nguyen Van
+            C (Friend): 40%. Ensure two-factor authentication is verified
+            before any transfer. Executor must verify identity with standard
+            certified legal documentation.
+
+    ValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: 'false nếu có lỗi chặn lưu (vd asset đã được gán cho assignment khác, contact không tồn tại, thiếu beneficiary/executor).'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse'
+        warnings:
+          type: array
+          description: >
+            Cảnh báo không chặn lưu - hiển thị dạng banner vàng trên màn
+            "Review Configuration", ví dụ người thụ hưởng/thi hành đang
+            "Pending" sẽ được gửi email nhắc nhở sau khi lưu.
+          items:
+            type: object
+            properties:
+              contact_id:
+                type: string
+                format: uuid
+              message:
+                type: string
+                example: 'Nguyen Van C is currently in "Pending" status. An invitation email will be automatically sent upon saving.'
+
+    CreateAssignmentResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Beneficiary Assigned Successfully!"
+        notice:
+          type: string
+          nullable: true
+          example: "Pending invites expire in 30 days. You can resend them from Settings."
+        assignment:
+          $ref: '#/components/schemas/Assignment'
+
+    Assignment:
+      type: object
+      description: Ánh xạ từ bảng `asset_assignments` + `assignment_beneficiaries`
+      properties:
+        assignment_id:
+          type: string
+          format: uuid
+        asset_id:
+          type: string
+          format: uuid
+        asset_name:
+          type: string
+          description: Trả kèm để FE hiển thị trực tiếp trên màn Review/Success mà không cần gọi thêm API.
+        executor_contact_id:
+          type: string
+          format: uuid
+        beneficiary_contact_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        handover_instructions:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error_code:
+          type: string
+          example: "ASSET_ALREADY_ASSIGNED"
+        message:
+          type: string
+          example: "Tài sản này đã được gán cho một assignment khác."

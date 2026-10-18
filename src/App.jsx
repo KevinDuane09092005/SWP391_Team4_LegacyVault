@@ -1,4 +1,4 @@
-import { Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop.jsx'
 import { DashboardRedirect, RedirectIfSignedIn, RequireAuth } from './auth/guards.jsx'
 import { ROLES } from './auth/roles.js'
@@ -9,10 +9,14 @@ import VerifyOtpPage from './pages/auth/VerifyOtpPage.jsx'
 import RoleDashboardPage from './pages/dashboard/RoleDashboardPage.jsx'
 import AddAssetPage from './pages/owner/AddAssetPage.jsx'
 import AssetDetailsPage from './pages/owner/AssetDetailsPage.jsx'
+import AssetsPage from './pages/owner/AssetsPage.jsx'
 import CreateVaultPage from './pages/owner/CreateVaultPage.jsx'
 import MyVaultsPage from './pages/owner/MyVaultsPage.jsx'
 import OwnerDashboardPage from './pages/owner/OwnerDashboardPage.jsx'
 import VaultDetailsPage from './pages/owner/VaultDetailsPage.jsx'
+import ContactsPage from './pages/owner/ContactsPage.jsx'
+import AssignmentsPage from './pages/owner/AssignmentsPage.jsx'
+import DeadMansSwitchPage from './pages/owner/DeadMansSwitchPage.jsx'
 import HomePage from './pages/HomePage.jsx'
 import HowItWorksPage from './pages/HowItWorksPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
@@ -39,6 +43,8 @@ export default function App() {
           path="/guides/executor-access"
           element={<PlaceholderPage page="executorGuide" />}
         />
+        <Route path="/assignments" element={<Navigate to="/dashboard/owner/assignments" replace />} />
+        <Route path="/dms" element={<Navigate to="/dashboard/owner/dms" replace />} />
 
         {/* Flow 1: sign up, verify, sign in. Signed-in users are sent to their dashboard. */}
         <Route path="/register" element={<RedirectIfSignedIn><RegisterPage /></RedirectIfSignedIn>} />
@@ -62,11 +68,20 @@ export default function App() {
           element={<RequireAuth allowedRoles={[ROLES.VAULT_OWNER]}><Outlet /></RequireAuth>}
         >
           <Route index element={<OwnerDashboardPage />} />
-          <Route path="vaults" element={<MyVaultsPage />} />
-          <Route path="vaults/new" element={<CreateVaultPage />} />
-          <Route path="vaults/:vaultId" element={<VaultDetailsPage />} />
+          <Route path="vaults" element={<Navigate to="/dashboard/owner/assets" replace />} />
+          <Route path="vaults/new" element={<Navigate to="/dashboard/owner/assets/new" replace />} />
+          <Route path="vaults/:vaultId" element={<Navigate to="/dashboard/owner/assets" replace />} />
           <Route path="vaults/:vaultId/assets/new" element={<AddAssetPage />} />
           <Route path="vaults/:vaultId/assets/:assetId" element={<AssetDetailsPage />} />
+          <Route path="assets" element={<AssetsPage />} />
+          <Route path="assets/new" element={<AddAssetPage />} />
+          <Route path="assets/:assetId" element={<AssetDetailsPage />} />
+          <Route path="asset" element={<Navigate to="/dashboard/owner/assets" replace />} />
+          <Route path="asset/new" element={<AddAssetPage />} />
+          <Route path="asset/:assetId" element={<AssetDetailsPage />} />
+          <Route path="contacts" element={<ContactsPage />} />
+          <Route path="assignments" element={<AssignmentsPage />} />
+          <Route path="dms" element={<DeadMansSwitchPage />} />
         </Route>
 
         <Route

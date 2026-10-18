@@ -40,24 +40,104 @@ export default function RegisterPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setServerError(null)
-    if (!form.checkBeforeSubmit()) return
 
-    const fullName = form.values.fullName.trim()
-    const identifier = normalizeIdentifier(form.values.identifier)
+    const fullName = form.values.fullName?.trim()
+    const email = form.values.identifier?.trim()
+    const password = form.values.password
+
+    // 1. Validate cơ bản trước khi gửi: các trường không được để trống, email đúng định dạng
+    if (!fullName) {
+      setServerError(language === 'vi' ? 'Vui lòng nhập họ và tên.' : 'Please enter your full name.')
+      return
+    }
+    if (!email) {
+      setServerError(language === 'vi' ? 'Vui lòng nhập địa chỉ email.' : 'Please enter your email.')
+      return
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setServerError(
+        language === 'vi' ? 'Địa chỉ email không đúng định dạng.' : 'Please enter a valid email address.',
+      )
+      return
+    }
+    if (!password) {
+      setServerError(language === 'vi' ? 'Vui lòng nhập mật khẩu.' : 'Please enter your password.')
+      return
+    }
+    if (form.values.confirmPassword && form.values.confirmPassword !== password) {
+      setServerError(language === 'vi' ? 'Mật khẩu xác nhận không khớp.' : 'Passwords do not match.')
+      return
+    }
+
     setLoading(true)
+
     try {
-      await register({
-        fullName,
-        identifier,
-        password: form.values.password,
-        plan: plan ? planId : '',
-        billing: plan ? billing : '',
+      // 2. Xác định URL Backend từ biến môi trường hoặc fallback
+      const baseUrl = (
+        import.meta.env.VITE_API_BASE_URL ||
+        import.meta.env.REACT_APP_API_BASE_URL ||
+        ''
+      ).replace(/\/$/, '')
+
+      const endpoint = baseUrl
+        ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/register` : `${baseUrl}/api/v1/auth/register`)
+        : '/api/v1/auth/register'
+
+      // 3. Gọi HTTP POST tới Backend API (Lưu ý: API chỉ nhận 3 trường fullName, email, password)
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullName, email, password }),
       })
-      // Only the name and email/phone are kept for the OTP page — never the password.
-      savePendingVerification({ identifier, fullName })
-      navigate('/verify-otp')
+
+      const data = await response.json().catch(() => ({}))
+
+      // 4. Xử lý phản hồi thất bại (HTTP 400 Bad Request / 500...)
+      if (!response.ok) {
+        const errorMsg =
+          data?.error ||
+          data?.message ||
+          (language === 'vi'
+            ? 'Đăng ký không thành công. Vui lòng thử lại.'
+            : 'Registration failed. Please try again.')
+        throw new Error(errorMsg)
+      }
+
+      // 5. Lưu tạm thông tin người dùng để phục vụ xác thực OTP
+      savePendingVerification({
+        identifier: email,
+        fullName,
+        userId: data.userId,
+        testOtp: data.testOtp,
+      })
+
+      sessionStorage.setItem('pendingEmail', email)
+
+      // 6. Chuyển hướng người dùng sang trang Xác thực OTP (/verify-otp) kèm email
+      navigate(`/verify-otp?email=${encodeURIComponent(email)}`, {
+        state: {
+          email,
+          fullName,
+          userId: data.userId,
+          testOtp: data.testOtp,
+          message:
+            language === 'vi'
+              ? 'Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực.'
+              : 'Registered successfully! Please check your email for the verification code.',
+        },
+      })
     } catch (error) {
-      setServerError(error.code ?? 'generic')
+      // Bắt lỗi qua khối catch, trích xuất thông điệp từ trường error
+      setServerError(
+        error.message ||
+          (language === 'vi'
+            ? 'Đã có lỗi xảy ra khi kết nối máy chủ.'
+            : 'Connection error. Please try again.'),
+      )
+    } finally {
       setLoading(false)
     }
   }
@@ -83,7 +163,7 @@ export default function RegisterPage() {
         </p>
       )}
 
-      {serverError && <FormAlert>{t.errors[serverError] ?? t.errors.generic}</FormAlert>}
+      {serverError && <FormAlert>{t.errors?.[serverError] ?? serverError ?? t.errors?.generic}</FormAlert>}
 
       <form className="auth-form" noValidate onSubmit={handleSubmit}>
         <FormField

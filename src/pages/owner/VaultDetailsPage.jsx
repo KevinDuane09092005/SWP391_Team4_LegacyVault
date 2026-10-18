@@ -1,4 +1,5 @@
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import Icon from '../../components/Icon.jsx'
@@ -14,7 +15,7 @@ import { vaultContent } from '../../data/vaultContent.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { getVault } from '../../services/vaultService.js'
-import { formatDate } from '../../vault/format.js'
+import { formatDate, formatDisplayDate } from '../../vault/format.js'
 import { ownerPaths } from '../../vault/paths.js'
 
 // Flow 2 — Vault Details: the vault and the list of its assets.
@@ -25,7 +26,30 @@ export default function VaultDetailsPage() {
   const t = vaultContent[language]
   const copy = t.vaultDetails
   const location = useLocation()
-  const { status, data: vault, error, reload } = useAsync(() => getVault(user.id, vaultId), vaultId)
+  const navigate = useNavigate()
+  const { status, data: vault, error, reload } = useAsync(() => getVault(user?.id, vaultId), `${user?.id}-${vaultId}`)
+
+  // Kiểm tra token xác thực
+  useEffect(() => {
+    const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
+    if (!token) {
+      navigate('/login', { state: { from: location.pathname } })
+    }
+  }, [navigate, location.pathname])
+
+  // Xử lý khi token hết hạn
+  useEffect(() => {
+    if (error?.status === 401 || error?.status === 403) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('legacyvault-access-token')
+      navigate('/login', {
+        state: {
+          from: location.pathname,
+          message: language === 'vi' ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : 'Session expired. Please log in again.'
+        }
+      })
+    }
+  }, [error, navigate, location.pathname, language])
 
   return (
     <OwnerLayout>
@@ -38,7 +62,7 @@ export default function VaultDetailsPage() {
 
       {status === 'error' && (
         <ErrorState
-          message={t.errors[error.code] ?? t.errors.generic}
+          message={t.errors[error.code] ?? error.message ?? t.errors.generic}
           retryLabel={t.retry}
           onRetry={error.code === 'VAULT_NOT_FOUND' ? undefined : reload}
         >
@@ -83,22 +107,26 @@ export default function VaultDetailsPage() {
                 <div className="asset-table__row asset-table__row--head" aria-hidden="true">
                   <span>{copy.columns.name}</span>
                   <span>{copy.columns.type}</span>
-                  <span>{copy.columns.documents}</span>
+                  <span>{language === 'vi' ? 'Trạng thái' : 'Status'}</span>
                   <span>{copy.columns.created}</span>
                 </div>
                 <ul>
                   {vault.assets.map((asset) => (
                     <li key={asset.id} className="asset-table__row">
-                      <Link to={ownerPaths.asset(vault.id, asset.id)} className="asset-table__name">
+                      <Link to={ownerPaths.asset(vault.id, asset.id)} className="asset-table__name" title={asset.description || asset.name}>
                         {asset.name}
                       </Link>
                       <span>
-                        <span className="badge">{t.assetTypes[asset.type]}</span>
+                        <span className="badge">{t.assetTypes[asset.type] || asset.type}</span>
                       </span>
-                      <span className="asset-table__muted">
-                        {t.documentCount(asset.relatedDocuments.length)}
+                      <span>
+                        <span className={`badge ${asset.status === 'assigned' ? 'green' : 'amber'}`}>
+                          {asset.status === 'assigned'
+                            ? (language === 'vi' ? 'Đã phân công' : 'Assigned')
+                            : (language === 'vi' ? 'Chưa phân công' : 'Unassigned')}
+                        </span>
                       </span>
-                      <span className="asset-table__muted">{formatDate(asset.createdAt, language)}</span>
+                      <span className="asset-table__muted">{formatDisplayDate(asset.createdAt)}</span>
                     </li>
                   ))}
                 </ul>

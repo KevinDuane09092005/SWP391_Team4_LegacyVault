@@ -96,6 +96,12 @@ const icons = {
     </>
   ),
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  copy: (
+    <>
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </>
+  ),
   chevronLeft: <path d="M15 6l-6 6 6 6" />,
   chevronRight: <path d="M9 6l6 6-6 6" />,
   scroll: (

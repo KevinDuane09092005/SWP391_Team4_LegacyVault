@@ -54,7 +54,14 @@ export function AuthProvider({ children }) {
   // Called by the sign-in page once it has shown "You have been signed out".
   const markLogoutSeen = () => setJustLoggedOut(false)
 
-  const value = { user: session?.user ?? null, session, justLoggedOut, login, logout, markLogoutSeen }
+  const setSessionUser = (user, remember) => {
+    const newSession = saveSession(user, remember)
+    setSession(newSession)
+    setJustLoggedOut(false)
+    return newSession
+  }
+
+  const value = { user: session?.user ?? null, session, justLoggedOut, login, logout, markLogoutSeen, setSessionUser }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

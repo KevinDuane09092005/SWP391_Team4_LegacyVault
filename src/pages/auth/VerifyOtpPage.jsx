@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import AuthLayout from '../../components/auth/AuthLayout.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import FormField from '../../components/auth/FormField.jsx'
@@ -7,6 +7,7 @@ import SubmitButton from '../../components/auth/SubmitButton.jsx'
 import {
   clearPendingVerification,
   readPendingVerification,
+  savePendingVerification,
 } from '../../auth/session.js'
 import { validateOtp } from '../../auth/validation.js'
 import { authContent } from '../../data/authContent.js'
@@ -24,9 +25,27 @@ export default function VerifyOtpPage() {
   const t = authContent[language]
   const copy = t.otp
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const location = useLocation()
 
   // Who registered (saved by the register page). Read once when the page opens.
-  const [pending] = useState(readPendingVerification)
+  const [pending] = useState(() => {
+    const fromStorage = readPendingVerification()
+    if (fromStorage?.identifier) return fromStorage
+    const emailParam =
+      searchParams.get('email') || location.state?.email || sessionStorage.getItem('pendingEmail')
+    if (emailParam) {
+      const fallback = {
+        identifier: emailParam,
+        fullName: location.state?.fullName || '',
+        userId: location.state?.userId,
+        testOtp: location.state?.testOtp,
+      }
+      savePendingVerification(fallback)
+      return fallback
+    }
+    return null
+  })
 
   const form = useForm({
     formId: 'otp',
@@ -54,15 +73,89 @@ export default function VerifyOtpPage() {
     event.preventDefault()
     setServerError(null)
     setResent(false)
-    if (!form.checkBeforeSubmit()) return
+
+    const otpCode = form.values.code?.trim()
+    const email = pending?.identifier?.trim()
+
+    if (!email) {
+      navigate('/register', { replace: true })
+      return
+    }
+
+    // Validate nhanh mã OTP
+    if (!otpCode) {
+      setServerError(
+        language === 'vi' ? 'Vui lòng nhập mã OTP gồm 6 chữ số.' : 'Please enter the 6-digit OTP code.',
+      )
+      return
+    }
+
+    if (otpCode.length !== 6) {
+      setServerError(
+        language === 'vi' ? 'Mã OTP phải có đúng 6 chữ số.' : 'OTP code must be exactly 6 digits.',
+      )
+      return
+    }
 
     setVerifying(true)
+
     try {
-      await verifyOtp({ identifier: pending.identifier, code: form.values.code })
+      // 1. Xác định endpoint Backend
+      const baseUrl = (
+        import.meta.env.VITE_API_BASE_URL ||
+        import.meta.env.REACT_APP_API_BASE_URL ||
+        ''
+      ).replace(/\/$/, '')
+
+      const endpoint = baseUrl
+        ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/verify-otp` : `${baseUrl}/api/v1/auth/verify-otp`)
+        : '/api/v1/auth/verify-otp'
+
+      // 2. Gửi request POST xác thực mã OTP
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, otpCode }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+
+      // 3. Xử lý khi API trả về lỗi (400 / 500 / "Invalid OTP" / "OTP expired"...)
+      if (!response.ok) {
+        const errorMsg =
+          data?.error ||
+          data?.message ||
+          (language === 'vi' ? 'Mã OTP không hợp lệ hoặc đã hết hạn.' : 'Invalid or expired OTP.')
+        throw new Error(errorMsg)
+      }
+
+      // 4. Thành công: Xóa thông tin pending tạm thời
       clearPendingVerification()
-      navigate('/login', { replace: true, state: { verified: true, identifier: pending.identifier } })
+      sessionStorage.removeItem('pendingEmail')
+
+      // 5. Điều hướng sang trang Đăng nhập (/login) kèm thông báo thành công
+      navigate('/login', {
+        replace: true,
+        state: {
+          verified: true,
+          identifier: email,
+          message:
+            language === 'vi'
+              ? 'Xác thực tài khoản thành công! Vui lòng đăng nhập.'
+              : 'Verified successfully! Please sign in.',
+        },
+      })
     } catch (error) {
-      setServerError(error.code ?? 'generic')
+      // Bắt lỗi qua catch, hiển thị thông điệp từ trường error lên giao diện
+      setServerError(
+        error.message ||
+          (language === 'vi'
+            ? 'Đã có lỗi xảy ra khi xác thực OTP.'
+            : 'Error verifying OTP. Please try again.'),
+      )
+    } finally {
       setVerifying(false)
     }
   }
@@ -71,13 +164,40 @@ export default function VerifyOtpPage() {
     setServerError(null)
     setResent(false)
     setResending(true)
+    const email = pending?.identifier?.trim()
     try {
-      await resendOtp({ identifier: pending.identifier })
+      const baseUrl = (
+        import.meta.env.VITE_API_BASE_URL ||
+        import.meta.env.REACT_APP_API_BASE_URL ||
+        ''
+      ).replace(/\/$/, '')
+
+      const endpoint = baseUrl
+        ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/resend-otp` : `${baseUrl}/api/v1/auth/resend-otp`)
+        : '/api/v1/auth/resend-otp'
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      }).catch(() => null)
+
+      if (res && res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (data.testOtp) {
+          pending.testOtp = data.testOtp
+        }
+      } else {
+        await resendOtp({ identifier: email }).catch(() => ({}))
+      }
+
       setResent(true)
       setCooldown(RESEND_WAIT_SECONDS)
       form.setValue('code', '')
     } catch (error) {
-      setServerError(error.code ?? 'generic')
+      setServerError(
+        error.message || (language === 'vi' ? 'Không thể gửi lại mã OTP.' : 'Failed to resend OTP.'),
+      )
     } finally {
       setResending(false)
     }
@@ -85,6 +205,7 @@ export default function VerifyOtpPage() {
 
   const registerAgain = () => {
     clearPendingVerification()
+    sessionStorage.removeItem('pendingEmail')
     navigate('/register', { replace: true })
   }
 
@@ -97,8 +218,17 @@ export default function VerifyOtpPage() {
       </h1>
       <p className="auth-card__subtitle">{copy.subtitle(pending.identifier)}</p>
 
-      {IS_DEMO_MODE && <FormAlert tone="info">{copy.demoNote(DEMO_OTP_CODE)}</FormAlert>}
-      {serverError && <FormAlert>{t.errors[serverError] ?? t.errors.generic}</FormAlert>}
+      {location.state?.message && !serverError && (
+        <FormAlert tone="success">{location.state.message}</FormAlert>
+      )}
+      {pending?.testOtp && !serverError && (
+        <FormAlert tone="info">
+          {language === 'vi' ? 'Mã OTP thử nghiệm: ' : 'Test OTP Code: '}
+          <strong>{pending.testOtp}</strong>
+        </FormAlert>
+      )}
+      {IS_DEMO_MODE && !pending?.testOtp && <FormAlert tone="info">{copy.demoNote(DEMO_OTP_CODE)}</FormAlert>}
+      {serverError && <FormAlert>{t.errors?.[serverError] ?? serverError ?? t.errors?.generic}</FormAlert>}
       {resent && <FormAlert tone="success">{copy.resent(DEMO_OTP_CODE)}</FormAlert>}
 
       <form className="auth-form" noValidate onSubmit={handleSubmit}>

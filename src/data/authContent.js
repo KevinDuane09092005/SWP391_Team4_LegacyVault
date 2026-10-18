@@ -67,7 +67,7 @@ const en = {
 
   forgot: {
     title: 'Reset your password',
-    subtitle: 'Enter the email or phone number on your account.',
+    subtitle: 'Enter the email on your account.',
     submit: 'Send reset instructions',
     submitting: 'Sending…',
     sent: 'Demo mode: password reset is not built yet, so nothing was sent. In the real app, reset instructions would go to this email or phone if an account exists.',
@@ -76,7 +76,7 @@ const en = {
 
   fields: {
     fullName: { label: 'Full name', placeholder: 'John Doe' },
-    identifier: { label: 'Email or phone number', placeholder: 'john@example.com or 0912 345 678' },
+    identifier: { label: 'Email', placeholder: 'john@example.com' },
     password: { label: 'Password', placeholder: 'Enter password', newPlaceholder: 'Create a password' },
     confirmPassword: { label: 'Confirm password', placeholder: 'Re-enter password' },
     code: { label: 'Verification code', placeholder: '6-digit code' },
@@ -102,8 +102,8 @@ const en = {
 
   validation: {
     fullName: 'Please enter your full name.',
-    identifierRequired: 'Please enter your email or phone number.',
-    identifierInvalid: 'Enter a valid email (name@example.com) or phone number (9–15 digits).',
+    identifierRequired: 'Please enter your email.',
+    identifierInvalid: 'Enter a valid email (name@example.com).',
     passwordRequired: 'Please enter your password.',
     passwordWeak: 'Your password does not meet all the requirements below.',
     confirmRequired: 'Please re-enter your password.',
@@ -114,8 +114,8 @@ const en = {
   },
 
   errors: {
-    INVALID_CREDENTIALS: 'That email/phone and password do not match. Please try again.',
-    ACCOUNT_EXISTS: 'An account with this email or phone already exists. Try signing in instead.',
+    INVALID_CREDENTIALS: 'That email and password do not match. Please try again.',
+    ACCOUNT_EXISTS: 'An account with this email already exists. Try signing in instead.',
     ACCOUNT_NOT_VERIFIED: 'This account is not verified yet. Enter your verification code first.',
     INVALID_OTP: 'That code is not correct. Check it and try again.',
     OTP_ATTEMPTS_EXCEEDED: 'Too many wrong codes. Request a new code to try again.',

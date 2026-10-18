@@ -31,7 +31,7 @@ export default function SaveStep({ current, error, t }) {
         })}
       </ol>
 
-      {error && <FormAlert>{t.errors[error] ?? t.errors.generic}</FormAlert>}
+      {error && <FormAlert tone="danger">{t.errors[error] ?? error ?? t.errors.generic}</FormAlert>}
     </div>
   )
 }

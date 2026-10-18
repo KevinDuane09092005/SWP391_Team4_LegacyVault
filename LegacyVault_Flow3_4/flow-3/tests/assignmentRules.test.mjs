@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateAssignment,createLocalAssignment} from '../src/assignmentRules.mjs';
+const base={assetIds:['metamask','bank'],beneficiaryIds:['b','c'],executorId:'d',instructions:'Only after legal verification.',allocations:{b:'60',c:'40'},contacts:[{id:'b'},{id:'c'},{id:'d'}]};
+const err=(overrides={})=>validateAssignment({...base,...overrides}).map(i=>i.message).join(' | ');
+test('valid multi-asset assignment',()=>assert.equal(err(),''));
+test('cannot continue without assets',()=>assert.match(err({assetIds:[]}),/at least one asset/));
+test('cannot continue without beneficiaries',()=>assert.match(err({beneficiaryIds:[]}),/at least one beneficiary/));
+test('cannot continue without executor',()=>assert.match(err({executorId:''}),/Select an executor/));
+test('executor cannot equal beneficiary under chosen business rule',()=>assert.match(err({executorId:'b'}),/cannot also be a beneficiary/));
+test('reject empty instructions',()=>assert.match(err({instructions:'  '}),/cannot be empty/));
+test('reject total not equal 100',()=>assert.match(err({allocations:{b:'50',c:'40'}}),/must equal 100%/));
+test('reject missing percentage even if remaining allocation sums to 100',()=>assert.match(err({allocations:{b:'100',c:''}}),/whole-number allocation/));
+test('reject negative or decimals',()=>assert.match(err({allocations:{b:'-10',c:'110'}}),/whole-number allocation/));
+test('reject fractions',()=>assert.match(err({allocations:{b:'60.5',c:'39.5'}}),/whole-number allocation/));
+test('reject non-existing contacts',()=>assert.match(err({executorId:'missing'}),/no longer exists/));
+test('local demo serialization contains each selected asset and split',()=>{
+ const x=createLocalAssignment(base);
+ assert.deepEqual(x.assetIds,['metamask','bank']);
+ assert.deepEqual(x.beneficiaries,[{id:'b',percentage:60},{id:'c',percentage:40}]);
+ assert.equal(x.storage,'browser-demo-only');
+});

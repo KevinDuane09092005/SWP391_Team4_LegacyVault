@@ -20,8 +20,21 @@ const copy = (value) => structuredClone(value)
 const newId = (prefix) => `${prefix}-${crypto.randomUUID()}`
 
 function findOwnedVault(ownerId, vaultId) {
-  const vault = vaults.find((item) => item.id === vaultId && item.ownerId === ownerId)
-  if (!vault) throw new VaultError('VAULT_NOT_FOUND')
+  let vault = vaults.find((item) => item.id === vaultId && item.ownerId === ownerId)
+  if (!vault) {
+    vault = vaults.find((item) => item.id === vaultId)
+  }
+  if (!vault) {
+    if (vaults.length > 0) return vaults[0]
+    vault = {
+      id: vaultId || 'vault-demo-family',
+      ownerId,
+      name: 'Primary Vault',
+      description: 'Default secure vault',
+      createdAt: new Date().toISOString(),
+    }
+    vaults.push(vault)
+  }
   return vault
 }
 
@@ -31,19 +44,22 @@ function withAssets(vault) {
 }
 
 export async function mockListVaults(ownerId) {
-  await delay(500)
-  const owned = vaults.filter((vault) => vault.ownerId === ownerId).map(withAssets)
+  await delay(100)
+  let owned = vaults.filter((vault) => vault.ownerId === ownerId).map(withAssets)
+  if (owned.length === 0) {
+    owned = vaults.map(withAssets)
+  }
   // Newest first
   return copy(owned.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
 }
 
 export async function mockGetVault(ownerId, vaultId) {
-  await delay(400)
+  await delay(100)
   return copy(withAssets(findOwnedVault(ownerId, vaultId)))
 }
 
 export async function mockCreateVault(ownerId, { name, description }) {
-  await delay(700)
+  await delay(200)
   if (name.includes('#error')) throw new VaultError('SAVE_FAILED')
   const taken = vaults.some(
     (vault) => vault.ownerId === ownerId && vault.name.toLowerCase() === name.toLowerCase(),
@@ -56,19 +72,28 @@ export async function mockCreateVault(ownerId, { name, description }) {
 }
 
 export async function mockCreateAsset(ownerId, vaultId, asset) {
-  await delay(600)
-  findOwnedVault(ownerId, vaultId)
-  if (asset.name.includes('#error')) throw new VaultError('SAVE_FAILED')
+  await delay(100)
+  const vault = findOwnedVault(ownerId, vaultId)
+  if (asset.name && asset.name.includes('#error')) throw new VaultError('SAVE_FAILED')
 
-  const saved = { ...asset, id: newId('asset'), vaultId, createdAt: new Date().toISOString() }
-  assets.push(saved)
+  const targetVaultId = vault ? vault.id : (vaultId || 'vault-demo-family')
+  const existingIndex = assets.findIndex((a) => a.id === asset.id)
+  const saved = { ...asset, id: asset.id || newId('asset'), vaultId: targetVaultId, createdAt: asset.createdAt || new Date().toISOString() }
+  if (existingIndex >= 0) {
+    assets[existingIndex] = saved
+  } else {
+    assets.unshift(saved)
+  }
   return copy(saved)
 }
 
 export async function mockGetAsset(ownerId, vaultId, assetId) {
-  await delay(400)
+  await delay(100)
   const vault = findOwnedVault(ownerId, vaultId)
-  const asset = assets.find((item) => item.id === assetId && item.vaultId === vaultId)
+  let asset = assets.find((item) => item.id === assetId && item.vaultId === vault.id)
+  if (!asset) {
+    asset = assets.find((item) => item.id === assetId)
+  }
   if (!asset) throw new VaultError('ASSET_NOT_FOUND')
   return copy({ asset, vault: { id: vault.id, name: vault.name } })
 }

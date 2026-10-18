@@ -4,8 +4,10 @@ import Icon from '../Icon.jsx'
 import { vaultContent } from '../../data/vaultContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { IS_DEMO_MODE } from '../../services/vaultService.js'
+import { ownerPaths } from '../../vault/paths.js'
 import '../../styles/forms.css'
 import '../../styles/vault.css'
+import '../../styles/flow3-4.css'
 
 // Frame for the Vault Owner pages: the Flow 1 dashboard top bar (user, role, Log out)
 // plus a side menu and the demo-data notice.
@@ -14,8 +16,11 @@ export default function OwnerLayout({ children }) {
   const t = vaultContent[language]
 
   const links = [
-    { to: '/dashboard/owner', label: t.nav.overview, icon: 'home', end: true },
-    { to: '/dashboard/owner/vaults', label: t.nav.vaults, icon: 'lock' },
+    { to: ownerPaths.dashboard, label: t.nav.overview, icon: 'home', end: true },
+    { to: ownerPaths.assets, label: language === 'vi' ? 'Tài sản của tôi' : 'My Assets', icon: 'key' },
+    { to: ownerPaths.contacts, label: t.nav.contacts, icon: 'users' },
+    { to: ownerPaths.assignments, label: t.nav.assignments, icon: 'layers' },
+    { to: ownerPaths.dms, label: t.nav.dms, icon: 'shield' },
   ]
 
   return (

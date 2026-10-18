@@ -18,6 +18,10 @@ export const EMPTY_ASSET_FORM = {
   documentTitle: '',
   documentType: '',
   category: '',
+  assetType: '',
+  assetName: '',
+  credentials: '',
+  attachmentUrl: '',
 }
 
 // Turns form values into an asset: trimmed text, and `details` holds only the

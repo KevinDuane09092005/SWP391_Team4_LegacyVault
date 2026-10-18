@@ -30,11 +30,11 @@ export function looksLikeSecret(value) {
   return isRecoveryPhrase || isPrivateKey || isPasswordNote
 }
 
-function checkText(value, { required = false, max, messages }) {
+function checkText(value, { required = false, max, messages, allowSecrets = false }) {
   const text = (value ?? '').trim()
   if (!text) return required ? messages.required : undefined
   if (max && text.length > max) return messages.tooLong(max)
-  if (looksLikeSecret(text)) return messages.secret
+  if (!allowSecrets && looksLikeSecret(text)) return messages.secret
   return undefined
 }
 
@@ -57,11 +57,13 @@ export function validateVault(values, messages) {
 
 // Step "Enter asset information": common fields + the fields of the chosen type.
 export function validateAssetInfo(values, messages) {
+  const assetType = values.type || values.assetType
+  const assetName = values.name || values.assetName
   const errors = {
-    type: values.type ? undefined : messages.typeRequired,
-    name: checkText(values.name, { required: true, max: LIMITS.assetName, messages }),
+    type: assetType ? undefined : messages.typeRequired,
+    name: checkText(assetName, { required: true, max: LIMITS.assetName, messages }),
     description: checkText(values.description, { max: LIMITS.description, messages }),
-    handoverNotes: checkText(values.handoverNotes, { max: LIMITS.handoverNotes, messages }),
+    handoverNotes: checkText(values.handoverNotes, { max: LIMITS.handoverNotes, messages, allowSecrets: true }),
   }
 
   // "Other" assets have no fixed fields, so the description is what explains them.

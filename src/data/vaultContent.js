@@ -2,7 +2,15 @@
 // Keys under `assetTypes`, `fields` and `options` match src/vault/assetTypes.js.
 
 const en = {
-  nav: { label: 'Vault owner', overview: 'Overview', vaults: 'My vaults' },
+  nav: {
+    label: 'Vault owner',
+    overview: 'Overview',
+    vaults: 'My assets',
+    assets: 'My assets',
+    contacts: 'Contacts',
+    assignments: 'Assignments',
+    dms: "Dead Man's Switch",
+  },
   breadcrumbsLabel: 'Breadcrumb',
 
   demoNotice:
@@ -220,7 +228,15 @@ const en = {
 }
 
 const vi = {
-  nav: { label: 'Chủ kho', overview: 'Tổng quan', vaults: 'Kho của tôi' },
+  nav: {
+    label: 'Chủ sở hữu',
+    overview: 'Tổng quan',
+    vaults: 'Tài sản của tôi',
+    assets: 'Tài sản của tôi',
+    contacts: 'Danh bạ',
+    assignments: 'Phân công thừa kế',
+    dms: "Dead Man's Switch",
+  },
   breadcrumbsLabel: 'Đường dẫn',
 
   demoNotice:

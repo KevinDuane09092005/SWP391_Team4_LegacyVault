@@ -6,7 +6,8 @@ import FormAlert from '../../components/auth/FormAlert.jsx'
 import FormField from '../../components/auth/FormField.jsx'
 import SubmitButton from '../../components/auth/SubmitButton.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
-import { savePendingVerification } from '../../auth/session.js'
+import { ROLES } from '../../auth/roles.js'
+import { savePendingVerification, saveSession } from '../../auth/session.js'
 import { normalizeIdentifier, validateLogin } from '../../auth/validation.js'
 import { authContent } from '../../data/authContent.js'
 import { dashboardContent } from '../../data/dashboardContent.js'
@@ -21,13 +22,13 @@ export default function LoginPage() {
   const { language } = useLanguage()
   const t = authContent[language]
   const copy = t.signin
-  const { login, justLoggedOut, markLogoutSeen } = useAuth()
+  const { login, justLoggedOut, markLogoutSeen, setSessionUser } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   // Message passed from another page (OTP verified, signed out, or a protected page).
   let notice = null
-  if (location.state?.verified) notice = copy.notices.verified
+  if (location.state?.verified) notice = location.state?.message || copy.notices.verified
   else if (location.state?.loggedOut) notice = copy.notices.loggedOut
   else if (location.state?.from) notice = copy.notices.signInRequired
 
@@ -48,17 +49,99 @@ export default function LoginPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setServerError(null)
-    if (!form.checkBeforeSubmit()) return
+
+    const email = form.values.identifier?.trim()
+    const password = form.values.password
+
+    // Validate nhanh: kiểm tra email và password không để trống trước khi gửi request
+    if (!email || !password) {
+      if (!email) {
+        setServerError(language === 'vi' ? 'Vui lòng nhập email.' : 'Please enter your email.')
+      } else {
+        setServerError(language === 'vi' ? 'Vui lòng nhập mật khẩu.' : 'Please enter your password.')
+      }
+      return
+    }
 
     setLoading(true)
+
     try {
-      await login({
-        identifier: normalizeIdentifier(form.values.identifier),
-        password: form.values.password,
-        remember: form.values.remember,
+      // 1. Xác định URL Backend từ biến môi trường hoặc fallback
+      const baseUrl = (
+        import.meta.env.VITE_API_BASE_URL ||
+        import.meta.env.REACT_APP_API_BASE_URL ||
+        ''
+      ).replace(/\/$/, '')
+
+      const endpoint = baseUrl
+        ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/login` : `${baseUrl}/api/v1/auth/login`)
+        : '/api/v1/auth/login'
+
+      // 2. Gọi HTTP POST tới Backend API
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       })
+
+      const data = await response.json().catch(() => ({}))
+
+      // 3. Xử lý khi API trả về lỗi (HTTP 400 Bad Request / 401 / ...)
+      if (!response.ok) {
+        const errorMsg =
+          data?.error ||
+          data?.message ||
+          (language === 'vi'
+            ? 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.'
+            : 'Login failed. Please check your credentials.')
+        throw new Error(errorMsg)
+      }
+
+      // 4. Khi thành công (HTTP 200 OK): Lưu trữ Authentication State
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('role', data.role)
+      localStorage.setItem('userId', data.userId)
+      localStorage.setItem('legacyvault-access-token', data.token)
+
+      // Chuẩn hóa role và thông tin người dùng cho hệ thống frontend
+      const roleMapping = {
+        vault_owner: ROLES.VAULT_OWNER,
+        admin: ROLES.ADMIN,
+        executor: ROLES.EXECUTOR,
+        beneficiary: ROLES.BENEFICIARY,
+        legal_verifier: ROLES.LEGAL_VERIFIER,
+      }
+      const appRole =
+        roleMapping[data.role?.toLowerCase()] ||
+        data.role?.toUpperCase() ||
+        ROLES.VAULT_OWNER
+
+      const userProfile = {
+        id: data.userId,
+        fullName: data.fullName || email.split('@')[0],
+        identifier: email,
+        role: appRole,
+      }
+
+      saveSession(userProfile, form.values.remember)
+      if (typeof setSessionUser === 'function') {
+        setSessionUser(userProfile, form.values.remember)
+      }
+
+      // 5. Điều hướng: Chuyển sang trang Dashboard (/dashboard hoặc trang yêu cầu trước đó)
+      const redirectTarget = location.state?.from ?? '/dashboard'
+      navigate(redirectTarget, { replace: true })
     } catch (error) {
-      setServerError(error.code ?? 'generic')
+      // Bắt lỗi qua khối catch, trích xuất thông điệp từ trường error và hiển thị lên giao diện
+      setServerError(
+        error.message ||
+          (language === 'vi'
+            ? 'Đã có lỗi xảy ra khi kết nối máy chủ.'
+            : 'Connection error. Please try again.'),
+      )
+    } finally {
       setLoading(false)
     }
   }
@@ -86,7 +169,7 @@ export default function LoginPage() {
 
       {serverError && (
         <FormAlert>
-          <p>{t.errors[serverError] ?? t.errors.generic}</p>
+          <p>{t.errors?.[serverError] ?? serverError ?? t.errors?.generic}</p>
           {serverError === 'ACCOUNT_NOT_VERIFIED' && (
             <button type="button" className="auth-alert__action" onClick={goToVerification}>
               {copy.verifyNow}
