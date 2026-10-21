@@ -1,0 +1,442 @@
+/* Flow 6 — Asset Handover (Executor and Beneficiary pages). Uses the global tokens only. */
+
+.handover-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+
+.handover-list,
+.handover-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.handover-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 20px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.handover-columns--case {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.handover-card,
+.handover-panel {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+}
+
+.handover-panel .section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.handover-panel--success {
+  border-color: var(--color-accent-border);
+  background-color: var(--color-accent-soft);
+}
+
+.handover-card__head,
+.handover-asset__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.handover-card__id {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.handover-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.handover-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+
+.handover-facts dt {
+  color: var(--color-muted);
+  font-size: 12.5px;
+}
+
+.handover-facts dd {
+  margin: 2px 0 0;
+  color: var(--color-heading);
+  font-weight: 600;
+}
+
+.handover-facts small {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.handover-legal--APPROVED {
+  color: var(--color-primary) !important;
+}
+
+.handover-legal--REJECTED {
+  color: var(--color-danger) !important;
+}
+
+.handover-subtitle {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--color-heading);
+}
+
+/* Status badge */
+.handover-status {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-surface-muted);
+  color: var(--color-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.handover-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.handover-status--info {
+  border-color: var(--color-accent-border);
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.handover-status--success {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.handover-status--danger {
+  border-color: var(--color-danger-border);
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.handover-status--warning {
+  border-color: #f59e0b;
+  background-color: #fff9e9;
+  color: #92400e;
+}
+
+[data-theme='dark'] .handover-status--warning {
+  border-color: rgba(245, 158, 11, 0.4);
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+/* Notes and deny reasons */
+.handover-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13.5px;
+}
+
+.handover-note--success {
+  color: var(--color-primary);
+}
+
+.handover-note--danger {
+  color: var(--color-danger);
+}
+
+.handover-deny {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.handover-deny li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Executor asset chips */
+.handover-asset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.handover-asset-chips li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-muted);
+  font-size: 13.5px;
+}
+
+.handover-asset-chips small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.handover-asset-chips .is-muted {
+  opacity: 0.65;
+}
+
+.handover-details summary {
+  cursor: pointer;
+  color: var(--color-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* Timeline */
+.handover-timeline {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.handover-timeline__item {
+  display: flex;
+  gap: 10px;
+}
+
+.handover-timeline__item b {
+  display: block;
+  color: var(--color-heading);
+  font-size: 13px;
+}
+
+.handover-timeline__item small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.handover-timeline__dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+}
+
+.handover-timeline__item--VERIFICATION_FAILED .handover-timeline__dot,
+.handover-timeline__item--AUTHORIZATION_FAILED .handover-timeline__dot {
+  background-color: var(--color-danger);
+}
+
+/* Beneficiary notifications */
+.handover-notifications {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.handover-notifications li {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+}
+
+.handover-notifications li.is-unread {
+  border-color: var(--color-accent-border);
+  background-color: var(--color-accent-soft);
+}
+
+.handover-notifications small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+/* Progress steps on the case page */
+.handover-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.handover-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.handover-steps__dot {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: var(--color-surface-muted);
+  font-size: 12px;
+}
+
+.handover-steps .is-current {
+  border-color: var(--color-primary);
+  color: var(--color-heading);
+}
+
+.handover-steps .is-done {
+  color: var(--color-primary);
+}
+
+.handover-steps .is-done .handover-steps__dot,
+.handover-steps .is-current .handover-steps__dot {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* Assets on the case page */
+.handover-assets {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.handover-asset {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.handover-asset__head {
+  width: 100%;
+}
+
+.handover-asset__head small,
+.handover-asset__label {
+  color: var(--color-muted);
+  font-size: 12.5px;
+}
+
+.handover-asset .file-list {
+  width: 100%;
+}
+
+.handover-secret {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent-soft);
+}
+
+.handover-secret p {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.handover-secret small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.handover-locked {
+  color: var(--color-muted);
+}
+
+.handover-dialog__body {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.handover-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.handover-check input {
+  margin-top: 3px;
+}
+
+@media (max-width: 900px) {
+  .handover-columns,
+  .handover-columns--case {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .handover-stats,
+  .handover-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .handover-stats,
+  .handover-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

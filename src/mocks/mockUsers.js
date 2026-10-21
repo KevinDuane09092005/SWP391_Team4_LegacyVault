@@ -41,6 +41,13 @@ export const mockUsers = [
     role: ROLES.BENEFICIARY,
   },
   {
+    // Second beneficiary, used by Flow 6 to show that beneficiaries only see their own assets.
+    id: 'demo-beneficiary-2',
+    fullName: 'Second Beneficiary',
+    identifier: 'beneficiary2@legacyvault.demo',
+    role: ROLES.BENEFICIARY,
+  },
+  {
     id: 'demo-verifier',
     fullName: 'Demo Legal Verifier',
     identifier: 'verifier@legacyvault.demo',

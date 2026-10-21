@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import * as authService from '../services/authService.js'
+import { recordSignIn, recordSignOut } from '../services/auditService.js'
 import { clearSession, isSessionKey, readSession, saveSession } from './session.js'
 
 // Holds "who is signed in" for the whole app.
@@ -34,13 +35,23 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async ({ identifier, password, remember }) => {
-    const { user } = await authService.login({ identifier, password })
+    let result
+    try {
+      result = await authService.login({ identifier, password })
+    } catch (error) {
+      // Flow 7 audit: the outcome and the typed identifier only, never the password.
+      recordSignIn({ identifier, success: false, reason: error?.code })
+      throw error
+    }
+    const { user } = result
+    recordSignIn({ user, identifier, success: true })
     setSession(saveSession(user, remember))
     setJustLoggedOut(false)
     return user
   }
 
   const logout = async () => {
+    if (session?.user) recordSignOut(session.user)
     try {
       await authService.logout()
     } finally {

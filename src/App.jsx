@@ -22,6 +22,16 @@ import HowItWorksPage from './pages/HowItWorksPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
 import PlaceholderPage from './pages/PlaceholderPage.jsx'
 import PricingPage from './pages/PricingPage.jsx'
+import ExecutorHandoverPage from './pages/executor/ExecutorHandoverPage.jsx'
+import BeneficiaryCasePage from './pages/beneficiary/BeneficiaryCasePage.jsx'
+import BeneficiaryHandoversPage from './pages/beneficiary/BeneficiaryHandoversPage.jsx'
+import NotificationsPage from './pages/notifications/NotificationsPage.jsx'
+import AdminOverviewPage from './pages/admin/AdminOverviewPage.jsx'
+import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
+import AdminRolesPage from './pages/admin/AdminRolesPage.jsx'
+import AdminAuditPage from './pages/admin/AdminAuditPage.jsx'
+import AdminPoliciesPage from './pages/admin/AdminPoliciesPage.jsx'
+import AdminIntegrationsPage from './pages/admin/AdminIntegrationsPage.jsx'
 
 // All pages of the app.
 // Placeholder text lives in src/data/placeholderContent.js, keyed by `page`.
@@ -57,10 +67,21 @@ export default function App() {
 
         {/* Signed-in area: one placeholder dashboard per role (see src/auth/roles.js) */}
         <Route path="/dashboard" element={<RequireAuth><DashboardRedirect /></RequireAuth>} />
+        {/* Flow 7: Notification Center for every signed-in role (each user sees only their own). */}
+        <Route path="/dashboard/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
+
+        {/* Flow 7: Administration. Every page inside needs the ADMIN role. */}
         <Route
           path="/dashboard/admin"
-          element={<RequireAuth allowedRoles={[ROLES.ADMIN]}><RoleDashboardPage role={ROLES.ADMIN} /></RequireAuth>}
-        />
+          element={<RequireAuth allowedRoles={[ROLES.ADMIN]}><Outlet /></RequireAuth>}
+        >
+          <Route index element={<AdminOverviewPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="roles" element={<AdminRolesPage />} />
+          <Route path="audit" element={<AdminAuditPage />} />
+          <Route path="policies" element={<AdminPoliciesPage />} />
+          <Route path="integrations" element={<AdminIntegrationsPage />} />
+        </Route>
 
         {/* Flow 2: Vault Owner area. Every page inside needs the VAULT_OWNER role. */}
         <Route
@@ -84,14 +105,18 @@ export default function App() {
           <Route path="dms" element={<DeadMansSwitchPage />} />
         </Route>
 
+        {/* Flow 6: Asset Handover. Executor starts it; only the BENEFICIARY role can open the beneficiary pages. */}
         <Route
           path="/dashboard/executor"
-          element={<RequireAuth allowedRoles={[ROLES.EXECUTOR]}><RoleDashboardPage role={ROLES.EXECUTOR} /></RequireAuth>}
+          element={<RequireAuth allowedRoles={[ROLES.EXECUTOR]}><ExecutorHandoverPage /></RequireAuth>}
         />
         <Route
           path="/dashboard/beneficiary"
-          element={<RequireAuth allowedRoles={[ROLES.BENEFICIARY]}><RoleDashboardPage role={ROLES.BENEFICIARY} /></RequireAuth>}
-        />
+          element={<RequireAuth allowedRoles={[ROLES.BENEFICIARY]}><Outlet /></RequireAuth>}
+        >
+          <Route index element={<BeneficiaryHandoversPage />} />
+          <Route path="handover/:caseId" element={<BeneficiaryCasePage />} />
+        </Route>
         <Route
           path="/dashboard/verifier"
           element={<RequireAuth allowedRoles={[ROLES.LEGAL_VERIFIER]}><RoleDashboardPage role={ROLES.LEGAL_VERIFIER} /></RequireAuth>}
