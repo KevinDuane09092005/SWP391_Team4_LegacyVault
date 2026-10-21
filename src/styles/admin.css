@@ -1,0 +1,248 @@
+/* Flow 7 — Notification Center, notification bell and Administration. Uses the global tokens only. */
+
+/* Bell in the dashboard top bar */
+.notification-bell {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+}
+
+.notification-bell:hover {
+  border-color: var(--color-border-strong);
+}
+
+.notification-bell__count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background-color: var(--color-danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* Notification list */
+.notification-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notification-item {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.notification-item.is-unread {
+  border-color: var(--color-accent-border);
+  background-color: var(--color-accent-soft);
+}
+
+.notification-item__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--color-heading);
+}
+
+.notification-item p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.notification-item small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.notification-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 20px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-muted);
+}
+
+.segmented button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented button.is-active {
+  background-color: var(--color-surface);
+  color: var(--color-heading);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Admin tables */
+.admin-table-wrap {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table thead th {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.admin-table tbody th {
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.admin-table__nowrap {
+  white-space: nowrap;
+}
+
+.admin-table__details {
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+.admin-muted {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.admin-table__nowrap .admin-muted {
+  display: inline;
+}
+
+.admin-matrix__cell {
+  text-align: center !important;
+}
+
+.admin-matrix input {
+  width: 17px;
+  height: 17px;
+}
+
+.admin-select {
+  min-width: 150px;
+  height: 36px;
+  padding-block: 0;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-warning {
+  margin-top: 12px;
+}
+
+/* Audit filters */
+.admin-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.admin-filter {
+  display: grid;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.admin-filter .field__input {
+  height: 38px;
+}
+
+.admin-filter--check {
+  align-self: center;
+}
+
+.admin-count {
+  margin-top: 12px;
+}
+
+/* Policies and integrations */
+.admin-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.admin-policy-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 12px;
+  justify-items: start;
+}
+
+.admin-integrations {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+@media (max-width: 760px) {
+  .admin-policy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

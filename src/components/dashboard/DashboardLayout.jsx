@@ -4,6 +4,7 @@ import Button from '../Button.jsx'
 import Icon from '../Icon.jsx'
 import LanguageSwitcher from '../LanguageSwitcher.jsx'
 import ThemeToggle from '../ThemeToggle.jsx'
+import { NotificationBell } from '../notifications/NotificationParts.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { dashboardContent } from '../../data/dashboardContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
@@ -33,6 +34,7 @@ export default function DashboardLayout({ children }) {
               <span className="dashboard-user__name">{user.fullName}</span>
               <span className="badge">{t.roles[user.role].label}</span>
             </div>
+            <NotificationBell />
             <ThemeToggle />
             <LanguageSwitcher label={t.languageLabel} />
             {/* aria-label keeps the button named on phones, where only the icon shows */}
