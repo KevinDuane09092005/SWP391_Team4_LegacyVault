@@ -14,6 +14,7 @@ import {
   Layers,
   Users,
   Clock,
+  Pencil,
 } from 'lucide-react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
@@ -30,6 +31,7 @@ import {
 } from '../../services/assignmentService.js'
 import { formatDisplayDate } from '../../vault/format.js'
 import { ownerPaths } from '../../vault/paths.js'
+import EditAssignmentModal from '../../components/vault/EditAssignmentModal.jsx'
 
 const fallbackAssets = [
   { id: 'a0b07225-b21d-4971-8049-f4787cd8881c', name: 'MetaMask Wallet (ETH)', desc: 'Crypto Wallet · MetaMask Primary', icon: Wallet },
@@ -68,6 +70,9 @@ export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState([])
   const [loadingList, setLoadingList] = useState(true)
   const [listError, setListError] = useState(null)
+  const [editingAssignment, setEditingAssignment] = useState(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editSuccessMessage, setEditSuccessMessage] = useState(null)
 
   // Wizard States
   const [step, setStep] = useState(1)
@@ -421,6 +426,12 @@ export default function AssignmentsPage() {
           </Button>
         </div>
 
+        {editSuccessMessage && (
+          <div style={{ marginBottom: '16px' }}>
+            <FormAlert tone="success">{editSuccessMessage}</FormAlert>
+          </div>
+        )}
+
         {listError && (
           <div style={{ marginBottom: '16px' }}>
             <FormAlert tone="error">{listError}</FormAlert>
@@ -468,6 +479,7 @@ export default function AssignmentsPage() {
                     <th>{isVi ? 'Người thụ hưởng' : 'Beneficiaries'}</th>
                     <th>{isVi ? 'Ngày tạo' : 'Created Date'}</th>
                     <th>{isVi ? 'Trạng thái' : 'Status'}</th>
+                    <th>{isVi ? 'Thao tác' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -517,6 +529,19 @@ export default function AssignmentsPage() {
                           {isVi ? 'Đang hiệu lực' : 'Active'}
                         </span>
                       </td>
+                      <td>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setEditingAssignment(item)
+                            setIsEditModalOpen(true)
+                          }}
+                        >
+                          <Pencil size={13} style={{ marginRight: 4 }} />
+                          {isVi ? 'Chỉnh sửa' : 'Edit'}
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -524,6 +549,27 @@ export default function AssignmentsPage() {
             </div>
           </section>
         )}
+
+        <EditAssignmentModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false)
+            setEditingAssignment(null)
+          }}
+          asset={{
+            assetId: editingAssignment?.assetId,
+            assetName: editingAssignment?.assetName,
+            assetType: editingAssignment?.assetType,
+          }}
+          currentAssignment={editingAssignment}
+          onSuccess={(res) => {
+            setEditSuccessMessage(
+              res?.message || (isVi ? 'Cập nhật phân bổ tài sản thành công!' : 'Assignment updated successfully!'),
+            )
+            fetchAssignments()
+            setTimeout(() => setEditSuccessMessage(null), 5000)
+          }}
+        />
       </OwnerLayout>
     )
   }

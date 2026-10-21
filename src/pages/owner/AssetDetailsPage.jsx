@@ -14,6 +14,8 @@ import { getTypeFields } from '../../vault/assetTypes.js'
 import { formatFileSize } from '../../vault/documentRules.js'
 import { formatDisplayDate, formatDisplayDateTime, formatFieldValue } from '../../vault/format.js'
 import { ownerPaths } from '../../vault/paths.js'
+import EditAssignmentModal from '../../components/vault/EditAssignmentModal.jsx'
+import EditAssetModal from '../../components/vault/EditAssetModal.jsx'
 
 const initials = (str) => {
   if (!str) return '?'
@@ -47,6 +49,9 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
   const [assignment, setAssignment] = useState(null)
   const [loadingAssignment, setLoadingAssignment] = useState(true)
   const [assignmentError, setAssignmentError] = useState(null)
+  const [isEditAssetModalOpen, setIsEditAssetModalOpen] = useState(false)
+  const [isEditAssignmentModalOpen, setIsEditAssignmentModalOpen] = useState(false)
+  const [updateSuccessMessage, setUpdateSuccessMessage] = useState(null)
 
   // Fetch asset details by assetId and token from localStorage
   const fetchAssetDetail = useCallback(async () => {
@@ -196,7 +201,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
   const { asset } = assetData
   const assetName = asset.assetName || asset.name
   const assetType = asset.assetType || asset.type
-  const isAssigned = !!assignment || asset.status === 'assigned'
+  const isAssigned = !!assignment || (asset.status && asset.status.toLowerCase() === 'assigned')
   const typeFields = getTypeFields(assetType) || []
 
   const content = (
@@ -212,6 +217,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
       )}
 
       {location.state?.saved && <FormAlert tone="success">{location.state?.message || copy.saved}</FormAlert>}
+      {updateSuccessMessage && <FormAlert tone="success">{updateSuccessMessage}</FormAlert>}
 
       <div className="page-head page-head--spaced">
         <div>
@@ -233,15 +239,44 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
         </div>
         <div className="page-head__actions">
           {onClose ? (
-            <Button onClick={onClose} variant="secondary">
-              {language === 'vi' ? 'Đóng' : 'Close'}
-            </Button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button
+                onClick={() => !isAssigned && setIsEditAssetModalOpen(true)}
+                disabled={isAssigned}
+                title={
+                  isAssigned
+                    ? (language === 'vi'
+                        ? 'Tài sản đã được phân bổ bàn giao nên không thể chỉnh sửa thông tin.'
+                        : 'Asset has already been assigned and cannot be edited.')
+                    : ''
+                }
+              >
+                <Icon name="pencil" size={15} />
+                {language === 'vi' ? 'Chỉnh sửa tài sản' : 'Edit Asset'}
+              </Button>
+              <Button onClick={onClose} variant="secondary">
+                {language === 'vi' ? 'Đóng' : 'Close'}
+              </Button>
+            </div>
           ) : (
             <>
               <Button to={ownerPaths.assets} variant="secondary">
                 {language === 'vi' ? 'Quay lại danh sách tài sản' : 'Back to Assets'}
               </Button>
-              <Button to={ownerPaths.newAsset()}>{language === 'vi' ? 'Đăng ký tài sản khác' : 'Add Another Asset'}</Button>
+              <Button
+                onClick={() => !isAssigned && setIsEditAssetModalOpen(true)}
+                disabled={isAssigned}
+                title={
+                  isAssigned
+                    ? (language === 'vi'
+                        ? 'Tài sản đã được phân bổ bàn giao nên không thể chỉnh sửa thông tin.'
+                        : 'Asset has already been assigned and cannot be edited.')
+                    : ''
+                }
+              >
+                <Icon name="pencil" size={15} />
+                {language === 'vi' ? 'Chỉnh sửa tài sản' : 'Edit Asset'}
+              </Button>
             </>
           )}
         </div>
@@ -353,9 +388,17 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
         <div className="detail-side">
           {/* Card: Cấu hình bàn giao di sản (Handover & Assignment Details) */}
           <section className="card detail-card" aria-labelledby="handover-title">
-            <h2 id="handover-title" className="section-title">
-              {language === 'vi' ? 'Cấu hình bàn giao di sản' : 'Handover Configuration'}
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <h2 id="handover-title" className="section-title" style={{ margin: 0 }}>
+                {language === 'vi' ? 'Cấu hình bàn giao di sản' : 'Handover Configuration'}
+              </h2>
+              {assignment && (
+                <Button size="sm" variant="secondary" onClick={() => setIsEditAssignmentModalOpen(true)}>
+                  <Icon name="pencil" size={13} />
+                  {language === 'vi' ? 'Chỉnh sửa phân bổ' : 'Edit Assignment'}
+                </Button>
+              )}
+            </div>
 
             {loadingAssignment ? (
               <div style={{ padding: '20px 0', textAlign: 'center' }}>
@@ -389,9 +432,9 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                     ? 'Chỉ định người thụ hưởng và người thi hành để bảo vệ và kích hoạt quy trình bàn giao tài sản khi cần thiết.'
                     : 'Assign designated beneficiaries and an executor to protect and handover this asset.'}
                 </p>
-                <Button to={`/dashboard/owner/assignments?new=true&assetId=${assetId}`} size="sm">
-                  <Icon name="plus" size={14} />
-                  {language === 'vi' ? 'Thiết lập bàn giao' : 'Assign now'}
+                <Button onClick={() => setIsEditAssignmentModalOpen(true)} size="sm">
+                  <Icon name="pencil" size={14} />
+                  {language === 'vi' ? 'Thiết lập bàn giao' : 'Assign Asset'}
                 </Button>
               </div>
             ) : (
@@ -618,6 +661,39 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
           </section>
         </div>
       </div>
+
+      <EditAssetModal
+        isOpen={isEditAssetModalOpen}
+        onClose={() => setIsEditAssetModalOpen(false)}
+        asset={asset}
+        onSuccess={() => {
+          setUpdateSuccessMessage(
+            language === 'vi'
+              ? 'Cập nhật thông tin tài sản thành công!'
+              : 'Asset updated successfully!',
+          )
+          fetchAssetDetail()
+          setTimeout(() => setUpdateSuccessMessage(null), 5000)
+        }}
+      />
+
+      <EditAssignmentModal
+        isOpen={isEditAssignmentModalOpen}
+        onClose={() => setIsEditAssignmentModalOpen(false)}
+        asset={asset}
+        currentAssignment={assignment}
+        onSuccess={(result) => {
+          setUpdateSuccessMessage(
+            result?.message ||
+              (language === 'vi'
+                ? 'Cập nhật cấu hình phân bổ tài sản thành công!'
+                : 'Asset assignment updated successfully!'),
+          )
+          fetchAssignmentDetail()
+          fetchAssetDetail()
+          setTimeout(() => setUpdateSuccessMessage(null), 5000)
+        }}
+      />
     </>
   )
 
