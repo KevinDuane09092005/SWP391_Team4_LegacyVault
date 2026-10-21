@@ -231,6 +231,21 @@ button {
   background-color: var(--color-surface-subtle);
 }
 
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+.btn-primary:disabled,
+.btn-primary[disabled] {
+  background-color: var(--color-surface-muted, #94a3b8) !important;
+  border-color: transparent !important;
+  color: var(--color-muted, #64748b) !important;
+  cursor: not-allowed !important;
+}
+
 /* Looks like a text link but keeps button sizing rules (used for "Sign In") */
 .btn-link {
   height: auto;

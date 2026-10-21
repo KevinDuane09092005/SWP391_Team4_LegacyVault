@@ -108,13 +108,13 @@ export async function getAsset(ownerId, vaultId, assetId) {
           details: {},
           relatedDocuments: realAsset.attachmentUrl
             ? [
-                {
-                  id: 'doc-1',
-                  name: realAsset.attachmentUrl.split('/').pop() || 'attachment.pdf',
-                  size: 1024,
-                  url: realAsset.attachmentUrl,
-                },
-              ]
+              {
+                id: 'doc-1',
+                name: realAsset.attachmentUrl.split('/').pop() || 'attachment.pdf',
+                size: 1024,
+                url: realAsset.attachmentUrl,
+              },
+            ]
             : [],
           encryption: {
             status: 'ENCRYPTED',
@@ -256,12 +256,102 @@ export async function createAssetApi({ assetType, assetName, description, creden
   return data
 }
 
+// Call Real Backend API: PUT /api/v1/assets/{assetId}
+export async function updateAssetApi(
+  assetId,
+  { assetType, assetName, description, credentials, attachmentUrl, status },
+) {
+  const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
+  if (!token) {
+    const error = new Error('No authentication token found')
+    error.status = 401
+    throw error
+  }
+
+  const baseUrl = (
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.REACT_APP_API_BASE_URL ||
+    ''
+  ).replace(/\/$/, '')
+
+  const endpoint = baseUrl
+    ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/assets/${assetId}` : `${baseUrl}/api/v1/assets/${assetId}`)
+    : `/api/v1/assets/${assetId}`
+
+  const payload = {
+    assetType,
+    assetName,
+    description: description || '',
+    attachmentUrl: attachmentUrl || '',
+  }
+
+  // Only pass credentials if provided (backend keeps old credentials if null/empty)
+  if (credentials && credentials.trim()) {
+    payload.credentials = credentials.trim()
+  } else {
+    payload.credentials = ''
+  }
+
+  if (status) {
+    payload.status = status
+  }
+
+  // Chuẩn RESTful API: Gửi PUT trước theo đặc tả API của Backend
+  let response = await fetch(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  // Fallback sang POST nếu Backend cấu hình @PostMapping
+  if (response.status === 405) {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    })
+  }
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    // Hỗ trợ cập nhật các tài sản demo mẫu nếu chúng không tồn tại trong DB backend (404)
+    if (response.status === 404 && (assetId.startsWith('asset-demo-') || assetId.startsWith('mock-'))) {
+      const mockUpdated = await mockCreateAsset('demo-owner', 'vault-demo-family', {
+        id: assetId,
+        name: assetName,
+        type: assetType,
+        description,
+        attachmentUrl,
+        status: status || 'unassigned',
+      })
+      return {
+        message: 'Cập nhật tài sản demo thành công (Dữ liệu mẫu)',
+        asset: mockUpdated,
+      }
+    }
+
+    const error = new Error(data?.error || data?.message || `Failed to update asset (${response.status})`)
+    error.status = response.status
+    error.data = data
+    throw error
+  }
+
+  return data
+}
+
 // The save part of Flow 2, in the required business order:
 //   1. check the asset information
 //   2. attach the related documents
 //   3. encrypt sensitive data
 //   4. save the asset via API / vault store
-export async function saveAsset(ownerId, vaultId, { values, files }, onProgress = () => {}) {
+export async function saveAsset(ownerId, vaultId, { values, files }, onProgress = () => { }) {
   onProgress('validate')
   const rawType = values.type || values.assetType || ''
   const assetName = (values.name || values.assetName || '').trim()

@@ -6,9 +6,13 @@ export function computeDmsView({
   graceEndsAt,
   backendStatus,
   apiError = '',
+  intervalMs = 30 * 86400000,
 }) {
   if (apiError) return 'error'
   if (!configured) return 'config'
+
+  // Ngưỡng 'sắp đến hạn': 3 ngày cho chu kỳ bình thường, hoặc 10 giây cho chu kỳ ngắn thử nghiệm (30s)
+  const soonThreshold = intervalMs < 3 * 86400000 ? Math.min(10000, intervalMs / 3) : 3 * 86400000
 
   const status = backendStatus?.toLowerCase()
   if (status === 'triggered') return 'triggered'
@@ -17,7 +21,7 @@ export function computeDmsView({
   if (status === 'active') {
     if (nextCheckIn) {
       const due = new Date(nextCheckIn).getTime()
-      if (Number.isFinite(due) && due - now <= 3 * 86400000 && due > now) {
+      if (Number.isFinite(due) && due - now <= soonThreshold && due > now) {
         return 'soon'
       }
     }
@@ -30,7 +34,7 @@ export function computeDmsView({
   if (!Number.isFinite(due) || !Number.isFinite(end)) return 'active'
   if (now >= end) return 'triggered'
   if (now >= due) return 'warning'
-  if (due - now <= 3 * 86400000) return 'soon'
+  if (due - now <= soonThreshold) return 'soon'
   return 'active'
 }
 
@@ -38,7 +42,7 @@ export function futureDate(lastCheckIn, intervalDays) {
   return new Date(new Date(lastCheckIn).getTime() + intervalDays * 86400000)
 }
 
-export function dateLabel(value, locale = 'en-US') {
+export function dateLabel(value, locale = 'en-US', includeSeconds = false) {
   if (!value) return '—'
   const d = new Date(value)
   if (isNaN(d.getTime())) return String(value)
@@ -48,6 +52,7 @@ export function dateLabel(value, locale = 'en-US') {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    second: includeSeconds ? '2-digit' : undefined,
   })
 }
 

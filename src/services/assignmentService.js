@@ -172,3 +172,50 @@ export async function getAssignmentByAssetIdApi(assetId) {
 
   return data
 }
+
+// 5. Cập nhật cấu hình bàn giao theo ID tài sản: PUT /api/v1/assignments/asset/{assetId}
+export async function updateAssignmentByAssetIdApi(
+  assetId,
+  { executorContactId, handoverInstructions, beneficiaryContactIds },
+) {
+  const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
+  if (!token) {
+    const error = new Error('No authentication token found')
+    error.status = 401
+    throw error
+  }
+
+  const baseUrl = (
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.REACT_APP_API_BASE_URL ||
+    ''
+  ).replace(/\/$/, '')
+
+  const endpoint = baseUrl
+    ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/assignments/asset/${assetId}` : `${baseUrl}/api/v1/assignments/asset/${assetId}`)
+    : `/api/v1/assignments/asset/${assetId}`
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      executorContactId,
+      handoverInstructions,
+      beneficiaryContactIds,
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    const error = new Error(data?.error || data?.message || 'Failed to update assignment')
+    error.status = response.status
+    error.data = data
+    throw error
+  }
+
+  return data
+}
