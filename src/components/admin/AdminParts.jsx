@@ -5,6 +5,7 @@ import { flow7Content } from '../../data/flow7Content.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { formatDisplayDateTime } from '../../vault/format.js'
 import { adminPaths } from '../../admin/adminPaths.js'
+import { IS_DEMO_MODE } from '../../services/adminService.js'
 import '../../styles/forms.css'
 import '../../styles/vault.css'
 import '../../styles/flow3-4.css'
@@ -38,10 +39,12 @@ export function AdminLayout({ children }) {
           ))}
         </nav>
         <div className="owner-content">
-          <p className="demo-banner">
-            <Icon name="info" size={16} />
-            <span>{t.demo}</span>
-          </p>
+          {IS_DEMO_MODE && (
+            <p className="demo-banner">
+              <Icon name="info" size={16} />
+              <span>{t.demo}</span>
+            </p>
+          )}
           {children}
         </div>
       </div>

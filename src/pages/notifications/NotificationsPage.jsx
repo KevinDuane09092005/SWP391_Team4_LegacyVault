@@ -10,7 +10,7 @@ import { useAuth } from '../../auth/AuthContext.jsx'
 import { getDashboardPath } from '../../auth/roles.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { markAllNotificationsRead, markNotificationRead } from '../../services/notificationService.js'
+import { IS_DEMO_MODE, markAllNotificationsRead, markNotificationRead } from '../../services/notificationService.js'
 import '../../styles/vault.css'
 import '../../styles/admin.css'
 
@@ -38,10 +38,12 @@ export default function NotificationsPage() {
 
   return (
     <DashboardLayout>
-      <p className="demo-banner">
-        <Icon name="info" size={16} />
-        <span>{n.demo}</span>
-      </p>
+      {IS_DEMO_MODE && (
+        <p className="demo-banner">
+          <Icon name="info" size={16} />
+          <span>{n.demo}</span>
+        </p>
+      )}
       <div className="page-head">
         <div>
           <h1 className="page-title">{n.title}</h1>

@@ -10,7 +10,7 @@ import { isSecurityAlert } from '../../audit/auditRules.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { listUsers, resetAllDemoData } from '../../services/adminService.js'
+import { IS_DEMO_MODE, listUsers, resetAllDemoData } from '../../services/adminService.js'
 import { listAuditLog } from '../../services/auditService.js'
 
 const RECENT_ALERTS = 5
@@ -57,9 +57,11 @@ export default function AdminOverviewPage() {
           <h1 className="page-title">{o.title}</h1>
           <p className="page-text">{o.text}</p>
         </div>
-        <div className="page-head__actions">
-          <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>{o.reset}</Button>
-        </div>
+        {IS_DEMO_MODE && (
+          <div className="page-head__actions">
+            <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>{o.reset}</Button>
+          </div>
+        )}
       </div>
 
       {message && <FormAlert tone={message.tone}>{message.text}</FormAlert>}

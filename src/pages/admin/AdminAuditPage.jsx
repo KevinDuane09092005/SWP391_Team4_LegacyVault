@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import Button from '../../components/Button.jsx'
 import Icon from '../../components/Icon.jsx'
 import { AdminLayout, AuditTable } from '../../components/admin/AdminParts.jsx'
 import { EmptyState, ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
@@ -8,7 +9,7 @@ import { AUDIT_ACTIONS, OUTCOME } from '../../audit/auditRules.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { listAuditLog } from '../../services/auditService.js'
+import { exportAuditLogsCsvApi, listAuditLog } from '../../services/auditService.js'
 
 const EMPTY = { actor: '', action: '', outcome: '', from: '', to: '', alertsOnly: false }
 
@@ -29,6 +30,16 @@ export default function AdminAuditPage() {
         <div>
           <h1 className="page-title">{t.admin.auditPage.title}</h1>
           <p className="page-text">{t.admin.auditPage.text}</p>
+        </div>
+        <div className="page-head__actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => exportAuditLogsCsvApi({ from_date: filters.from, to_date: filters.to })}
+          >
+            <Icon name="download" size={16} />
+            <span>{language === 'vi' ? 'Xuất CSV' : 'Export CSV'}</span>
+          </Button>
         </div>
       </div>
       <p className="handover-note handover-note--danger admin-warning">

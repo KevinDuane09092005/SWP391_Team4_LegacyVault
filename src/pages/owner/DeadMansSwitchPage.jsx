@@ -12,7 +12,7 @@ import FormAlert from '../../components/auth/FormAlert.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
 import { LoadingState, ErrorState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { computeDmsView, dateLabel, formatCountdown } from '../../vault/dmsLogic.js'
+import { computeDmsView, dateLabel, formatCountdown, formatTimeInterval } from '../../vault/dmsLogic.js'
 import {
   getDmsStatusApi,
   saveDmsConfigApi,
@@ -38,20 +38,12 @@ export default function DeadMansSwitchPage() {
   const [apiError, setApiError] = useState('')
   const [successToast, setSuccessToast] = useState('')
   const [clock, setClock] = useState(Date.now())
-  const [simulatedOffsetDays, setSimulatedOffsetDays] = useState(0) // for presentation testing
+  const [simulatedOffsetMs, setSimulatedOffsetMs] = useState(0) // for presentation testing
 
-  // Form states for config
+  // Form states for config in seconds (matching backend schema: 30s interval, 50s grace default)
   const [formInterval, setFormInterval] = useState(30)
-  const [formGrace, setFormGrace] = useState(7)
+  const [formGrace, setFormGrace] = useState(50)
   const [isEditingConfig, setIsEditingConfig] = useState(false)
-  const [secondsModeData, setSecondsModeData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('legacyvault_dms_seconds_mode')
-      return saved ? JSON.parse(saved) : null
-    } catch {
-      return null
-    }
-  })
 
   // Live timer tick every 1 second
   useEffect(() => {
@@ -112,22 +104,10 @@ export default function DeadMansSwitchPage() {
       // 1. GET /api/v1/dms/status
       const statusData = await getDmsStatusApi()
       setDmsData(statusData)
-      try {
-        const saved = localStorage.getItem('legacyvault_dms_seconds_mode')
-        if (saved) {
-          const parsed = JSON.parse(saved)
-          setFormInterval(parsed.interval || (30 / 86400))
-          setFormGrace(parsed.grace || (50 / 86400))
-          setSecondsModeData(parsed)
-        } else {
-          setFormInterval(statusData?.checkInIntervalDays || 30)
-          setFormGrace(statusData?.gracePeriodDays || 7)
-          setSecondsModeData(null)
-        }
-      } catch {
-        setFormInterval(statusData?.checkInIntervalDays || 30)
-        setFormGrace(statusData?.gracePeriodDays || 7)
-      }
+      const intervalSec = statusData?.checkInIntervalSeconds ?? statusData?.checkInIntervalDays ?? 30
+      const graceSec = statusData?.gracePeriodSeconds ?? statusData?.gracePeriodDays ?? 50
+      setFormInterval(intervalSec)
+      setFormGrace(graceSec)
 
       // 2. GET /api/v1/dms/audit-logs
       try {
@@ -177,31 +157,11 @@ export default function DeadMansSwitchPage() {
     setSuccessToast('')
 
     try {
-      const isSeconds = formInterval < 1 || formGrace < 1
-      let newSecondsMode = null
-
-      if (isSeconds) {
-        newSecondsMode = {
-          interval: formInterval,
-          grace: formGrace,
-          lastCheckInAt: new Date().toISOString(),
-        }
-        localStorage.setItem('legacyvault_dms_seconds_mode', JSON.stringify(newSecondsMode))
-        setSecondsModeData(newSecondsMode)
-      } else {
-        localStorage.removeItem('legacyvault_dms_seconds_mode')
-        setSecondsModeData(null)
-      }
-
-      // Backend API validation requires Integer >= 1
-      const backendInterval = formInterval < 1 ? 1 : Math.round(formInterval)
-      const backendGrace = formGrace < 1 ? 1 : Math.round(formGrace)
-
       const res = await saveDmsConfigApi({
-        checkInIntervalDays: backendInterval,
-        gracePeriodDays: backendGrace,
+        checkInIntervalSeconds: Number(formInterval),
+        gracePeriodSeconds: Number(formGrace),
       })
-      setSimulatedOffsetDays(0)
+      setSimulatedOffsetMs(0)
       setIsEditingConfig(false)
       setSuccessToast(
         res.message ||
@@ -212,10 +172,8 @@ export default function DeadMansSwitchPage() {
       // Refresh status from backend
       const updated = await getDmsStatusApi()
       setDmsData(updated)
-      if (!isSeconds) {
-        setFormInterval(updated?.checkInIntervalDays || 30)
-        setFormGrace(updated?.gracePeriodDays || 7)
-      }
+      setFormInterval(updated?.checkInIntervalSeconds ?? updated?.checkInIntervalDays ?? formInterval)
+      setFormGrace(updated?.gracePeriodSeconds ?? updated?.gracePeriodDays ?? formGrace)
     } catch (err) {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
@@ -244,16 +202,7 @@ export default function DeadMansSwitchPage() {
 
     try {
       const res = await checkInDmsApi()
-      setSimulatedOffsetDays(0)
-
-      if (secondsModeData) {
-        const updated = {
-          ...secondsModeData,
-          lastCheckInAt: new Date().toISOString(),
-        }
-        localStorage.setItem('legacyvault_dms_seconds_mode', JSON.stringify(updated))
-        setSecondsModeData(updated)
-      }
+      setSimulatedOffsetMs(0)
 
       setSuccessToast(
         res.message ||
@@ -295,16 +244,7 @@ export default function DeadMansSwitchPage() {
 
     try {
       const res = await emergencyCheckInDmsApi()
-      setSimulatedOffsetDays(0)
-
-      if (secondsModeData) {
-        const updated = {
-          ...secondsModeData,
-          lastCheckInAt: new Date().toISOString(),
-        }
-        localStorage.setItem('legacyvault_dms_seconds_mode', JSON.stringify(updated))
-        setSecondsModeData(updated)
-      }
+      setSimulatedOffsetMs(0)
 
       setSuccessToast(
         res.message ||
@@ -338,29 +278,18 @@ export default function DeadMansSwitchPage() {
     }
   }
 
-  // Real backend calculations & support for 30s / 50s mode
-  const isSecondsMode = !!secondsModeData || formInterval < 1 || formGrace < 1
-  const simulatedNow = clock + simulatedOffsetDays * 86400000
+  // Real backend calculations in seconds
+  const intervalSeconds = dmsData?.checkInIntervalSeconds ?? dmsData?.checkInIntervalDays ?? formInterval
+  const graceSeconds = dmsData?.gracePeriodSeconds ?? dmsData?.gracePeriodDays ?? formGrace
+  const simulatedNow = clock + simulatedOffsetMs
 
-  const interval = isSecondsMode
-    ? (secondsModeData?.interval || formInterval)
-    : (dmsData?.checkInIntervalDays || 30)
+  const lastCheck = dmsData?.lastCheckInAt || new Date().toISOString()
 
-  const grace = isSecondsMode
-    ? (secondsModeData?.grace || formGrace)
-    : (dmsData?.gracePeriodDays || 7)
+  const due = (simulatedOffsetMs === 0 && dmsData?.nextCheckInAt)
+    ? new Date(dmsData.nextCheckInAt)
+    : new Date(new Date(lastCheck).getTime() + intervalSeconds * 1000)
 
-  const lastCheck = isSecondsMode
-    ? (secondsModeData?.lastCheckInAt || dmsData?.lastCheckInAt || new Date().toISOString())
-    : (dmsData?.lastCheckInAt || new Date().toISOString())
-
-  const due = isSecondsMode
-    ? new Date(new Date(lastCheck).getTime() + interval * 86400000)
-    : (dmsData?.nextCheckInAt
-        ? new Date(dmsData.nextCheckInAt)
-        : new Date(new Date(lastCheck).getTime() + interval * 86400000))
-
-  const graceEnd = new Date(due.getTime() + grace * 86400000)
+  const graceEnd = new Date(due.getTime() + graceSeconds * 1000)
 
   const elapsed = due.getTime() - simulatedNow
   const graceRemaining = graceEnd.getTime() - simulatedNow
@@ -371,14 +300,17 @@ export default function DeadMansSwitchPage() {
     now: simulatedNow,
     nextCheckIn: due,
     graceEndsAt: graceEnd,
-    backendStatus: (simulatedOffsetDays !== 0 || isSecondsMode) ? null : dmsData?.status,
+    backendStatus: simulatedOffsetMs !== 0 ? null : dmsData?.status,
     apiError,
-    intervalMs: interval * 86400000,
+    intervalMs: intervalSeconds * 1000,
   })
 
-  const dueText = dateLabel(due, isVi ? 'vi-VN' : 'en-US', isSecondsMode)
-  const lastText = dateLabel(lastCheck, isVi ? 'vi-VN' : 'en-US', isSecondsMode)
-  const graceText = dateLabel(graceEnd, isVi ? 'vi-VN' : 'en-US', isSecondsMode)
+  const dueText = dateLabel(due, isVi ? 'vi-VN' : 'en-US', true)
+  const lastText = dateLabel(lastCheck, isVi ? 'vi-VN' : 'en-US', true)
+  const graceText = dateLabel(graceEnd, isVi ? 'vi-VN' : 'en-US', true)
+
+  const intervalText = formatTimeInterval(intervalSeconds, isVi)
+  const graceDurationText = formatTimeInterval(graceSeconds, isVi)
 
   return (
     <OwnerLayout>
@@ -454,11 +386,22 @@ export default function DeadMansSwitchPage() {
                   value={formInterval}
                   onChange={(e) => setFormInterval(Number(e.target.value))}
                 >
-                  <option value={30 / 86400}>{isVi ? '30 Giây (30s)' : '30 Seconds (30s)'}</option>
-                  <option value={30}>{isVi ? '1 Tháng (30 ngày - Mặc định)' : '1 Month (30 Days - Default)'}</option>
-                  <option value={90}>{isVi ? '3 Tháng (90 ngày)' : '3 Months (90 Days)'}</option>
-                  <option value={180}>{isVi ? '6 Tháng (180 ngày)' : '6 Months (180 Days)'}</option>
-                  <option value={365}>{isVi ? '1 Năm (365 ngày)' : '12 Months (365 Days)'}</option>
+                  <optgroup label={isVi ? '⚡ Chế độ kiểm thử / Thử nghiệm nhanh' : '⚡ Quick Demo / Testing Mode'}>
+                    <option value={30}>{isVi ? '30 Giây (30s) — Mặc định kiểm thử' : '30 Seconds (30s) — Test Default'}</option>
+                    <option value={60}>{isVi ? '1 Phút (60s)' : '1 Minute (60s)'}</option>
+                    <option value={300}>{isVi ? '5 Phút (300s)' : '5 Minutes (300s)'}</option>
+                  </optgroup>
+                  <optgroup label={isVi ? '🛡️ Chế độ thực tế / Production' : '🛡️ Production Schedule'}>
+                    <option value={86400}>{isVi ? '1 Ngày (86,400s)' : '1 Day (86,400s)'}</option>
+                    <option value={604800}>{isVi ? '7 Ngày (1 tuần)' : '7 Days (1 week)'}</option>
+                    <option value={2592000}>{isVi ? '1 Tháng (30 ngày)' : '1 Month (30 days)'}</option>
+                    <option value={7776000}>{isVi ? '3 Tháng (90 ngày)' : '3 Months (90 days)'}</option>
+                    <option value={15552000}>{isVi ? '6 Tháng (180 ngày)' : '6 Months (180 days)'}</option>
+                    <option value={31536000}>{isVi ? '1 Năm (365 ngày)' : '1 Year (365 days)'}</option>
+                  </optgroup>
+                  {![30, 60, 300, 86400, 604800, 2592000, 7776000, 15552000, 31536000].includes(Number(formInterval)) && (
+                    <option value={formInterval}>{formatTimeInterval(formInterval, isVi)}</option>
+                  )}
                 </select>
                 <p>
                   {isVi
@@ -473,10 +416,21 @@ export default function DeadMansSwitchPage() {
                   value={formGrace}
                   onChange={(e) => setFormGrace(Number(e.target.value))}
                 >
-                  <option value={50 / 86400}>{isVi ? '50 Giây (50s)' : '50 Seconds (50s)'}</option>
-                  <option value={7}>{isVi ? '7 Ngày (Mặc định)' : '7 Days (Default)'}</option>
-                  <option value={14}>{isVi ? '14 Ngày (Khuyên dùng)' : '14 Days (Recommended)'}</option>
-                  <option value={30}>{isVi ? '30 Ngày' : '30 Days'}</option>
+                  <optgroup label={isVi ? '⚡ Chế độ kiểm thử / Thử nghiệm nhanh' : '⚡ Quick Demo / Testing Mode'}>
+                    <option value={50}>{isVi ? '50 Giây (50s) — Mặc định kiểm thử' : '50 Seconds (50s) — Test Default'}</option>
+                    <option value={120}>{isVi ? '2 Phút (120s)' : '2 Minutes (120s)'}</option>
+                    <option value={600}>{isVi ? '10 Phút (600s)' : '10 Minutes (600s)'}</option>
+                  </optgroup>
+                  <optgroup label={isVi ? '🛡️ Chế độ thực tế / Production' : '🛡️ Production Schedule'}>
+                    <option value={86400}>{isVi ? '1 Ngày (86,400s)' : '1 Day (86,400s)'}</option>
+                    <option value={259200}>{isVi ? '3 Ngày' : '3 Days'}</option>
+                    <option value={604800}>{isVi ? '7 Ngày (1 tuần)' : '7 Days (1 week)'}</option>
+                    <option value={1209600}>{isVi ? '14 Ngày (2 tuần)' : '14 Days (2 weeks)'}</option>
+                    <option value={2592000}>{isVi ? '30 Ngày (1 tháng)' : '30 Days (1 month)'}</option>
+                  </optgroup>
+                  {![50, 120, 600, 86400, 259200, 604800, 1209600, 2592000].includes(Number(formGrace)) && (
+                    <option value={formGrace}>{formatTimeInterval(formGrace, isVi)}</option>
+                  )}
                 </select>
                 <p>
                   {isVi
@@ -572,11 +526,11 @@ export default function DeadMansSwitchPage() {
                   </div>
                   <div>
                     <span>{isVi ? 'Chu kỳ kiểm tra' : 'Check-in Interval'}</span>
-                    <b>{interval === 90 ? (isVi ? '3 Tháng' : '3 Months') : `${interval} ${isVi ? 'Ngày' : 'Days'}`}</b>
+                    <b>{intervalText}</b>
                   </div>
                   <div>
                     <span>{isVi ? 'Thời gian ân hạn' : 'Grace Period'}</span>
-                    <b>{grace} {isVi ? 'Ngày' : 'Days'}</b>
+                    <b>{graceDurationText}</b>
                   </div>
                   <div>
                     <span>{isVi ? 'Lần điểm danh gần nhất' : 'Last Check-in'}</span>
@@ -630,11 +584,11 @@ export default function DeadMansSwitchPage() {
                 <span>
                   {dms === 'soon'
                     ? isVi
-                      ? `Hạn kiểm tra an toàn tiếp theo của bạn là ngày ${dueText}. Hãy bấm điểm danh ngay để giữ kho tài sản luôn được bảo vệ an toàn.`
+                      ? `Hạn kiểm tra an toàn tiếp theo của bạn là ${dueText}. Hãy bấm điểm danh ngay để giữ kho tài sản luôn được bảo vệ an toàn.`
                       : `Your scheduled check-in window closes on ${dueText}. Check in on time to maintain active vault security.`
                     : isVi
-                    ? `CẢNH BÁO: Bạn đã bỏ lỡ hạn điểm danh ngày ${dueText}! Hệ thống đã chuyển sang đếm ngược ${grace} ngày ân hạn khẩn cấp. Hãy bấm xác nhận ngay để hủy kích hoạt chuyển giao!`
-                    : `WARNING: You missed the check-in deadline (${dueText}). The ${grace}-day Grace Period has been initiated. Check in immediately to restore your safe status.`}
+                    ? `CẢNH BÁO: Bạn đã bỏ lỡ hạn điểm danh lúc ${dueText}! Hệ thống đã chuyển sang đếm ngược ${graceDurationText} ân hạn khẩn cấp. Hãy bấm xác nhận ngay để hủy kích hoạt chuyển giao!`
+                    : `WARNING: You missed the check-in deadline (${dueText}). The ${graceDurationText} Grace Period has been initiated. Check in immediately to restore your safe status.`}
                 </span>
               </div>
 
@@ -776,7 +730,7 @@ export default function DeadMansSwitchPage() {
             <button
               type="button"
               onClick={() => {
-                setSimulatedOffsetDays(0)
+                setSimulatedOffsetMs(0)
               }}
             >
               {isVi ? '1. Trạng thái bình thường (Active)' : '1. Normal Active'}
@@ -784,15 +738,18 @@ export default function DeadMansSwitchPage() {
             <button
               type="button"
               onClick={() => {
-                setSimulatedOffsetDays(interval - (isSecondsMode ? 10 / 86400 : 2))
+                const threshold = intervalSeconds < 180 ? 10 : Math.min(3 * 86400, intervalSeconds / 3)
+                const offsetSec = Math.max(0, intervalSeconds - (threshold / 2))
+                setSimulatedOffsetMs(offsetSec * 1000)
               }}
             >
-              {isVi ? '2. Sắp đến hạn (Due Soon)' : '2. Due Soon (< 3 days)'}
+              {isVi ? '2. Sắp đến hạn (Due Soon)' : '2. Due Soon'}
             </button>
             <button
               type="button"
               onClick={() => {
-                setSimulatedOffsetDays(interval + (isSecondsMode ? 10 / 86400 : 3))
+                const extraSec = graceSeconds < 180 ? 5 : Math.min(86400, graceSeconds / 3)
+                setSimulatedOffsetMs((intervalSeconds + extraSec) * 1000)
               }}
             >
               {isVi ? '3. Đang ân hạn (Grace Warning)' : '3. Grace Period Warning'}
@@ -800,7 +757,7 @@ export default function DeadMansSwitchPage() {
             <button
               type="button"
               onClick={() => {
-                setSimulatedOffsetDays(interval + grace + (isSecondsMode ? 2 / 86400 : 1))
+                setSimulatedOffsetMs((intervalSeconds + graceSeconds + 5) * 1000)
               }}
             >
               {isVi ? '4. Kích hoạt chuyển giao (Triggered)' : '4. Triggered Handover'}

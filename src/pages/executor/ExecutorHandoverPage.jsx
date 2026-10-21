@@ -34,8 +34,18 @@ export default function ExecutorHandoverPage() {
     setBusyId(handover.id)
     setFeedback(null)
     try {
-      await startHandover(user, handover.id)
-      setFeedback({ tone: 'success', text: t.executor.started(handover.id), caseId: handover.id })
+      const res = await startHandover(user, handover.id)
+      const accessCode = res?.access_code || res?.accessCode
+      setFeedback({
+        tone: 'success',
+        text: accessCode
+          ? (language === 'vi'
+              ? `Bàn giao đã phát hành thành công! Hãy gửi mã truy cập bên dưới cho người thụ hưởng.`
+              : `Handover released successfully! Provide the access code below to the beneficiary.`)
+          : t.executor.started(handover.id),
+        caseId: handover.id,
+        accessCode,
+      })
       reload()
     } catch (err) {
       setFeedback({ tone: 'error', text: handoverErrorText(t, err), caseId: handover.id })
@@ -67,13 +77,17 @@ export default function ExecutorHandoverPage() {
           <h1 className="page-title">{t.executor.title}</h1>
           <p className="page-text">{t.executor.text}</p>
         </div>
-        {IS_DEMO_MODE && (
-          <div className="page-head__actions">
+        <div className="page-head__actions">
+          <Button variant="primary" size="sm" to="/dashboard/executor/submit-documents">
+            <Icon name="upload" size={15} />
+            {t.executor.uploadDoc}
+          </Button>
+          {IS_DEMO_MODE && (
             <Button variant="secondary" size="sm" onClick={resetDemo}>
               {t.executor.reset}
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {status === 'loading' && <LoadingState label={t.loading} />}
@@ -125,7 +139,11 @@ export default function ExecutorHandoverPage() {
             </>
           }
         >
-          <p className="page-text">{t.executor.startConfirmText(`${confirming.beneficiary.name} (${confirming.beneficiary.email})`)}</p>
+          <p className="page-text">
+            {t.executor.startConfirmText(
+              `${confirming.beneficiary?.name || 'Beneficiary'} (${confirming.beneficiary?.email || ''})`
+            )}
+          </p>
         </ConfirmDialog>
       )}
     </HandoverLayout>
@@ -134,8 +152,10 @@ export default function ExecutorHandoverPage() {
 
 function ExecutorCaseCard({ handover, t, busy, feedback, onStart }) {
   const startable = canStartHandover(handover)
-  const blockedText = t.executor.blocked[handover.status]
+  const blockedText = t.executor?.blocked?.[handover.status]
   const started = hasReached(handover.status, HANDOVER_STATUS.HANDOVER_INITIATED)
+  const assets = Array.isArray(handover.assets) ? handover.assets : []
+  const timeline = Array.isArray(handover.timeline) ? handover.timeline : []
 
   return (
     <article className="card handover-card" aria-labelledby={`case-${handover.id}`}>
@@ -151,50 +171,96 @@ function ExecutorCaseCard({ handover, t, busy, feedback, onStart }) {
         <div>
           <dt>{t.beneficiaryLabel}</dt>
           <dd>
-            {handover.beneficiary.name}
-            <small>{handover.beneficiary.email}</small>
+            {handover.beneficiary?.name || '—'}
+            <small>{handover.beneficiary?.email || ''}</small>
           </dd>
         </div>
         <div>
           <dt>{t.vault}</dt>
           <dd>
-            {handover.vault.name}
-            <small>{t.owner}: {handover.vault.owner.name}</small>
+            {handover.vault?.name || '—'}
+            <small>{t.owner}: {handover.vault?.owner?.name || handover.vault?.ownerName || '—'}</small>
           </dd>
         </div>
         <div>
           <dt>{t.legalCase}</dt>
           <dd>
-            {handover.legalCaseId}
-            <small className={`handover-legal handover-legal--${handover.legalStatus}`}>{t.legal[handover.legalStatus]}</small>
+            {handover.legalCaseId || handover.case_id || handover.id || '—'}
+            <small className={`handover-legal handover-legal--${handover.legalStatus || 'pending'}`}>
+              {t.legal?.[handover.legalStatus] ?? handover.legalStatus ?? '—'}
+            </small>
           </dd>
         </div>
       </dl>
 
-      {handover.assets.length > 0 && (
+      {assets.length > 0 && (
         <div>
-          <h3 className="handover-subtitle">{t.assets} ({handover.assets.length})</h3>
+          <h3 className="handover-subtitle">{t.assets} ({assets.length})</h3>
           <ul className="handover-asset-chips">
-            {handover.assets.map((asset) => (
-              <li key={asset.id} className={asset.forThisBeneficiary ? '' : 'is-muted'}>
+            {assets.map((asset, idx) => (
+              <li key={asset.id || asset.asset_id || idx} className={asset.forThisBeneficiary ? '' : 'is-muted'}>
                 <Icon name={asset.forThisBeneficiary ? 'unlock' : 'lock'} size={14} />
-                {asset.name}
-                <small>{t.categories[asset.category] ?? asset.category} · {asset.forThisBeneficiary ? t.executor.assetFor : t.executor.assetNotFor}</small>
+                {asset.name || asset.asset_name}
+                <small>{t.categories?.[asset.category] ?? asset.category ?? '—'} · {asset.forThisBeneficiary ? t.executor.assetFor : t.executor.assetNotFor}</small>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {handover.rejectionReason && <p className="handover-note handover-note--danger">{handover.rejectionReason}</p>}
-
-      {feedback && <FormAlert tone={feedback.tone}>{feedback.text}</FormAlert>}
+      {feedback && (
+        <div style={{ display: 'grid', gap: '8px', margin: '8px 0' }}>
+          <FormAlert tone={feedback.tone}>{feedback.text}</FormAlert>
+          {feedback.accessCode && (
+            <div
+              style={{
+                background: 'var(--color-surface, #fff)',
+                border: '1px solid var(--color-primary, #2563eb)',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <small style={{ color: 'var(--color-text-muted, #666)', display: 'block', fontSize: '0.75rem', fontWeight: 600 }}>
+                  MÃ TRUY CẬP (ACCESS CODE):
+                </small>
+                <code style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary, #2563eb)', wordBreak: 'break-all' }}>
+                  {feedback.accessCode}
+                </code>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard?.writeText(feedback.accessCode)
+                  alert('Đã sao chép mã truy cập!')
+                }}
+              >
+                Sao chép
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <footer className="handover-card__actions">
         {startable && (
           <Button onClick={onStart} disabled={busy}>
             <Icon name="arrowRight" size={16} />
             {busy ? t.executor.starting : t.executor.start}
+          </Button>
+        )}
+        {handover.status === HANDOVER_STATUS.PENDING_LEGAL_APPROVAL && (
+          <Button
+            variant="secondary"
+            to={`/dashboard/executor/submit-documents?caseId=${encodeURIComponent(handover.legalCaseId || handover.case_id || handover.id)}`}
+          >
+            <Icon name="upload" size={16} />
+            {t.executor.uploadDoc}
           </Button>
         )}
         {!startable && blockedText && (
@@ -210,10 +276,10 @@ function ExecutorCaseCard({ handover, t, busy, feedback, onStart }) {
         )}
       </footer>
 
-      {handover.timeline.length > 0 && (
+      {timeline.length > 0 && (
         <details className="handover-details">
-          <summary>{t.executor.timeline}</summary>
-          <HandoverTimeline events={handover.timeline} />
+          <summary>{t.executor?.timeline || 'Activity'}</summary>
+          <HandoverTimeline events={timeline} />
         </details>
       )}
     </article>

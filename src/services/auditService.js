@@ -1,17 +1,104 @@
 import { AUDIT_ACTIONS, OUTCOME } from '../audit/auditRules.js'
 import { mockListAudit } from '../mocks/mockAuditStore.js'
 import { emitSystemEvent } from '../mocks/mockSystemEvents.js'
+import { IS_DEMO_MODE, apiFetch, downloadBlob } from './apiClient.js'
 
-// Flow 7 — Audit Log. No audit backend exists yet: entries are written by the demo mocks
-// into this browser (see src/mocks/mockAuditStore.js). They are NOT a secure,
-// tamper-proof server-side audit trail.
+export { IS_DEMO_MODE }
 
-export const IS_DEMO_MODE = true
+// 1. GET /admin/audit-logs
+export async function getAuditLogsApi({
+  search = '',
+  role = 'ALL',
+  action = 'ALL',
+  from_date = '',
+  to_date = '',
+  page = 0,
+  size = 6,
+} = {}) {
+  if (IS_DEMO_MODE) {
+    const filters = { actor: search, action: action === 'ALL' ? undefined : action }
+    const list = await mockListAudit(null, filters)
+    const start = page * size
+    const paged = list.slice(start, start + size)
+    return {
+      logs: paged.map((entry) => ({
+        log_id: entry.id,
+        timestamp_formatted: entry.at,
+        user: {
+          name: entry.actor?.name || 'System',
+          role: entry.actor?.role || 'SYSTEM',
+        },
+        action: entry.action,
+        target: entry.entity?.id || entry.caseId || 'System',
+        status: entry.outcome,
+        ip_address: '192.168.1.100',
+      })),
+      total_elements: list.length,
+      total_pages: Math.ceil(list.length / size),
+    }
+  }
 
-// Admin only (checked inside the mock as well).
-export const listAuditLog = (user, filters) => mockListAudit(user, filters)
+  const params = new URLSearchParams({
+    ...(search ? { search } : {}),
+    ...(role !== 'ALL' ? { role } : {}),
+    ...(action !== 'ALL' ? { action } : {}),
+    ...(from_date ? { from_date } : {}),
+    ...(to_date ? { to_date } : {}),
+    page: String(page),
+    size: String(size),
+  })
 
-// Sign-in / sign-out events from Flow 1. Never pass the password here.
+  return apiFetch(`/admin/audit-logs?${params}`)
+}
+
+// 2. GET /admin/audit-logs/export-csv
+export async function exportAuditLogsCsvApi({ from_date = '', to_date = '' } = {}) {
+  if (IS_DEMO_MODE) {
+    const list = await mockListAudit()
+    const header = 'log_id,timestamp,user,role,action,target,status,ip_address\n'
+    const rows = list
+      .map(
+        (e) =>
+          `"${e.id}","${e.at}","${e.actor?.name || 'System'}","${e.actor?.role || 'SYSTEM'}","${e.action}","${e.entity?.id || ''}","${e.outcome}","127.0.0.1"`
+      )
+      .join('\n')
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' })
+    downloadBlob(blob, `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`)
+    return blob
+  }
+
+  const params = new URLSearchParams({
+    ...(from_date ? { from_date } : {}),
+    ...(to_date ? { to_date } : {}),
+  })
+
+  const blob = await apiFetch(`/admin/audit-logs/export-csv?${params}`)
+  downloadBlob(blob, `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`)
+  return blob
+}
+
+// ---------------- Existing Page Wrapper Methods ----------------
+
+// Admin only
+export const listAuditLog = async (user, filters) => {
+  if (IS_DEMO_MODE) return mockListAudit(user, filters)
+  const data = await getAuditLogsApi({ search: filters?.actor, action: filters?.action })
+  return (data?.logs || []).map((l, idx) => ({
+    id: l.log_id || `log-${idx + 1}`,
+    at: l.timestamp_formatted || l.time_formatted || new Date().toISOString(),
+    actor: {
+      name: typeof l.user === 'string' ? l.user : l.user?.name || 'System',
+      role: (typeof l.user === 'object' ? l.user?.role : l.role) || 'SYSTEM',
+    },
+    action: l.action,
+    entity: { id: l.target || 'System', type: 'RECORD' },
+    outcome: l.status || 'SUCCESS',
+    ip_address: l.ip_address,
+    details: {},
+  }))
+}
+
+// Sign-in / sign-out events from Flow 1
 export function recordSignIn({ user, identifier, success, reason }) {
   emitSystemEvent({
     user: success ? user : null,
@@ -24,5 +111,9 @@ export function recordSignIn({ user, identifier, success, reason }) {
 }
 
 export function recordSignOut(user) {
-  emitSystemEvent({ user, action: AUDIT_ACTIONS.LOGOUT, entity: { type: 'SESSION', id: user.id } })
+  emitSystemEvent({
+    user,
+    action: AUDIT_ACTIONS.LOGOUT,
+    entity: { type: 'SESSION', id: user?.id || 'unknown' },
+  })
 }

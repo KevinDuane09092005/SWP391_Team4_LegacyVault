@@ -75,6 +75,13 @@ const en = {
     emptyText: 'Cases appear here after the Dead Man’s Switch triggers and Legal Verification starts.',
     reset: 'Reset demo handovers',
     timeline: 'Activity',
+    uploadDoc: 'Upload legal document',
+    uploadDocHelp: 'Death certificate must be uploaded before Legal Verifier can approve.',
+    uploadSuccessTitle: 'Document uploaded successfully',
+    uploadSuccessMsg: 'The Legal Verifier has been notified to review this submission.',
+    backToDashboard: 'Back to Handover Dashboard',
+    uploadAnother: 'Upload another document',
+    selectCasePlaceholder: 'Select a handover case',
   },
 
   beneficiary: {
@@ -85,6 +92,8 @@ const en = {
     allNotifications: 'All notifications',
     open: 'Open case',
     nextAction: {
+      APPROVED: 'Next: access handover',
+      HANDOVER_INITIATED: 'Next: verify your identity',
       BENEFICIARY_VERIFICATION_PENDING: 'Next: verify your identity',
       IDENTITY_VERIFIED: 'Next: authorization check',
       AUTHORIZATION_CHECKED: 'Next: view your assets',
@@ -259,6 +268,13 @@ const vi = {
     emptyText: 'Hồ sơ xuất hiện ở đây sau khi Dead Man’s Switch kích hoạt và Xác minh pháp lý bắt đầu.',
     reset: 'Đặt lại dữ liệu bàn giao demo',
     timeline: 'Hoạt động',
+    uploadDoc: 'Nộp giấy chứng tử',
+    uploadDocHelp: 'Cần nộp giấy chứng tử để thẩm định viên pháp lý xét duyệt hồ sơ.',
+    uploadSuccessTitle: 'Đã tải lên tài liệu thành công',
+    uploadSuccessMsg: 'Tài liệu đã được gửi tới Thẩm định viên pháp lý (Legal Verifier) để xét duyệt.',
+    backToDashboard: 'Quay lại Bảng điều khiển Bàn giao',
+    uploadAnother: 'Nộp thêm tài liệu khác',
+    selectCasePlaceholder: 'Chọn hồ sơ bàn giao',
   },
 
   beneficiary: {
@@ -269,6 +285,8 @@ const vi = {
     allNotifications: 'Tất cả thông báo',
     open: 'Mở hồ sơ',
     nextAction: {
+      APPROVED: 'Tiếp theo: tiếp nhận bàn giao',
+      HANDOVER_INITIATED: 'Tiếp theo: xác minh danh tính',
       BENEFICIARY_VERIFICATION_PENDING: 'Tiếp theo: xác minh danh tính',
       IDENTITY_VERIFIED: 'Tiếp theo: kiểm tra quyền',
       AUTHORIZATION_CHECKED: 'Tiếp theo: xem tài sản',

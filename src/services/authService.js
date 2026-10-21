@@ -16,8 +16,7 @@ import { readSession } from '../auth/session.js'
 // do not need to change, and throw `new AuthError(code)` (src/auth/AuthError.js)
 // so the right translated message is shown.
 
-// True while the mock is in use. Pages use it to show the "Demo mode" notices.
-export const IS_DEMO_MODE = true
+export { IS_DEMO_MODE } from './apiClient.js'
 
 // Input:  { fullName, identifier, password, plan, billing }  (identifier = email or phone)
 // Output: { identifier, verificationRequired: true }
