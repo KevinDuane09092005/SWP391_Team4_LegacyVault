@@ -151,9 +151,9 @@ export default function LoginPage() {
       // Bắt lỗi qua khối catch, trích xuất thông điệp từ trường error và hiển thị lên giao diện
       setServerError(
         error.message ||
-          (language === 'vi'
-            ? 'Đã có lỗi xảy ra khi kết nối máy chủ.'
-            : 'Connection error. Please try again.'),
+        (language === 'vi'
+          ? 'Đã có lỗi xảy ra khi kết nối máy chủ.'
+          : 'Connection error. Please try again.'),
       )
     } finally {
       setLoading(false)
@@ -383,9 +383,9 @@ export default function LoginPage() {
                 ? `Mã OTP xác thực đã được gửi đến thiết bị của ${accessForm.beneficiaryName || accessForm.email}.`
                 : `Verification OTP has been sent to ${accessForm.beneficiaryName || accessForm.email}.`}
             </p>
-            <small style={{ color: 'var(--color-primary)', display: 'block', marginTop: '4px', fontWeight: 600 }}>
+            {/* <small style={{ color: 'var(--color-primary)', display: 'block', marginTop: '4px', fontWeight: 600 }}>
               {language === 'vi' ? 'Mã test OTP: 482916' : 'Test OTP: 482916'}
-            </small>
+            </small> */}
           </div>
 
           <FormField
@@ -393,7 +393,7 @@ export default function LoginPage() {
             label={language === 'vi' ? 'Nhập mã OTP 6 số' : 'Enter 6-digit OTP'}
             value={accessForm.otpCode}
             onChange={(e) => setAccessForm((prev) => ({ ...prev, otpCode: e.target.value }))}
-            placeholder="482916"
+            placeholder=""
             maxLength={6}
             autoComplete="one-time-code"
             hint={language === 'vi' ? 'Nhập mã gồm 6 chữ số' : 'Enter 6-digit code'}

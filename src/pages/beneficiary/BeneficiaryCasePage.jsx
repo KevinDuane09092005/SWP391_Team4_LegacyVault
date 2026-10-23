@@ -299,7 +299,9 @@ function AssetsPanel({ handover, user, t, onChange }) {
       setFailure({ assetId: asset.id, error: err })
       return
     }
-    const text = `${asset.name}\n${handover.id}\n\n${opened[asset.id]}\n\n${c.demoDecrypt}\n`
+    const isMock = opened[asset.id]?.includes('autumn · harbor · classic')
+    const disclaimer = isMock ? `\n\n${c.demoDecrypt}\n` : ''
+    const text = `${asset.name}\n${handover.id}\n\n${opened[asset.id]}${disclaimer}\n`
     const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
     const link = document.createElement('a')
     link.href = url
@@ -346,9 +348,28 @@ function AssetsPanel({ handover, user, t, onChange }) {
                 )}
 
                 {content ? (
-                  <div className="handover-secret">
-                    <p>{content}</p>
-                    <small><Icon name="info" size={13} /> {c.demoDecrypt}</small>
+                  <div className="handover-secret" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                    {content.includes('|') ? (
+                      <div className="handover-credentials-grid" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                        {content.split('|').map((part, pIdx) => {
+                          const [rawKey, ...rawVal] = part.split(':')
+                          if (rawVal.length > 0) {
+                            return (
+                              <div key={pIdx} style={{ display: 'flex', gap: '8px', fontSize: '14px', alignItems: 'baseline' }}>
+                                <strong style={{ minWidth: '70px', color: '#475569' }}>{rawKey.trim()}:</strong>
+                                <span style={{ color: '#0f172a', fontWeight: 600 }}>{rawVal.join(':').trim()}</span>
+                              </div>
+                            )
+                          }
+                          return <p key={pIdx} style={{ margin: 0, fontWeight: 500 }}>{part.trim()}</p>
+                        })}
+                      </div>
+                    ) : (
+                      <p style={{ whiteSpace: 'pre-wrap', fontWeight: 500, margin: '0 0 10px 0' }}>{content}</p>
+                    )}
+                    {content.includes('autumn · harbor · classic') && (
+                      <small><Icon name="info" size={13} /> {c.demoDecrypt}</small>
+                    )}
                     {access.allowed && (
                       <Button variant="secondary" size="sm" onClick={() => download(asset)}>{c.download}</Button>
                     )}
