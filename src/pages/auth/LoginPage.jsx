@@ -14,8 +14,12 @@ import { dashboardContent } from '../../data/dashboardContent.js'
 import useForm from '../../hooks/useForm.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { IS_DEMO_MODE } from '../../services/authService.js'
+import {
+  beneficiaryLoginWithCodeApi,
+  verifyBeneficiaryOtpApi,
+} from '../../services/handoverService.js'
 
-// Flow 1 — Sign in with email or phone + password.
+// Flow 1 & Flow 6 — Sign in with email or phone + password, OR claim inheritance via Access Code & OTP.
 // After a successful sign-in, RedirectIfSignedIn (src/auth/guards.jsx) sends the user
 // to their role's dashboard, or back to the page they were trying to open.
 export default function LoginPage() {
@@ -25,6 +29,16 @@ export default function LoginPage() {
   const { login, justLoggedOut, markLogoutSeen, setSessionUser } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+
+  const [authMode, setAuthMode] = useState('password') // 'password' | 'accessCode'
+  const [accessForm, setAccessForm] = useState({
+    email: '',
+    accessCode: '',
+    sessionToken: '',
+    otpCode: '',
+    step: 'code', // 'code' | 'otp'
+    beneficiaryName: '',
+  })
 
   // Message passed from another page (OTP verified, signed out, or a protected page).
   let notice = null
@@ -158,12 +172,123 @@ export default function LoginPage() {
     setServerError(null)
   }
 
+  const handleAccessCodeSubmit = async (e) => {
+    e.preventDefault()
+    setServerError(null)
+    if (!accessForm.email.trim() || !accessForm.accessCode.trim()) {
+      setServerError(
+        language === 'vi'
+          ? 'Vui lòng nhập Email và Mã truy cập bàn giao.'
+          : 'Please enter Email and Access Code.'
+      )
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await beneficiaryLoginWithCodeApi({
+        email: accessForm.email.trim(),
+        accessCode: accessForm.accessCode.trim(),
+      })
+      const token = res.claim_session_token || res.sessionToken || res.claimToken
+      setAccessForm((prev) => ({
+        ...prev,
+        sessionToken: token,
+        step: 'otp',
+        beneficiaryName: res.beneficiary_name || res.beneficiaryName || '',
+      }))
+    } catch (err) {
+      setServerError(err.message || (language === 'vi' ? 'Mã truy cập hoặc email không hợp lệ.' : 'Invalid email or access code.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault()
+    setServerError(null)
+    if (!accessForm.otpCode.trim()) {
+      setServerError(language === 'vi' ? 'Vui lòng nhập mã OTP.' : 'Please enter OTP.')
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await verifyBeneficiaryOtpApi({
+        sessionToken: accessForm.sessionToken,
+        otpCode: accessForm.otpCode.trim(),
+      })
+      const token = res.access_token || res.token
+      if (token) {
+        localStorage.setItem('token', token)
+        localStorage.setItem('legacyvault-access-token', token)
+        localStorage.setItem('role', 'BENEFICIARY')
+        const profile = {
+          id: 'beneficiary-access',
+          fullName: accessForm.beneficiaryName || accessForm.email.split('@')[0],
+          identifier: accessForm.email,
+          role: ROLES.BENEFICIARY,
+        }
+        saveSession(profile, false)
+        if (typeof setSessionUser === 'function') {
+          setSessionUser(profile, false)
+        }
+        navigate('/dashboard/beneficiary', { replace: true })
+      } else {
+        throw new Error(res.message || 'OTP verification failed.')
+      }
+    } catch (err) {
+      setServerError(err.message || (language === 'vi' ? 'Mã OTP không đúng hoặc đã hết hạn.' : 'Invalid or expired OTP code.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <AuthLayout activeTab="signin">
       <h1 id="auth-title" className="auth-card__title">
         {copy.title}
       </h1>
       <p className="auth-card__subtitle">{copy.subtitle}</p>
+
+      <div style={{ display: 'flex', gap: '8px', margin: '14px 0 16px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>
+        <button
+          type="button"
+          onClick={() => { setAuthMode('password'); setServerError(null); }}
+          style={{
+            flex: 1,
+            padding: '8px 10px',
+            fontSize: '0.875rem',
+            fontWeight: authMode === 'password' ? 600 : 400,
+            color: authMode === 'password' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            borderBottom: authMode === 'password' ? '2px solid var(--color-primary)' : '2px solid transparent',
+            background: 'none',
+            borderTop: 'none',
+            borderLeft: 'none',
+            borderRight: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          {language === 'vi' ? 'Đăng nhập mật khẩu' : 'Password Sign In'}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAuthMode('accessCode'); setServerError(null); }}
+          style={{
+            flex: 1,
+            padding: '8px 10px',
+            fontSize: '0.875rem',
+            fontWeight: authMode === 'accessCode' ? 600 : 400,
+            color: authMode === 'accessCode' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            borderBottom: authMode === 'accessCode' ? '2px solid var(--color-primary)' : '2px solid transparent',
+            background: 'none',
+            borderTop: 'none',
+            borderLeft: 'none',
+            borderRight: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          {language === 'vi' ? '🔑 Nhận di sản (Mã truy cập)' : '🔑 Access Code Claim'}
+        </button>
+      </div>
 
       {notice && !serverError && <FormAlert tone="success">{notice}</FormAlert>}
 
@@ -178,44 +303,117 @@ export default function LoginPage() {
         </FormAlert>
       )}
 
-      <form className="auth-form" noValidate onSubmit={handleSubmit}>
-        <FormField
-          {...form.fieldProps('identifier')}
-          label={t.fields.identifier.label}
-          placeholder={t.fields.identifier.placeholder}
-          autoComplete="username"
-          disabled={loading}
-        />
-
-        <FormField
-          {...form.fieldProps('password')}
-          type="password"
-          label={t.fields.password.label}
-          placeholder={t.fields.password.placeholder}
-          autoComplete="current-password"
-          revealLabels={{ show: t.showPassword, hide: t.hidePassword }}
-          disabled={loading}
-          extra={
-            <Link to="/forgot-password" className="auth-link">
-              {copy.forgot}
-            </Link>
-          }
-        />
-
-        <label className="check-field__label">
-          <input
-            type="checkbox"
-            checked={form.values.remember}
-            onChange={form.handleChange('remember')}
+      {authMode === 'password' ? (
+        <form className="auth-form" noValidate onSubmit={handleSubmit}>
+          <FormField
+            {...form.fieldProps('identifier')}
+            label={t.fields.identifier.label}
+            placeholder={t.fields.identifier.placeholder}
+            autoComplete="username"
             disabled={loading}
           />
-          <span>{copy.remember}</span>
-        </label>
 
-        <SubmitButton loading={loading} loadingText={copy.submitting}>
-          {copy.submit}
-        </SubmitButton>
-      </form>
+          <FormField
+            {...form.fieldProps('password')}
+            type="password"
+            label={t.fields.password.label}
+            placeholder={t.fields.password.placeholder}
+            autoComplete="current-password"
+            revealLabels={{ show: t.showPassword, hide: t.hidePassword }}
+            disabled={loading}
+            extra={
+              <Link to="/forgot-password" className="auth-link">
+                {copy.forgot}
+              </Link>
+            }
+          />
+
+          <label className="check-field__label">
+            <input
+              type="checkbox"
+              checked={form.values.remember}
+              onChange={form.handleChange('remember')}
+              disabled={loading}
+            />
+            <span>{copy.remember}</span>
+          </label>
+
+          <SubmitButton loading={loading} loadingText={copy.submitting}>
+            {copy.submit}
+          </SubmitButton>
+        </form>
+      ) : accessForm.step === 'code' ? (
+        <form className="auth-form" noValidate onSubmit={handleAccessCodeSubmit}>
+          <FormField
+            id="ben-email"
+            label={language === 'vi' ? 'Email Người thụ hưởng' : 'Beneficiary Email'}
+            type="email"
+            value={accessForm.email}
+            onChange={(e) => setAccessForm((prev) => ({ ...prev, email: e.target.value }))}
+            placeholder="beneficiary@legacyvault.demo"
+            autoComplete="email"
+            disabled={loading}
+            required
+          />
+
+          <FormField
+            id="ben-code"
+            label={language === 'vi' ? 'Mã truy cập bàn giao' : 'Handover Access Code'}
+            value={accessForm.accessCode}
+            onChange={(e) => setAccessForm((prev) => ({ ...prev, accessCode: e.target.value }))}
+            placeholder="HC-20261022-XXXX-HANDOVER-SECURE"
+            hint={
+              language === 'vi'
+                ? 'Mã 24+ ký tự do Người thực thi (Executor) gửi cho bạn.'
+                : 'Access code provided by the case executor.'
+            }
+            disabled={loading}
+            required
+          />
+
+          <SubmitButton loading={loading} loadingText={language === 'vi' ? 'Đang xác thực...' : 'Verifying...'}>
+            {language === 'vi' ? 'Xác thực mã & Nhận OTP' : 'Verify Code & Send OTP'}
+          </SubmitButton>
+        </form>
+      ) : (
+        <form className="auth-form" noValidate onSubmit={handleOtpSubmit}>
+          <div style={{ background: 'var(--color-surface-hover, #f8fafc)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--color-border)', marginBottom: '14px' }}>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text)' }}>
+              {language === 'vi'
+                ? `Mã OTP xác thực đã được gửi đến thiết bị của ${accessForm.beneficiaryName || accessForm.email}.`
+                : `Verification OTP has been sent to ${accessForm.beneficiaryName || accessForm.email}.`}
+            </p>
+            <small style={{ color: 'var(--color-primary)', display: 'block', marginTop: '4px', fontWeight: 600 }}>
+              {language === 'vi' ? 'Mã test OTP: 482916' : 'Test OTP: 482916'}
+            </small>
+          </div>
+
+          <FormField
+            id="ben-otp"
+            label={language === 'vi' ? 'Nhập mã OTP 6 số' : 'Enter 6-digit OTP'}
+            value={accessForm.otpCode}
+            onChange={(e) => setAccessForm((prev) => ({ ...prev, otpCode: e.target.value }))}
+            placeholder="482916"
+            maxLength={6}
+            autoComplete="one-time-code"
+            hint={language === 'vi' ? 'Nhập mã gồm 6 chữ số' : 'Enter 6-digit code'}
+            disabled={loading}
+            required
+          />
+
+          <SubmitButton loading={loading} loadingText={language === 'vi' ? 'Đang xác thực OTP...' : 'Verifying OTP...'}>
+            {language === 'vi' ? 'Xác thực OTP & Mở di sản' : 'Verify OTP & Open Inheritance'}
+          </SubmitButton>
+
+          <button
+            type="button"
+            onClick={() => setAccessForm((prev) => ({ ...prev, step: 'code', otpCode: '' }))}
+            style={{ background: 'none', border: 'none', color: 'var(--color-primary)', marginTop: '10px', fontSize: '0.875rem', cursor: 'pointer', textAlign: 'center' }}
+          >
+            ← {language === 'vi' ? 'Quay lại nhập mã truy cập' : 'Back to Access Code'}
+          </button>
+        </form>
+      )}
 
       <p className="auth-switch">
         {copy.switchPrompt}{' '}

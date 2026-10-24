@@ -32,6 +32,10 @@ import AdminRolesPage from './pages/admin/AdminRolesPage.jsx'
 import AdminAuditPage from './pages/admin/AdminAuditPage.jsx'
 import AdminPoliciesPage from './pages/admin/AdminPoliciesPage.jsx'
 import AdminIntegrationsPage from './pages/admin/AdminIntegrationsPage.jsx'
+import VerifierQueuePage from './pages/verifier/VerifierQueuePage.jsx'
+import VerifierHistoryPage from './pages/verifier/VerifierHistoryPage.jsx'
+import VerifierSettingsPage from './pages/verifier/VerifierSettingsPage.jsx'
+import ExecutorSubmissionPage from './pages/verifier/ExecutorSubmissionPage.jsx'
 
 // All pages of the app.
 // Placeholder text lives in src/data/placeholderContent.js, keyed by `page`.
@@ -117,9 +121,19 @@ export default function App() {
           <Route index element={<BeneficiaryHandoversPage />} />
           <Route path="handover/:caseId" element={<BeneficiaryCasePage />} />
         </Route>
+        {/* Flow 5: Legal Verification. Every page inside needs the LEGAL_VERIFIER role. */}
         <Route
           path="/dashboard/verifier"
-          element={<RequireAuth allowedRoles={[ROLES.LEGAL_VERIFIER]}><RoleDashboardPage role={ROLES.LEGAL_VERIFIER} /></RequireAuth>}
+          element={<RequireAuth allowedRoles={[ROLES.LEGAL_VERIFIER]}><Outlet /></RequireAuth>}
+        >
+          <Route index element={<VerifierQueuePage />} />
+          <Route path="history" element={<VerifierHistoryPage />} />
+          <Route path="settings" element={<VerifierSettingsPage />} />
+          <Route path="submit-documents" element={<Navigate to="/dashboard/executor/submit-documents" replace />} />
+        </Route>
+        <Route
+          path="/dashboard/executor/submit-documents"
+          element={<RequireAuth allowedRoles={[ROLES.EXECUTOR, ROLES.ADMIN]}><ExecutorSubmissionPage /></RequireAuth>}
         />
 
         <Route path="*" element={<PlaceholderPage page="notFound" />} />

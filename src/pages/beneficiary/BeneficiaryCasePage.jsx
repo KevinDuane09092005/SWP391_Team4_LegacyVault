@@ -313,11 +313,11 @@ function AssetsPanel({ handover, user, t, onChange }) {
       <h2 id="assets-title" className="section-title"><Icon name="unlock" size={17} /> {c.assetsTitle}</h2>
       <p className="page-text">{c.assetsText}</p>
 
-      {handover.assets.length === 0 ? (
+      {(handover.assets?.length ?? 0) === 0 ? (
         <p className="handover-note">{c.noAssets}</p>
       ) : (
         <ul className="handover-assets">
-          {handover.assets.map((asset) => {
+          {(handover.assets || []).map((asset) => {
             const access = checkAssetAccess(user, handover, asset.id)
             const content = opened[asset.id]
             return (
@@ -332,9 +332,9 @@ function AssetsPanel({ handover, user, t, onChange }) {
                 {asset.description && <p className="page-text">{asset.description}</p>}
 
                 <p className="handover-asset__label">{c.documents}</p>
-                {asset.documents.length ? (
+                {(asset.documents?.length ?? 0) ? (
                   <ul className="file-list file-list--compact">
-                    {asset.documents.map((doc) => (
+                    {(asset.documents || []).map((doc) => (
                       <li key={doc.id} className="file-list__item">
                         <span className="file-list__name"><Icon name="fileText" size={15} /> {doc.name}</span>
                         <span className="file-list__size">{formatFileSize(doc.size)}</span>

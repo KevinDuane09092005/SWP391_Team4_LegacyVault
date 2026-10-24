@@ -1,0 +1,843 @@
+openapi: 3.0.3
+info:
+  title: LegacyVault - Asset Handover API (Flow 6)
+  description: >
+    API specification cho Flow 6 của LegacyVault: Asset Handover (Bàn giao Tài sản số).
+    Được đồng bộ chính xác với toàn bộ 10 màn hình UI Prototype:
+      1. `executor-handover-dashboard`: Dashboard tổng quan bàn giao của Executor (4 KPI metrics + Bảng case danh sách).
+      2. `handover-details`: Chi tiết bàn giao vụ việc (Thông tin 3 bên: Owner, Beneficiary, Legal Verifier + Bảng Authorized Collections & Assets).
+      3. `flow-6-beneficiary-notification`: Mẫu thông báo email/bảo mật gửi đến Người thụ hưởng.
+      4. `flow-6-beneficiary-login`: Cổng đăng nhập Beneficiary bằng Email và Access Code (`LV-1042-HANDOVER-SECURE`).
+      5. `flow-6-otp-kyc-verification` & `05 - Beneficiary Access`: Xác thực 2 bước (OTP 6 số + eKYC CCCD/quét khuôn mặt).
+      6. `flow-6-authorization-check`: Bước 3 đánh giá thẩm quyền (Access Authorization Evaluation checklist + Verdict bảng tài sản + Dispatch).
+      7. `flow-6-authorized-assets`: Trang danh mục di sản thừa kế của Beneficiary (`READY FOR HANDOVER` vs `PROBATE / RESTRICTED`).
+      8. `flow-6-asset-detail`: Chi tiết tài sản giải mã an toàn (Passphrase, hướng dẫn của Owner, Audit log mật mã, metadata, nút tải PDF).
+      9. `flow-6-confirm-received`: Bước 4 biên bản bàn giao điện tử (Formal Receipt & Acknowledgment, SHA-256 Trans-Hash).
+      10. `flow-6-handover-completed` & `05b - Beneficiary Access (Assets Released)`: Màn hình hoàn tất vụ việc (Deposition Trans-Receipt, tải chứng nhận).
+  version: "1.0.0"
+  contact:
+    name: LegacyVault Backend Team
+
+servers:
+  - url: https://api.legacyvault.io/v1
+    description: Production
+  - url: https://staging-api.legacyvault.io/v1
+    description: Staging
+
+tags:
+  - name: Handover - Executor Console
+    description: Quản trị tiến trình bàn giao dành cho Digital Executor
+  - name: Handover - Beneficiary Authentication & KYC
+    description: Cổng đăng nhập Access Code, xác thực OTP và quy trình eKYC
+  - name: Handover - Authorization Evaluation
+    description: Thẩm định quyền tiếp nhận tài sản và lệnh Dispatch
+  - name: Handover - Beneficiary Asset Access & Decryption
+    description: Danh mục tài sản được cấp phép, xem chi tiết và giải mã credentials
+  - name: Handover - Receipt & Completion
+    description: Ký biên bản bàn giao điện tử (Step 4) và hoàn tất vụ việc
+
+paths:
+  # =========================================================================
+  # 1. EXECUTOR CONSOLE (DASHBOARD & DETAILS)
+  # =========================================================================
+  /handover/executor/dashboard:
+    get:
+      tags: [Handover - Executor Console]
+      summary: Lấy dữ liệu tổng quan bàn giao (Asset Handover Administration Dashboard)
+      description: >
+        Tương ứng màn hình "executor-handover-dashboard" (UI Prototype):
+        Trả về 4 thẻ chỉ số KPI tổng hợp và danh sách bảng vụ việc bàn giao.
+      operationId: getExecutorHandoverDashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dữ liệu dashboard bàn giao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutorHandoverDashboardResponse'
+
+  /handover/cases/{caseId}/details:
+    get:
+      tags: [Handover - Executor Console]
+      summary: Xem chi tiết bàn giao hồ sơ vụ việc (Handover Details — LV-XXXX)
+      description: >
+        Tương ứng màn hình "handover-details" (UI Prototype):
+        Hiển thị tiêu đề vụ việc, trạng thái (`IN PROGRESS`), 3 thẻ tóm tắt đối tượng:
+          1. Vault Owner (Deceased/Inactive): Thanh Pham (thanh.pham@vault-owner.com)
+          2. Primary Beneficiary: Linh Pham (linh.pham@beneficiary.com)
+          3. Legal Verification: APPROVED - Certified Court Order Verified
+        Và bảng danh sách tài sản: "Authorized Collections & Assets".
+      operationId: getHandoverDetails
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "LV-1042"
+      responses:
+        '200':
+          description: Chi tiết hồ sơ bàn giao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoverDetailsResponse'
+
+  /handover/cases/{caseId}/start-release:
+    post:
+      tags: [Handover - Executor Console]
+      summary: Kích hoạt khởi động phát hành bàn giao (Start Handover Release)
+      description: >
+        Tương ứng nút màu xanh lá "Start Handover Release" trên màn hình "handover-details".
+        Chỉ thực hiện được khi Legal Verification đã có trạng thái `APPROVED`.
+        Hệ thống tạo mã `Secure Handover Access Code` (vd: LV-1042-HANDOVER-SECURE)
+        và gửi thông báo bảo mật đến Beneficiary (Email/SMS).
+      operationId: startHandoverRelease
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Khởi động bàn giao thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartReleaseResponse'
+
+  # =========================================================================
+  # 2. BENEFICIARY PORTAL AUTHENTICATION & KYC
+  # =========================================================================
+  /handover/beneficiary/portal-context:
+    get:
+      tags: [Handover - Beneficiary Authentication & KYC]
+      summary: Lấy ngữ cảnh vụ việc hiển thị trên Cổng Beneficiary (Active Release Context)
+      operationId: getBeneficiaryPortalContext
+      parameters:
+        - name: case_ref
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "LV-1042"
+      responses:
+        '200':
+          description: Ngữ cảnh vụ việc bàn giao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryPortalContextResponse'
+
+  /handover/beneficiary/login-with-code:
+    post:
+      tags: [Handover - Beneficiary Authentication & KYC]
+      summary: Beneficiary đăng nhập bằng Email và Secure Handover Access Code
+      description: >
+        Tương ứng form "Access Handover" trên màn hình "flow-6-beneficiary-login":
+        Người thụ hưởng nhập Email và Access Code (vd: LV-1042-HANDOVER-SECURE).
+      operationId: beneficiaryLoginWithCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - access_code
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "linh.pham@beneficiary.com"
+                access_code:
+                  type: string
+                  example: "LV-1042-HANDOVER-SECURE"
+      responses:
+        '200':
+          description: Đăng nhập bước 1 thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryLoginSuccessResponse'
+
+  /handover/beneficiary/verify-otp:
+    post:
+      tags: [Handover - Beneficiary Authentication & KYC]
+      summary: Xác minh mã OTP 6 chữ số (Multi-Factor OTP Code / Verify Identity)
+      description: >
+        Tương ứng màn hình "flow-6-otp-kyc-verification" và màn hình "05 - Beneficiary Access":
+        Nhập 6 chữ số OTP (gửi qua điện thoại hoặc email).
+      operationId: verifyBeneficiaryOtp
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - otp_code
+              properties:
+                otp_code:
+                  type: string
+                  example: "482916"
+      responses:
+        '200':
+          description: Xác minh OTP thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  otp_verified:
+                    type: boolean
+                    example: true
+                  access_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1Ni..."
+
+  /handover/beneficiary/kyc-status:
+    get:
+      tags: [Handover - Beneficiary Authentication & KYC]
+      summary: Lấy tiến độ xác thực danh tính KYC (Identity Verification Checklist)
+      operationId: getBeneficiaryKycStatus
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Trạng thái quy trình KYC
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycStatusResponse'
+
+  # =========================================================================
+  # 3. AUTHORIZATION EVALUATION (STEP 3)
+  # =========================================================================
+  /handover/cases/{caseId}/authorization-evaluation:
+    get:
+      tags: [Handover - Authorization Evaluation]
+      summary: Đánh giá thẩm quyền truy cập tài sản (Step 3: Access Authorization Evaluation)
+      description: >
+        Tương ứng màn hình "flow-6-authorization-check":
+        Hiển thị 3 mục checklist, bảng danh mục tài sản phân loại verdict (AUTHORIZED FOR RELEASE vs LOCKED / RESTRICTED),
+        và khối Execution Control (Clearance Granted, Authorized by Minh Le).
+      operationId: getAuthorizationEvaluation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "LV-1042"
+      responses:
+        '200':
+          description: Kết quả đánh giá thẩm quyền bàn giao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationEvaluationResponse'
+
+  /handover/cases/{caseId}/dispatch:
+    post:
+      tags: [Handover - Authorization Evaluation]
+      summary: Kích hoạt bàn giao giải mã tài sản (Dispatch Secure Assets Handover)
+      description: >
+        Tương ứng nút màu xanh "Dispatch Secure Assets Handover" trên màn hình Screen 6.
+        Mở quyền cho Beneficiary truy cập vào màn hình "flow-6-authorized-assets".
+      operationId: dispatchSecureHandover
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "LV-1042"
+      responses:
+        '200':
+          description: Bàn giao tài sản thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  case_number:
+                    type: string
+                    example: "LV-1042"
+                  status:
+                    type: string
+                    example: "RELEASED"
+
+  # =========================================================================
+  # 4. BENEFICIARY ASSET ACCESS & DECRYPTION (SCREENS 7 & 8)
+  # =========================================================================
+  /handover/beneficiary/authorized-assets:
+    get:
+      tags: [Handover - Beneficiary Asset Access & Decryption]
+      summary: Lấy danh sách tài sản di sản được phân quyền (Authorized Inheritance Assets)
+      description: >
+        Tương ứng màn hình "flow-6-authorized-assets" (UI Prototype Screen 7):
+        Hiển thị:
+          - Lời chào: "Welcome, Linh Pham"
+          - Bảng "READY FOR HANDOVER (2)": Primary Vault Ledger Key, Family Inheritance Instructions.pdf
+          - Bảng "PROBATE / RESTRICTED (1)": Real Estate Deeds & Trust Assets (Locked)
+          - Nút điều hướng "Go to Handover Acknowledgement"
+      operationId: getAuthorizedInheritanceAssets
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Danh sách di sản thừa kế phân loại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizedInheritanceAssetsResponse'
+
+  /handover/beneficiary/assets/{assetId}/detail:
+    get:
+      tags: [Handover - Beneficiary Asset Access & Decryption]
+      summary: Xem chi tiết và giải mã tài sản (Primary Vault Ledger Key Detail)
+      description: >
+        Tương ứng màn hình "flow-6-asset-detail" (UI Prototype Screen 8):
+        Hiển thị:
+          - Card hướng dẫn của Vault Owner: "Secure Access Instructions" (Thanh Pham, Written Nov 12, 2025)
+          - Card dữ liệu giải mã: "Decrypted Credential Data" (Secure Ledger Passphrase: autumn · harbor... và URL truy cập)
+          - Card nhật ký bảo mật: "Cryptographic Integrity Audit Log"
+          - Sidebar Metadata: Asset ID (ASSET-1042-A), Former Custodian, Authorized Recipient
+          - 2 Nút: "Download Recovery Credential PDF" và "Acknowledge Receipt for This Item"
+      operationId: getDecryptedAssetDetail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "ASSET-1042-A"
+      responses:
+        '200':
+          description: Dữ liệu tài sản giải mã an toàn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecryptedAssetDetailResponse'
+
+  /handover/beneficiary/assets/{assetId}/acknowledge:
+    post:
+      tags: [Handover - Beneficiary Asset Access & Decryption]
+      summary: Đánh dấu đã tiếp nhận một tài sản riêng lẻ (Acknowledge Receipt for This Item)
+      operationId: acknowledgeIndividualAsset
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã ghi nhận tiếp nhận tài sản này
+
+  # =========================================================================
+  # 5. FORMAL RECEIPT & COMPLETION (SCREENS 9 & 10)
+  # =========================================================================
+  /handover/beneficiary/acknowledgement-summary:
+    get:
+      tags: [Handover - Receipt & Completion]
+      summary: Lấy dữ liệu lập biên bản bàn giao (Step 4: Formal Receipt & Acknowledgment)
+      description: >
+        Tương ứng màn hình "flow-6-confirm-received" (UI Prototype Screen 9):
+        Hiển thị danh sách tệp di sản đã giải mã (Primary Vault Ledger Key, Family Inheritance Instructions),
+        chữ ký mã băm lưu ký: "STATE CUSTODY TRANS-HASH: SHA-256: 0a7f4e8...72bd",
+        và nút "Confirm Received & Close Case".
+      operationId: getAcknowledgementSummary
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tóm tắt biên bản bàn giao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormalAcknowledgementSummaryResponse'
+
+  /handover/beneficiary/confirm-received:
+    post:
+      tags: [Handover - Receipt & Completion]
+      summary: Ký xác nhận đã nhận di sản & đóng vụ việc (Confirm Received & Close Case)
+      description: >
+        Tương ứng nút bấm "Confirm Received & Close Case" trên màn hình Screen 9
+        hoặc nút "Confirm Received" trên màn hình Screen 05b.
+        Chuyển trạng thái vụ việc sang `COMPLETED`, ghi nhận bằng chứng băm điện tử.
+      operationId: confirmReceivedAndCloseCase
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accept_digital_estate_custody
+              properties:
+                accept_digital_estate_custody:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Xác nhận hoàn tất thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoverCompletedResponse'
+
+  /handover/cases/{caseId}/completion-receipt:
+    get:
+      tags: [Handover - Receipt & Completion]
+      summary: Lấy chứng nhận bàn giao di chúc số hoàn tất (Asset Handover Successful Receipt)
+      description: >
+        Tương ứng màn hình "flow-6-handover-completed" (UI Prototype Screen 10):
+        Hiển thị hộp "ESTATE DEPOSITION TRANS-RECEIPT" (Deceased Owner: Thanh Pham, Beneficiary: Linh Pham,
+        Executor: Minh Le, Finalization Date: Oct 25, 2026 — 14:54:12 EST) và nút tải chứng chỉ.
+      operationId: getCompletionReceipt
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "LV-1042"
+      responses:
+        '200':
+          description: Chứng chỉ biên lai bàn giao hoàn tất
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoverCompletedResponse'
+
+# =========================================================================
+# SCHEMAS & COMPONENTS
+# =========================================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ExecutorHandoverDashboardResponse:
+      type: object
+      properties:
+        metrics:
+          type: object
+          properties:
+            total_handover_cases:
+              type: integer
+              example: 8
+            pending_approval:
+              type: integer
+              example: 2
+            in_progress:
+              type: integer
+              example: 1
+            completed_releases:
+              type: integer
+              example: 5
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/HandoverCaseTableRow'
+
+    HandoverCaseTableRow:
+      type: object
+      properties:
+        case_id:
+          type: string
+          example: "c1042"
+        case_number:
+          type: string
+          example: "LV-1042"
+        vault_owner:
+          type: string
+          example: "Thanh Pham"
+        beneficiary:
+          type: string
+          example: "Linh Pham"
+        legal_verification_status:
+          type: string
+          example: "APPROVED"
+        handover_status:
+          type: string
+          example: "IN PROGRESS"
+        updated_date:
+          type: string
+          example: "Oct 24, 2026"
+        action:
+          type: string
+          example: "MANAGE_HANDOVER"
+
+    HandoverDetailsResponse:
+      type: object
+      properties:
+        case_number:
+          type: string
+          example: "LV-1042"
+        handover_status:
+          type: string
+          example: "IN PROGRESS"
+        vault_owner:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Thanh Pham"
+            email:
+              type: string
+              example: "thanh.pham@vault-owner.com"
+            status:
+              type: string
+              example: "DECEASED/INACTIVE"
+        primary_beneficiary:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Linh Pham"
+            email:
+              type: string
+              example: "linh.pham@beneficiary.com"
+        legal_verification:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "APPROVED"
+            verification_note:
+              type: string
+              example: "Certified Court Order Verified"
+        authorized_assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/HandoverAssetItem'
+
+    HandoverAssetItem:
+      type: object
+      properties:
+        asset_name:
+          type: string
+          example: "Family Inheritance Instructions.pdf"
+        category:
+          type: string
+          example: "Documents"
+        handover_protocol:
+          type: string
+          example: "Automatic Release"
+        release_status:
+          type: string
+          example: "AUTHORIZED & LOCKED"
+
+    StartReleaseResponse:
+      type: object
+      properties:
+        case_number:
+          type: string
+          example: "LV-1042"
+        handover_status:
+          type: string
+          example: "IN PROGRESS"
+        access_code:
+          type: string
+          example: "LV-1042-HANDOVER-SECURE"
+        notification_sent_to:
+          type: string
+          example: "linh.pham@beneficiary.com"
+
+    BeneficiaryPortalContextResponse:
+      type: object
+      properties:
+        case_reference:
+          type: string
+          example: "LV-1042"
+        deceased_owner:
+          type: string
+          example: "Thanh Pham"
+        authorized_beneficiary:
+          type: string
+          example: "Linh Pham"
+
+    BeneficiaryLoginSuccessResponse:
+      type: object
+      properties:
+        claim_session_token:
+          type: string
+        beneficiary_name:
+          type: string
+          example: "Linh Pham"
+        masked_phone_number:
+          type: string
+          example: "+1 (555) **** 882"
+        requires_otp:
+          type: boolean
+          example: true
+
+    KycStatusResponse:
+      type: object
+      properties:
+        government_photo_id_status:
+          type: string
+          example: "VERIFIED"
+        biometric_facial_verification_status:
+          type: string
+          example: "PENDING_SCAN"
+
+    AuthorizationEvaluationResponse:
+      type: object
+      properties:
+        evaluation_status:
+          type: string
+          example: "EVALUATING"
+        banner_notice:
+          type: string
+          example: "Identity verification checks successfully concluded. Evaluating legal releases in accordance with the last will of Thanh Pham and validated court orders. Locked/probate-bound assets must remain restricted."
+        checklist:
+          type: object
+          properties:
+            beneficiary_identity_verified:
+              type: string
+              example: "VERIFIED"
+            certified_court_release_orders_verified:
+              type: string
+              example: "APPROVED"
+            cryptographic_handover_key_matching:
+              type: string
+              example: "VERIFIED"
+        authorization_results_summary:
+          type: string
+          example: "The system has determined that 2 of 3 listed legacy collections are legally cleared for instant handover release to Linh Pham."
+        authorization_results:
+          type: array
+          items:
+            type: object
+            properties:
+              asset_collection:
+                type: string
+                example: "Primary Vault Ledger Key"
+              type:
+                type: string
+                example: "Credentials"
+              verdict:
+                type: string
+                example: "AUTHORIZED FOR RELEASE"
+        execution_control:
+          type: object
+          properties:
+            clearance_status:
+              type: string
+              example: "Clearance Granted"
+            authorized_by:
+              type: string
+              example: "Minh Le (Executor)"
+            release_case:
+              type: string
+              example: "LV-1042"
+            beneficiary:
+              type: string
+              example: "Linh Pham"
+
+    AuthorizedInheritanceAssetsResponse:
+      type: object
+      properties:
+        welcome_user:
+          type: string
+          example: "Linh Pham"
+        estate_owner:
+          type: string
+          example: "Thanh Pham"
+        case_id:
+          type: string
+          example: "LV-1042"
+        ready_for_handover:
+          type: array
+          items:
+            type: object
+            properties:
+              asset_id:
+                type: string
+                example: "ASSET-1042-A"
+              name:
+                type: string
+                example: "Primary Vault Ledger Key"
+              category:
+                type: string
+                example: "Credentials"
+              release_protocols:
+                type: string
+                example: "Instant Release Approved"
+              handover_state:
+                type: string
+                example: "AUTHORIZED"
+              action_type:
+                type: string
+                enum: [DECRYPT_AND_ACCESS, VIEW_DOCUMENT]
+                example: "DECRYPT_AND_ACCESS"
+        probate_restricted:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "Real Estate Deeds & Trust Assets"
+              category:
+                type: string
+                example: "Property Deeds"
+              reason_for_restriction:
+                type: string
+                example: "Probate Clearance Pending"
+              status:
+                type: string
+                example: "LOCKED"
+              is_accessible:
+                type: boolean
+                example: false
+
+    DecryptedAssetDetailResponse:
+      type: object
+      properties:
+        asset_id:
+          type: string
+          example: "ASSET-1042-A"
+        asset_name:
+          type: string
+          example: "Primary Vault Ledger Key"
+        vault_subtitle:
+          type: string
+          example: "Legacy Digital Credential Vault"
+        security_badge:
+          type: string
+          example: "VERIFIED SECURE"
+        secure_access_instructions:
+          type: object
+          properties:
+            quote:
+              type: string
+              example: "This cold storage recovery key controls the secondary backup multi-sig wallet for estate inheritance assets. Keep this private key strictly secure. Do not share, photocopy, or upload to public cloud providers."
+            author:
+              type: string
+              example: "Thanh Pham, Written Nov 12, 2025"
+        decrypted_credential_data:
+          type: object
+          properties:
+            label:
+              type: string
+              example: "Secure Ledger Passphrase"
+            passphrase:
+              type: string
+              example: "autumn · harbor · classic · secure · vault · inheritance · legacy"
+            access_url:
+              type: string
+              example: "https://secure-ledger.legacyvault.com/hardware-024"
+        cryptographic_integrity_audit_log:
+          type: array
+          items:
+            type: string
+            example: "Court order validated against Department of Justice Database — Approved Oct 24, 2026"
+        handover_metadata:
+          type: object
+          properties:
+            case_id:
+              type: string
+              example: "LV-1042"
+            former_custodian:
+              type: string
+              example: "Thanh Pham"
+            authorized_recipient:
+              type: string
+              example: "Linh Pham"
+        download_recovery_credential_pdf_url:
+          type: string
+          example: "https://vault-storage.legacyvault.io/cases/LV-1042/credential_backup.pdf?token=..."
+
+    FormalAcknowledgementSummaryResponse:
+      type: object
+      properties:
+        case_id:
+          type: string
+          example: "LV-1042"
+        step_title:
+          type: string
+          example: "Step 4: Formal Receipt & Acknowledgment"
+        status_badge:
+          type: string
+          example: "PENDING SIGNATURE"
+        released_assets:
+          type: array
+          items:
+            type: object
+            properties:
+              asset_name:
+                type: string
+                example: "Primary Vault Ledger Key"
+              type_label:
+                type: string
+                example: "Hardware Wallet Credential Hash"
+              status:
+                type: string
+                example: "VERIFIED"
+        state_custody_trans_hash:
+          type: string
+          example: "SHA-256: 0a7f4e8b39c...72bd"
+
+    HandoverCompletedResponse:
+      type: object
+      properties:
+        case_id:
+          type: string
+          example: "LV-1042"
+        status:
+          type: string
+          example: "COMPLETED"
+        title:
+          type: string
+          example: "Asset Handover Successful"
+        subtitle:
+          type: string
+          example: "All legal digital inheritance files for Case LV-1042 have been successfully verified, released, and receipted by the beneficiary."
+        estate_deposition_trans_receipt:
+          type: object
+          properties:
+            deceased_owner:
+              type: string
+              example: "Thanh Pham"
+            beneficiary_recipient:
+              type: string
+              example: "Linh Pham"
+            executor_legal_rep:
+              type: string
+              example: "Minh Le"
+            finalization_date:
+              type: string
+              example: "Oct 25, 2026 — 14:54:12 EST"
+        download_receipt_certificate_url:
+          type: string
+          example: "https://vault-storage.legacyvault.io/receipts/RC-LV-1042-FINAL.pdf?token=..."

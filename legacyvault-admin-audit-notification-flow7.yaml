@@ -1,0 +1,483 @@
+openapi: 3.0.3
+info:
+  title: LegacyVault - Notification, Audit & Administration API (Flow 7)
+  description: >
+    API specification cho Flow 7 của LegacyVault: Notification, Audit & Administration.
+    Được đồng bộ chính xác với toàn bộ 4 màn hình UI Prototype:
+      1. `F7-A — Notification Center`: Trung tâm thông báo đa trạng thái (Approved, Pending, Verified, New, Info) + Nút "Mark all as read".
+      2. `F7-B — Notification Detail`: Chi tiết thông báo, bảng siêu dữ liệu sự kiện (Event Metadata: Case ID, Event Type, Authority) và dòng thời gian hoạt động (Related Activity Timeline).
+      3. `F7-C — Audit Log`: Bảng nhật ký kiểm toán hệ thống (Time, User, Action, Target, Status, IP Address), bộ lọc (Search, Date Range, All Roles, All Actions) và nút Export CSV.
+      4. `F7-D — Administration Dashboard`: Bảng điều khiển quản trị toàn diện:
+         - 4 Thẻ KPI: Total Users (24), Pending Requests (3), Notifications Sent (156), Audit Events (1,247).
+         - User Management: Danh sách người dùng, vai trò và trạng thái (ACTIVE / PENDING).
+         - Access Requests Queue: Hàng đợi phê duyệt quyền truy cập (Approve / Reject).
+         - Roles & Permissions: Tóm tắt phân bổ vai trò (Admin, Owner, Executor, Verifier).
+         - System Settings: Cấu hình an ninh, mã hóa (Encryption Keys/KMS), sao lưu (Backup & Recovery) và API Configuration.
+  version: "1.0.0"
+  contact:
+    name: LegacyVault Backend Team
+
+servers:
+  - url: https://api.legacyvault.io/v1
+    description: Production
+  - url: https://staging-api.legacyvault.io/v1
+    description: Staging
+
+tags:
+  - name: F7-A/B: Notification Service
+    description: Trung tâm thông báo và xem chi tiết tiến trình sự kiện (Screens F7-A & F7-B)
+  - name: F7-C: Audit Log Service
+    description: Nhật ký kiểm toán bảo mật, lọc đa tiêu chí và xuất CSV (Screen F7-C)
+  - name: F7-D: Administration Dashboard
+    description: Quản trị người dùng, phê duyệt yêu cầu cấp quyền và cấu hình hệ thống (Screen F7-D)
+
+paths:
+  # =========================================================================
+  # 1. NOTIFICATION CENTER & NOTIFICATION DETAIL (F7-A & F7-B)
+  # =========================================================================
+  /notifications:
+    get:
+      tags: [F7-A/B: Notification Service]
+      summary: Lấy danh sách thông báo tại Trung tâm thông báo (Notification Center)
+      description: >
+        Tương ứng màn hình "F7-A — Notification Center" (UI Prototype):
+        Hiển thị danh sách thông báo với icon, tiêu đề, tóm tắt nội dung, thời gian định dạng và huy hiệu trạng thái:
+          - Legal Verification Approved (Approved - xanh lá)
+          - Asset Handover Available (Pending - cam)
+          - Check-in Completed (Verified - xanh lá)
+          - New Review Request (New - xanh dương)
+          - Access Permission Granted (Info - xám)
+      operationId: getNotificationCenterList
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Danh sách thông báo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationCenterListResponse'
+
+  /notifications/mark-all-read:
+    post:
+      tags: [F7-A/B: Notification Service]
+      summary: Đánh dấu tất cả thông báo là đã đọc (Mark all as read)
+      description: Tương ứng liên kết "✓ Mark all as read" góc phải màn hình F7-A.
+      operationId: markAllAsRead
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Đã đánh dấu tất cả là đã đọc thành công
+
+  /notifications/{notificationId}:
+    get:
+      tags: [F7-A/B: Notification Service]
+      summary: Xem chi tiết thông báo (Notification Detail)
+      description: >
+        Tương ứng màn hình "F7-B — Notification Detail" (UI Prototype):
+        Hiển thị tiêu đề thông báo, banner hành động (Action Required / Details),
+        bảng thuộc tính siêu dữ liệu (Case ID, Related User, Event Time, Event Type, Authority),
+        và dòng thời gian các hoạt động liên quan (Related Activity Timeline).
+      operationId: getNotificationDetail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "notif-1042-approved"
+      responses:
+        '200':
+          description: Chi tiết thông báo và timeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationDetailResponse'
+
+  # =========================================================================
+  # 2. AUDIT LOG SERVICE (F7-C)
+  # =========================================================================
+  /admin/audit-logs:
+    get:
+      tags: [F7-C: Audit Log Service]
+      summary: Tra cứu nhật ký kiểm toán hệ thống (Audit Log Table)
+      description: >
+        Tương ứng màn hình "F7-C — Audit Log" (UI Prototype):
+        Hỗ trợ tìm kiếm từ khóa ("Search logs..."), lọc theo khoảng ngày (Date Range),
+        lọc theo vai trò (All Roles ▾) và hành động (All Actions ▾).
+        Hiển thị các cột: TIME, USER, ACTION, TARGET, STATUS, IP ADDRESS.
+      operationId: searchAuditLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            example: "LV-1042"
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [ALL, VAULT_OWNER, DIGITAL_EXECUTOR, LEGAL_VERIFIER, BENEFICIARY, ADMIN, SYSTEM]
+            default: ALL
+        - name: action
+          in: query
+          schema:
+            type: string
+            enum: [ALL, APPROVE_LEGAL_VERIFICATION, DMS_CHECK_IN, VERIFY_OTP, VIEW_ASSET, SUBMIT_REVIEW_REQUEST, EXECUTE_SCHEDULED_JOB]
+            default: ALL
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 6
+      responses:
+        '200':
+          description: Bảng kết quả audit logs và phân trang
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogTableResponse'
+
+  /admin/audit-logs/export-csv:
+    get:
+      tags: [F7-C: Audit Log Service]
+      summary: Xuất tệp tin nhật ký kiểm toán CSV (Export CSV)
+      description: Tương ứng nút bấm "Export CSV" góc trên bên phải màn hình F7-C.
+      operationId: exportAuditLogsCsv
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from_date
+          in: query
+          schema:
+            type: string
+        - name: to_date
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tệp CSV tải xuống
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+
+  # =========================================================================
+  # 3. ADMINISTRATION DASHBOARD & ACCESS REQUESTS (F7-D)
+  # =========================================================================
+  /admin/dashboard:
+    get:
+      tags: [F7-D: Administration Dashboard]
+      summary: Lấy dữ liệu tổng thể Bảng điều khiển Quản trị (Administration Dashboard)
+      description: >
+        Tương ứng màn hình "F7-D — Administration Dashboard" (UI Prototype):
+        Trả về 4 chỉ số KPI, danh sách User Management tóm tắt, hàng đợi Access Requests,
+        tổng hợp Roles & Permissions, và thông tin các module System Settings.
+      operationId: getAdminDashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dữ liệu dashboard quản trị
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDashboardResponse'
+
+  /admin/access-requests/{requestId}/approve:
+    post:
+      tags: [F7-D: Administration Dashboard]
+      summary: Phê duyệt yêu cầu cấp quyền truy cập (Access Request Approve)
+      description: >
+        Tương ứng nút bấm "Approve" màu xanh trong khối "Access Requests" trên màn hình F7-D
+        (vd: Cấp quyền Legal Executor cho Anthony Walker trên Case #LV-1042).
+      operationId: approveAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Phê duyệt yêu cầu thành công
+
+  /admin/access-requests/{requestId}/reject:
+    post:
+      tags: [F7-D: Administration Dashboard]
+      summary: Từ chối yêu cầu cấp quyền truy cập (Access Request Reject)
+      description: Tương ứng nút bấm "Reject" màu đỏ trong khối "Access Requests".
+      operationId: rejectAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Từ chối yêu cầu thành công
+
+# =========================================================================
+# SCHEMAS & COMPONENTS
+# =========================================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    NotificationCenterItem:
+      type: object
+      properties:
+        notification_id:
+          type: string
+          example: "notif-001"
+        title:
+          type: string
+          example: "Legal Verification Approved"
+        subtext:
+          type: string
+          example: "Legal verification for Case #LV-1042 has been approved by the legal verifier."
+        timestamp_formatted:
+          type: string
+          example: "24 Sep 2026, 11:45 AM"
+        badge_label:
+          type: string
+          enum: [Approved, Pending, Verified, New, Info]
+          example: "Approved"
+        is_read:
+          type: boolean
+          example: false
+
+    NotificationCenterListResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationCenterItem'
+        unread_count:
+          type: integer
+          example: 2
+
+    NotificationDetailResponse:
+      type: object
+      properties:
+        notification_id:
+          type: string
+          example: "notif-1042-approved"
+        title:
+          type: string
+          example: "Legal Verification Approved"
+        badge_label:
+          type: string
+          example: "Approved"
+        action_required_details:
+          type: string
+          example: "The legal verification for Case #LV-1042 has been reviewed and approved by the legal verification team. All documentation has been verified and the case has been moved to Release & Delivery stage for processing."
+        event_metadata:
+          type: object
+          properties:
+            case_id:
+              type: string
+              example: "Case #LV-1042"
+            related_user:
+              type: string
+              example: "Thanh Pham"
+            event_time:
+              type: string
+              example: "24 Sep 2026, 11:45 AM"
+            event_type:
+              type: string
+              example: "Legal Verification"
+            authority:
+              type: string
+              example: "Attorney Notary"
+        related_activity_timeline:
+          type: array
+          items:
+            type: object
+            properties:
+              stage_title:
+                type: string
+                example: "Legal Verification Approved"
+              description:
+                type: string
+                example: "Verification request submitted with death certificate document reviewed & approved"
+              timestamp_formatted:
+                type: string
+                example: "24 Sep 2026, 11:45 AM"
+
+    AuditLogRow:
+      type: object
+      properties:
+        time_formatted:
+          type: string
+          example: "24 Sep 2026 11:45"
+        user:
+          type: string
+          example: "Alex Mercier"
+        action:
+          type: string
+          example: "Approve Legal Verification"
+        target:
+          type: string
+          example: "Case #LV-1042"
+        status:
+          type: string
+          enum: [SUCCESS, PENDING, FAILED]
+          example: "SUCCESS"
+        ip_address:
+          type: string
+          example: "192.168.1.42"
+
+    AuditLogTableResponse:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogRow'
+        pagination:
+          type: object
+          properties:
+            total_elements:
+              type: integer
+              example: 142
+            current_page:
+              type: integer
+              example: 1
+            total_pages:
+              type: integer
+              example: 24
+            display_range:
+              type: string
+              example: "Showing 1-6 of 142 audit logs"
+
+    AdminDashboardResponse:
+      type: object
+      properties:
+        kpi_metrics:
+          type: object
+          properties:
+            total_users:
+              type: integer
+              example: 24
+            total_users_change:
+              type: string
+              example: "+2% vs last month"
+            pending_requests:
+              type: integer
+              example: 3
+            pending_requests_urgency:
+              type: string
+              example: "5% urgency rate"
+            notifications_sent:
+              type: integer
+              example: 156
+            notifications_sent_change:
+              type: string
+              example: "+12% vs last month"
+            audit_events:
+              type: integer
+              example: 1247
+            audit_events_change:
+              type: string
+              example: "+8% vs last month"
+        user_management_preview:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "Thanh Pham"
+              role:
+                type: string
+                example: "vault_owner"
+              status:
+                type: string
+                enum: [ACTIVE, PENDING, SUSPENDED]
+                example: "ACTIVE"
+              created_date_formatted:
+                type: string
+                example: "24 Sep 2026"
+        access_requests_queue:
+          type: array
+          items:
+            type: object
+            properties:
+              request_id:
+                type: string
+                example: "req-01"
+              requester_name:
+                type: string
+                example: "Anthony Walker"
+              requested_role_or_purpose:
+                type: string
+                example: "Legal Executor, Case #LV-1042"
+        roles_and_permissions_summary:
+          type: array
+          items:
+            type: object
+            properties:
+              role_name:
+                type: string
+                example: "Owner"
+              description:
+                type: string
+                example: "Vault asset management, assignments"
+              user_count:
+                type: integer
+                example: 14
+        system_settings_modules:
+          type: array
+          items:
+            type: object
+            properties:
+              module_name:
+                type: string
+                example: "Security Settings"
+              summary:
+                type: string
+                example: "Two-factor auth, session timeout, IP restrictions"

@@ -66,13 +66,13 @@ export default function BeneficiaryHandoversPage() {
                       <div>
                         <dt>{t.vault}</dt>
                         <dd>
-                          {handover.vault.name}
-                          <small>{t.owner}: {handover.vault.ownerName}</small>
+                          {handover.vault?.name || '—'}
+                          <small>{t.owner}: {handover.vault?.ownerName || handover.vault?.owner?.name || '—'}</small>
                         </dd>
                       </div>
                       <div>
                         <dt>{t.assets}</dt>
-                        <dd>{handover.assets.length}</dd>
+                        <dd>{handover.assets?.length ?? 0}</dd>
                       </div>
                     </dl>
                     <footer className="handover-card__actions">

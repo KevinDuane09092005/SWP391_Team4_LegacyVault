@@ -46,17 +46,27 @@ export async function getDmsStatusApi() {
 }
 
 // 2. CÀI ĐẶT / CẬP NHẬT CẤU HÌNH DMS: POST /api/v1/dms/config
-export async function saveDmsConfigApi({ checkInIntervalDays, gracePeriodDays }) {
+export async function saveDmsConfigApi({
+  checkInIntervalSeconds,
+  gracePeriodSeconds,
+  checkInIntervalDays,
+  gracePeriodDays,
+}) {
   const headers = getAuthHeader()
   const baseUrl = getBaseUrl()
   const endpoint = `${baseUrl}/api/v1/dms/config`
+
+  const interval = checkInIntervalSeconds ?? checkInIntervalDays
+  const grace = gracePeriodSeconds ?? gracePeriodDays
 
   const response = await fetch(endpoint, {
     method: 'POST',
     headers,
     body: JSON.stringify({
-      checkInIntervalDays: Number(checkInIntervalDays),
-      gracePeriodDays: Number(gracePeriodDays),
+      checkInIntervalSeconds: Number(interval),
+      gracePeriodSeconds: Number(grace),
+      checkInIntervalDays: Number(interval),
+      gracePeriodDays: Number(grace),
     }),
   })
 
