@@ -17,13 +17,36 @@ export { IS_DEMO_MODE, isDemoMode }
 // Helper adapter for converting YAML DTOs to UI case format
 function adaptHandoverRow(row) {
   if (!row) return row
-  const bName =
-    typeof row.beneficiary === 'string'
-      ? row.beneficiary
-      : row.beneficiary?.name || 'Beneficiary'
-  const bEmail =
-    row.beneficiary?.email ||
-    `${bName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@legacyvault.demo`
+
+  // Handle beneficiaries list
+  let beneficiaries = []
+  if (Array.isArray(row.beneficiaries) && row.beneficiaries.length > 0) {
+    beneficiaries = row.beneficiaries.map((b) => ({
+      name: b.name || 'Beneficiary',
+      email: b.email || '',
+    }))
+  } else if (row.beneficiary && typeof row.beneficiary === 'object') {
+    beneficiaries = [{
+      name: row.beneficiary.name || 'Beneficiary',
+      email: row.beneficiary.email || row.beneficiary_email || '',
+    }]
+  } else if (typeof row.beneficiary === 'string') {
+    const names = row.beneficiary.split(',').map((s) => s.trim()).filter(Boolean)
+    const emails = (row.beneficiary_email || '').split(',').map((s) => s.trim()).filter(Boolean)
+    beneficiaries = names.map((name, idx) => ({
+      name,
+      email: emails[idx] || (emails.length === 1 ? emails[0] : (row.beneficiary_email || '')),
+    }))
+  }
+
+  if (beneficiaries.length === 0) {
+    beneficiaries = [{
+      name: 'Beneficiary',
+      email: row.beneficiary_email || '',
+    }]
+  }
+
+  const primaryBeneficiary = beneficiaries[0]
   const oName =
     typeof row.vault_owner === 'string'
       ? row.vault_owner
@@ -31,6 +54,7 @@ function adaptHandoverRow(row) {
 
   let status = row.handover_status || row.status || 'PENDING_LEGAL_APPROVAL'
   if (status === 'IN PROGRESS') status = 'HANDOVER_INITIATED'
+  if (status === 'PENDING APPROVAL') status = 'PENDING_LEGAL_APPROVAL'
 
   let legalStatus = row.legal_verification_status || row.legalStatus || 'PENDING'
 
@@ -44,10 +68,8 @@ function adaptHandoverRow(row) {
       ownerName: oName,
     },
     vault_owner: oName,
-    beneficiary: {
-      name: bName,
-      email: bEmail,
-    },
+    beneficiary: primaryBeneficiary,
+    beneficiaries,
     status,
     legalStatus,
     legalCaseId: row.legal_case_id || row.legalCaseId || row.case_number || row.case_id || '—',
@@ -446,9 +468,9 @@ export const getBeneficiaryCase = async (user, caseId) => {
         try {
           const detail = await getDecryptedAssetDetailApi(assetId)
           decryptedContent = detail?.decrypted_credential_data?.passphrase ||
-                             detail?.decrypted_credential_data?.credential_data ||
-                             detail?.decrypted_credential_data ||
-                             ''
+            detail?.decrypted_credential_data?.credential_data ||
+            detail?.decrypted_credential_data ||
+            ''
           if (detail?.secure_access_instructions?.quote && !description) {
             description = detail.secure_access_instructions.quote
           }
@@ -547,10 +569,10 @@ export const openAsset = async (user, caseId, assetId) => {
   try {
     const detail = await getDecryptedAssetDetailApi(assetId)
     content = detail?.decrypted_credential_data?.passphrase ||
-              detail?.decrypted_credential_data?.credential_data ||
-              detail?.decrypted_credential_data ||
-              detail?.content ||
-              ''
+      detail?.decrypted_credential_data?.credential_data ||
+      detail?.decrypted_credential_data ||
+      detail?.content ||
+      ''
   } catch (e) {
     console.warn('Decrypted asset detail fallback:', e)
   }

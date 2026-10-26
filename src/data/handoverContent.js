@@ -56,6 +56,7 @@ const en = {
     text: 'Start the handover once Legal Verification is approved. The beneficiary is then identified and notified.',
     stats: { total: 'Cases', waiting: 'Waiting for legal approval', active: 'In progress', done: 'Completed' },
     start: 'Start handover',
+    handoverBtn: 'Handover',
     starting: 'Starting…',
     startConfirmTitle: (id) => `Start handover ${id}?`,
     startConfirmText: (name) =>
@@ -249,6 +250,7 @@ const vi = {
     text: 'Bắt đầu bàn giao khi Xác minh pháp lý đã được phê duyệt. Hệ thống sẽ xác định và thông báo cho người thụ hưởng.',
     stats: { total: 'Hồ sơ', waiting: 'Chờ phê duyệt pháp lý', active: 'Đang xử lý', done: 'Hoàn tất' },
     start: 'Bắt đầu bàn giao',
+    handoverBtn: 'Bàn giao',
     starting: 'Đang bắt đầu…',
     startConfirmTitle: (id) => `Bắt đầu bàn giao ${id}?`,
     startConfirmText: (name) =>

@@ -193,16 +193,16 @@ const vi = {
 
   forgot: {
     title: 'Đặt lại mật khẩu',
-    subtitle: 'Nhập email hoặc số điện thoại của tài khoản.',
+    subtitle: 'Nhập email .',
     submit: 'Gửi hướng dẫn đặt lại',
     submitting: 'Đang gửi…',
-    sent: 'Chế độ demo: chức năng đặt lại mật khẩu chưa được xây dựng nên không có gì được gửi. Trong bản thật, hướng dẫn sẽ được gửi tới email hoặc số điện thoại này nếu tài khoản tồn tại.',
+    sent: 'Chế độ demo: chức năng đặt lại mật khẩu chưa được xây dựng nên không có gì được gửi. Trong bản thật, hướng dẫn sẽ được gửi tới email này nếu tài khoản tồn tại.',
     back: 'Quay lại đăng nhập',
   },
 
   fields: {
     fullName: { label: 'Họ và tên', placeholder: 'Nguyễn Văn A' },
-    identifier: { label: 'Email hoặc số điện thoại', placeholder: 'ten@example.com hoặc 0912 345 678' },
+    identifier: { label: 'Email ', placeholder: 'ten@example.com ' },
     password: { label: 'Mật khẩu', placeholder: 'Nhập mật khẩu', newPlaceholder: 'Tạo mật khẩu' },
     confirmPassword: { label: 'Xác nhận mật khẩu', placeholder: 'Nhập lại mật khẩu' },
     code: { label: 'Mã xác minh', placeholder: 'Mã 6 chữ số' },
@@ -228,8 +228,8 @@ const vi = {
 
   validation: {
     fullName: 'Vui lòng nhập họ và tên.',
-    identifierRequired: 'Vui lòng nhập email hoặc số điện thoại.',
-    identifierInvalid: 'Nhập email hợp lệ (ten@example.com) hoặc số điện thoại (9–15 chữ số).',
+    identifierRequired: 'Vui lòng nhập email.',
+    identifierInvalid: 'Nhập email hợp lệ (ten@example.com).',
     passwordRequired: 'Vui lòng nhập mật khẩu.',
     passwordWeak: 'Mật khẩu chưa đáp ứng đủ các yêu cầu bên dưới.',
     confirmRequired: 'Vui lòng nhập lại mật khẩu.',
@@ -240,8 +240,8 @@ const vi = {
   },
 
   errors: {
-    INVALID_CREDENTIALS: 'Email/số điện thoại hoặc mật khẩu không đúng. Vui lòng thử lại.',
-    ACCOUNT_EXISTS: 'Email hoặc số điện thoại này đã có tài khoản. Hãy thử đăng nhập.',
+    INVALID_CREDENTIALS: 'Email/ hoặc mật khẩu không đúng. Vui lòng thử lại.',
+    ACCOUNT_EXISTS: 'Email này đã có tài khoản. Hãy thử đăng nhập.',
     ACCOUNT_NOT_VERIFIED: 'Tài khoản chưa được xác minh. Hãy nhập mã xác minh trước.',
     INVALID_OTP: 'Mã không đúng. Kiểm tra lại và thử lần nữa.',
     OTP_ATTEMPTS_EXCEEDED: 'Bạn đã nhập sai quá nhiều lần. Hãy yêu cầu mã mới để thử lại.',

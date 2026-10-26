@@ -8,19 +8,19 @@ export const verifierContent = {
     nav: {
       queue: 'Verification Queue',
       history: 'Verified History',
-      settings: 'Settings & Policies',
+      // settings: 'Settings & Policies',
       executor: 'Executor Submission',
     },
     titles: {
       queue: 'Legal Verification Queue',
       history: 'Verified History',
-      settings: 'Verification Settings',
+      // settings: 'Verification Settings',
       executor: 'Submit Legal Documents',
     },
     descriptions: {
       queue: 'Review submitted documents and authorize vault unlock for approved cases.',
       history: 'Review previously processed verification cases and decisions.',
-      settings: 'Review legal verification policies and integration requirements.',
+      // settings: 'Review legal verification policies and integration requirements.',
       executor: 'Upload the death certificate for an existing handover case.',
     },
     statusLabels: {

@@ -46,9 +46,17 @@ export function hasReached(current, status) {
 
 // The Executor may start only an approved case that has not been started yet.
 export function canStartHandover(handover) {
-  return (
-    handover?.legalStatus === LEGAL_STATUS.APPROVED &&
-    handover.status === HANDOVER_STATUS.APPROVED
+  if (!handover) return false
+  const legalStatus = String(handover.legalStatus || '').toUpperCase()
+  const status = String(handover.status || '').toUpperCase()
+
+  const isLegalApproved = legalStatus === 'APPROVED'
+  const isCompleted = status === 'COMPLETED'
+
+  return Boolean(
+    isLegalApproved &&
+    !isCompleted &&
+    (status === 'APPROVED' || status === 'HANDOVER_INITIATED' || status === 'IN PROGRESS')
   )
 }
 
