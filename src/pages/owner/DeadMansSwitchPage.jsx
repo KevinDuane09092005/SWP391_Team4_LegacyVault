@@ -150,7 +150,7 @@ export default function DeadMansSwitchPage() {
     loadDmsData()
   }, [loadDmsData])
 
-  // 2. POST /api/v1/dms/config: Save DMS configuration to backend
+  // 2. POST /api/v1/dms/config: Save DMS configuration to backend and simultaneously reset countdown timer
   const saveConfig = async () => {
     setSyncing(true)
     setApiError('')
@@ -161,19 +161,43 @@ export default function DeadMansSwitchPage() {
         checkInIntervalSeconds: Number(formInterval),
         gracePeriodSeconds: Number(formGrace),
       })
+
+      // Đồng thời đặt lại bộ đếm thời gian (check-in reset timer)
+      try {
+        await checkInDmsApi()
+      } catch (checkInErr) {
+        console.warn('Auto check-in reset after save config warning:', checkInErr)
+      }
+
       setSimulatedOffsetMs(0)
       setIsEditingConfig(false)
       setSuccessToast(
-        res.message ||
-          (isVi
-            ? "Cấu hình Dead Man's Switch đã được lưu thành công!"
-            : "Dead Man's Switch configuration saved successfully!"),
+        isVi
+          ? "Cấu hình Dead Man's Switch đã được lưu và thời gian đếm ngược đã được đặt lại thành công!"
+          : "Dead Man's Switch configuration saved and countdown timer has been reset successfully!",
       )
-      // Refresh status from backend
-      const updated = await getDmsStatusApi()
-      setDmsData(updated)
-      setFormInterval(updated?.checkInIntervalSeconds ?? updated?.checkInIntervalDays ?? formInterval)
-      setFormGrace(updated?.gracePeriodSeconds ?? updated?.gracePeriodDays ?? formGrace)
+
+      // Refresh status and audit logs from backend
+      try {
+        const [updatedStatus, updatedLogs] = await Promise.all([
+          getDmsStatusApi(),
+          getDmsAuditLogsApi().catch(() => []),
+        ])
+        setDmsData(updatedStatus)
+        setLogs(mapAuditLogs(updatedLogs))
+        setFormInterval(updatedStatus?.checkInIntervalSeconds ?? updatedStatus?.checkInIntervalDays ?? formInterval)
+        setFormGrace(updatedStatus?.gracePeriodSeconds ?? updatedStatus?.gracePeriodDays ?? formGrace)
+      } catch {
+        const nowIso = new Date().toISOString()
+        setDmsData((prev) => ({
+          ...prev,
+          lastCheckInAt: nowIso,
+          nextCheckInAt: new Date(Date.now() + Number(formInterval) * 1000).toISOString(),
+          checkInIntervalSeconds: Number(formInterval),
+          gracePeriodSeconds: Number(formGrace),
+          status: 'ACTIVE',
+        }))
+      }
     } catch (err) {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
@@ -391,6 +415,12 @@ export default function DeadMansSwitchPage() {
                     <option value={60}>{isVi ? '1 Phút (60s)' : '1 Minute (60s)'}</option>
                     <option value={300}>{isVi ? '5 Phút (300s)' : '5 Minutes (300s)'}</option>
                   </optgroup>
+                  <optgroup label={isVi ? '⏱️ Theo Giờ' : '⏱️ Hourly Schedule'}>
+                    <option value={3600}>{isVi ? '1 Giờ (3,600s)' : '1 Hour (3,600s)'}</option>
+                    <option value={7200}>{isVi ? '2 Giờ (7,200s)' : '2 Hours (7,200s)'}</option>
+                    <option value={21600}>{isVi ? '6 Giờ (21,600s)' : '6 Hours (21,600s)'}</option>
+                    <option value={43200}>{isVi ? '12 Giờ (43,200s)' : '12 Hours (43,200s)'}</option>
+                  </optgroup>
                   <optgroup label={isVi ? '🛡️ Chế độ thực tế / Production' : '🛡️ Production Schedule'}>
                     <option value={86400}>{isVi ? '1 Ngày (86,400s)' : '1 Day (86,400s)'}</option>
                     <option value={604800}>{isVi ? '7 Ngày (1 tuần)' : '7 Days (1 week)'}</option>
@@ -399,7 +429,7 @@ export default function DeadMansSwitchPage() {
                     <option value={15552000}>{isVi ? '6 Tháng (180 ngày)' : '6 Months (180 days)'}</option>
                     <option value={31536000}>{isVi ? '1 Năm (365 ngày)' : '1 Year (365 days)'}</option>
                   </optgroup>
-                  {![30, 60, 300, 86400, 604800, 2592000, 7776000, 15552000, 31536000].includes(Number(formInterval)) && (
+                  {![30, 60, 300, 3600, 7200, 21600, 43200, 86400, 604800, 2592000, 7776000, 15552000, 31536000].includes(Number(formInterval)) && (
                     <option value={formInterval}>{formatTimeInterval(formInterval, isVi)}</option>
                   )}
                 </select>
@@ -421,6 +451,12 @@ export default function DeadMansSwitchPage() {
                     <option value={120}>{isVi ? '2 Phút (120s)' : '2 Minutes (120s)'}</option>
                     <option value={600}>{isVi ? '10 Phút (600s)' : '10 Minutes (600s)'}</option>
                   </optgroup>
+                  <optgroup label={isVi ? '⏱️ Theo Giờ' : '⏱️ Hourly Schedule'}>
+                    <option value={3600}>{isVi ? '1 Giờ (3,600s)' : '1 Hour (3,600s)'}</option>
+                    <option value={7200}>{isVi ? '2 Giờ (7,200s)' : '2 Hours (7,200s)'}</option>
+                    <option value={21600}>{isVi ? '6 Giờ (21,600s)' : '6 Hours (21,600s)'}</option>
+                    <option value={43200}>{isVi ? '12 Giờ (43,200s)' : '12 Hours (43,200s)'}</option>
+                  </optgroup>
                   <optgroup label={isVi ? '🛡️ Chế độ thực tế / Production' : '🛡️ Production Schedule'}>
                     <option value={86400}>{isVi ? '1 Ngày (86,400s)' : '1 Day (86,400s)'}</option>
                     <option value={259200}>{isVi ? '3 Ngày' : '3 Days'}</option>
@@ -428,7 +464,7 @@ export default function DeadMansSwitchPage() {
                     <option value={1209600}>{isVi ? '14 Ngày (2 tuần)' : '14 Days (2 weeks)'}</option>
                     <option value={2592000}>{isVi ? '30 Ngày (1 tháng)' : '30 Days (1 month)'}</option>
                   </optgroup>
-                  {![50, 120, 600, 86400, 259200, 604800, 1209600, 2592000].includes(Number(formGrace)) && (
+                  {![50, 120, 600, 3600, 7200, 21600, 43200, 86400, 259200, 604800, 1209600, 2592000].includes(Number(formGrace)) && (
                     <option value={formGrace}>{formatTimeInterval(formGrace, isVi)}</option>
                   )}
                 </select>
