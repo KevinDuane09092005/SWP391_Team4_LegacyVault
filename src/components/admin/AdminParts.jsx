@@ -13,7 +13,7 @@ import '../../styles/admin.css'
 
 // Flow 7 — shared Administration pieces.
 
-// Flow 1 top bar + side menu (same layout as the Vault Owner area) + demo notice.
+// Flow 1 top bar + side menu (same layout as the Vault Owner area).
 export function AdminLayout({ children }) {
   const { language } = useLanguage()
   const t = flow7Content[language].admin
@@ -37,13 +37,7 @@ export function AdminLayout({ children }) {
             </NavLink>
           ))}
         </nav>
-        <div className="owner-content">
-          <p className="demo-banner">
-            <Icon name="info" size={16} />
-            <span>{t.demo}</span>
-          </p>
-          {children}
-        </div>
+        <div className="owner-content">{children}</div>
       </div>
     </DashboardLayout>
   )
@@ -88,7 +82,7 @@ export function AuditTable({ entries }) {
           {entries.map((entry) => (
             <tr key={entry.id}>
               <td className="admin-table__nowrap">
-                {formatDisplayDateTime(entry.at)}
+                {entry.timeFormatted || formatDisplayDateTime(entry.at)}
                 {entry.seeded && <small className="admin-muted"> · {t.seeded}</small>}
               </td>
               <td>
@@ -97,7 +91,9 @@ export function AuditTable({ entries }) {
               </td>
               <td>{t.actions[entry.action] ?? entry.action}</td>
               <td>
-                {entry.entity ? `${entry.entity.type} ${entry.entity.id}` : '—'}
+                {entry.entity
+                  ? [entry.entity.type, entry.entity.id].filter(Boolean).join(' ')
+                  : '—'}
                 {entry.caseId && entry.entity?.id !== entry.caseId && <small className="admin-muted">{entry.caseId}</small>}
               </td>
               <td><OutcomeBadge outcome={entry.outcome} severity={entry.severity} /></td>

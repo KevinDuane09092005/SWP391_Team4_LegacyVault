@@ -7,7 +7,7 @@ const en = {
   confirm: 'Confirm',
   save: 'Save',
   saving: 'Saving…',
-  saved: 'Saved (demo).',
+  saved: 'Saved.',
 
   notifications: {
     title: 'Notifications',
@@ -62,11 +62,11 @@ const en = {
       },
       ACCOUNT_STATUS_CHANGED: {
         title: 'Account status changed',
-        text: (p) => `An administrator set your account to ${p.status} (demo: sign-in is not affected).`,
+        text: (p) => `An administrator set your account to ${p.status}.`,
       },
       ACCOUNT_ROLE_CHANGED: {
         title: 'Account role changed',
-        text: (p) => `An administrator changed your role to ${p.role} (demo: your access is not affected).`,
+        text: (p) => `An administrator changed your role to ${p.role}.`,
       },
       PERMISSIONS_CHANGED: {
         title: 'Role permissions changed',
@@ -90,6 +90,8 @@ const en = {
       HANDOVER_COMPLETED: 'Handover completed',
       USER_STATUS_CHANGED: 'User status changed',
       USER_ROLE_CHANGED: 'User role changed',
+      ACCESS_REQUEST_APPROVED: 'Access request approved',
+      ACCESS_REQUEST_REJECTED: 'Access request rejected',
       PERMISSION_CHANGED: 'Permission changed',
       POLICY_CHANGED: 'Policy changed',
       INTEGRATION_CHANGED: 'Integration changed',
@@ -117,9 +119,8 @@ const en = {
 
   admin: {
     badge: 'Administration',
-    demo:
-      'Demo administration: changes are saved in this browser, audited and notified, but they do not change sign-in, ' +
-      'route guards, encryption keys, backups or any third-party service.',
+    backendUnavailable: 'This setting is not exposed by the current backend, so it is shown as unavailable rather than simulated.',
+    rolesReadOnly: 'Role assignments are managed from Users. Fine-grained permission editing is not exposed by the current backend.',
     nav: {
       label: 'Administration sections',
       overview: 'Overview',
@@ -131,7 +132,7 @@ const en = {
     },
     overview: {
       title: 'Administration',
-      text: 'Manage users and roles, review the audit log and security alerts, and configure policies.',
+      text: 'Manage accounts, review server audit activity, and process pending access requests.',
       users: 'Users',
       suspended: 'Suspended',
       alerts: 'Security alerts',
@@ -139,16 +140,19 @@ const en = {
       recentAlerts: 'Recent security alerts',
       noAlerts: 'No security alerts.',
       viewAll: 'View audit log',
-      reset: 'Reset all demo data',
-      resetTitle: 'Reset all demo data?',
-      resetText:
-        'Handover progress, notifications, admin settings and the demo audit log in this browser are cleared. ' +
-        'The reset itself is recorded.',
-      resetDone: 'Demo data was reset.',
+      requests: 'Pending access requests',
+      requester: 'Requester',
+      request: 'Request',
+      requestActions: 'Review',
+      noRequests: 'There are no pending access requests.',
+      approve: 'Approve',
+      reject: 'Reject',
+      confirmRequest: (decision, name) => `${decision} the access request from ${name}?`,
+      requestReviewed: 'Access request updated.',
     },
     users: {
       title: 'Manage users',
-      text: 'Demo accounts from Flow 1. Changing a status or role here does not change how they sign in.',
+      text: 'Manage registered accounts. Changes are saved by the server and recorded in the audit log.',
       name: 'Name',
       account: 'Account',
       role: 'Role',
@@ -161,13 +165,16 @@ const en = {
       statuses: { ACTIVE: 'Active', SUSPENDED: 'Suspended' },
       confirmStatus: (name, status) => `Set ${name} to ${status}?`,
       confirmRole: (name, role) => `Change the role of ${name} to ${role}?`,
-      confirmText: 'The user is notified and the change is written to the audit log.',
-      changed: 'Change saved (demo).',
+      confirmText: 'The user is notified and the change is written to the server audit log.',
+      changed: 'The account was updated.',
     },
     roles: {
       title: 'Roles & permissions',
-      text: 'What each role may do. The route guards in the app keep their own rules; this matrix is a demo record.',
+      text: 'Current role assignments and account counts from the server.',
+      role: 'Role',
       permission: 'Permission',
+      description: 'Description',
+      userCount: 'Accounts',
       locked: 'Required for administrators',
       labels: {
         'admin.dashboard': 'Open the Admin dashboard',
@@ -181,17 +188,16 @@ const en = {
         'notifications.view': 'See own notifications',
       },
       confirm: (granted, permission, role) => `${granted ? 'Grant' : 'Remove'} "${permission}" ${granted ? 'to' : 'from'} ${role}?`,
-      confirmText: 'Users with this role are notified and the change is audited. Real access is not affected.',
+      confirmText: 'Role changes are applied from the Users page. Fine-grained permissions cannot be changed here yet.',
     },
     auditPage: {
       title: 'Audit log & security alerts',
       text: 'Important actions from every flow. Passwords, OTP codes, ID numbers, keys and asset contents are never recorded.',
-      warning:
-        'Demo audit log stored in this browser. It is not a secure, tamper-proof, server-side audit trail.',
+      warning: 'Audit events are loaded from the backend.',
     },
     policies: {
       title: 'Encryption & backup policies',
-      text: 'Policy values the platform should enforce. In this demo nothing is encrypted, rotated or backed up.',
+      text: 'Encryption and backup settings for the platform.',
       encryption: 'Encryption',
       backup: 'Backup',
       algorithm: 'Encryption algorithm',
@@ -208,7 +214,7 @@ const en = {
     },
     integrations: {
       title: 'Third-party integrations',
-      text: 'Services the platform could connect to. None is connected: switching one on only records the setting.',
+      text: 'Connections to notification, identity, storage, and legal services.',
       status: { on: 'Enabled (demo)', off: 'Disabled' },
       notConnected: 'Not connected',
       enable: 'Enable',
@@ -224,8 +230,10 @@ const en = {
     ADMIN_ONLY: 'Only administrators can do this.',
     NOT_FOUND: 'Not found.',
     SELF_CHANGE: 'You cannot change your own account here.',
+    INVALID_INPUT: 'The server rejected one or more values.',
+    CONFLICT: 'The request conflicts with the current account state. Refresh and try again.',
+    NETWORK: 'Could not reach the backend. Check that it is running and try again.',
     LOCKED_PERMISSION: 'This permission is required for administrators and cannot be removed.',
-    INVALID_INPUT: 'Some values are not valid.',
     generic: 'Something went wrong. Please try again.',
   },
 }
@@ -237,7 +245,7 @@ const vi = {
   confirm: 'Xác nhận',
   save: 'Lưu',
   saving: 'Đang lưu…',
-  saved: 'Đã lưu (demo).',
+  saved: 'Đã lưu.',
 
   notifications: {
     title: 'Thông báo',
@@ -292,11 +300,11 @@ const vi = {
       },
       ACCOUNT_STATUS_CHANGED: {
         title: 'Trạng thái tài khoản thay đổi',
-        text: (p) => `Quản trị viên đã đặt tài khoản của bạn thành ${p.status} (demo: không ảnh hưởng đăng nhập).`,
+        text: (p) => `Quản trị viên đã đổi trạng thái tài khoản của bạn thành ${p.status}.`,
       },
       ACCOUNT_ROLE_CHANGED: {
         title: 'Vai trò tài khoản thay đổi',
-        text: (p) => `Quản trị viên đã đổi vai trò của bạn thành ${p.role} (demo: quyền truy cập không đổi).`,
+        text: (p) => `Quản trị viên đã đổi vai trò tài khoản của bạn thành ${p.role}.`,
       },
       PERMISSIONS_CHANGED: {
         title: 'Quyền của vai trò thay đổi',
@@ -320,6 +328,8 @@ const vi = {
       HANDOVER_COMPLETED: 'Hoàn tất bàn giao',
       USER_STATUS_CHANGED: 'Đổi trạng thái người dùng',
       USER_ROLE_CHANGED: 'Đổi vai trò người dùng',
+      ACCESS_REQUEST_APPROVED: 'Chấp thuận yêu cầu truy cập',
+      ACCESS_REQUEST_REJECTED: 'Từ chối yêu cầu truy cập',
       PERMISSION_CHANGED: 'Đổi quyền',
       POLICY_CHANGED: 'Đổi chính sách',
       INTEGRATION_CHANGED: 'Đổi tích hợp',
@@ -347,9 +357,8 @@ const vi = {
 
   admin: {
     badge: 'Quản trị',
-    demo:
-      'Quản trị demo: thay đổi được lưu trên trình duyệt này, có audit và thông báo, nhưng không thay đổi đăng nhập, ' +
-      'phân quyền route, khóa mã hóa, sao lưu hay dịch vụ bên thứ ba nào.',
+    backendUnavailable: 'Backend hiện chưa cung cấp API cho cài đặt này nên mục này được đánh dấu chưa khả dụng, không giả lập thao tác.',
+    rolesReadOnly: 'Có thể đổi vai trò trong mục Người dùng. Backend hiện chưa hỗ trợ chỉnh sửa quyền chi tiết.',
     nav: {
       label: 'Các mục quản trị',
       overview: 'Tổng quan',
@@ -361,7 +370,7 @@ const vi = {
     },
     overview: {
       title: 'Quản trị hệ thống',
-      text: 'Quản lý người dùng và vai trò, xem audit log và cảnh báo bảo mật, cấu hình chính sách.',
+      text: 'Quản lý tài khoản, xem hoạt động audit phía máy chủ và xử lý yêu cầu truy cập đang chờ.',
       users: 'Người dùng',
       suspended: 'Bị tạm khóa',
       alerts: 'Cảnh báo bảo mật',
@@ -369,16 +378,19 @@ const vi = {
       recentAlerts: 'Cảnh báo bảo mật gần đây',
       noAlerts: 'Không có cảnh báo bảo mật.',
       viewAll: 'Xem audit log',
-      reset: 'Đặt lại toàn bộ dữ liệu demo',
-      resetTitle: 'Đặt lại toàn bộ dữ liệu demo?',
-      resetText:
-        'Tiến độ bàn giao, thông báo, cài đặt quản trị và audit log demo trên trình duyệt này sẽ bị xóa. ' +
-        'Việc đặt lại cũng được ghi lại.',
-      resetDone: 'Đã đặt lại dữ liệu demo.',
+      requests: 'Yêu cầu truy cập đang chờ',
+      requester: 'Người yêu cầu',
+      request: 'Yêu cầu',
+      requestActions: 'Xét duyệt',
+      noRequests: 'Không có yêu cầu truy cập đang chờ.',
+      approve: 'Chấp thuận',
+      reject: 'Từ chối',
+      confirmRequest: (decision, name) => `${decision} yêu cầu truy cập của ${name}?`,
+      requestReviewed: 'Đã cập nhật yêu cầu truy cập.',
     },
     users: {
       title: 'Quản lý người dùng',
-      text: 'Các tài khoản demo của Flow 1. Đổi trạng thái hay vai trò ở đây không thay đổi cách họ đăng nhập.',
+      text: 'Quản lý tài khoản đã đăng ký. Thay đổi được lưu trên máy chủ và ghi vào audit log.',
       name: 'Họ tên',
       account: 'Tài khoản',
       role: 'Vai trò',
@@ -391,13 +403,16 @@ const vi = {
       statuses: { ACTIVE: 'Hoạt động', SUSPENDED: 'Tạm khóa' },
       confirmStatus: (name, status) => `Đặt ${name} thành ${status}?`,
       confirmRole: (name, role) => `Đổi vai trò của ${name} thành ${role}?`,
-      confirmText: 'Người dùng sẽ được thông báo và thay đổi được ghi vào audit log.',
-      changed: 'Đã lưu thay đổi (demo).',
+      confirmText: 'Người dùng sẽ được thông báo và thay đổi được ghi vào audit log của máy chủ.',
+      changed: 'Đã cập nhật tài khoản.',
     },
     roles: {
       title: 'Vai trò & quyền',
-      text: 'Mỗi vai trò được làm gì. Route guard trong ứng dụng vẫn giữ quy tắc riêng; ma trận này chỉ là bản ghi demo.',
+      text: 'Vai trò hiện tại và số lượng tài khoản theo dữ liệu máy chủ.',
+      role: 'Vai trò',
       permission: 'Quyền',
+      description: 'Mô tả',
+      userCount: 'Tài khoản',
       locked: 'Bắt buộc cho quản trị viên',
       labels: {
         'admin.dashboard': 'Mở trang Quản trị',
@@ -411,16 +426,16 @@ const vi = {
         'notifications.view': 'Xem thông báo của mình',
       },
       confirm: (granted, permission, role) => `${granted ? 'Cấp' : 'Gỡ'} quyền "${permission}" ${granted ? 'cho' : 'khỏi'} ${role}?`,
-      confirmText: 'Người dùng có vai trò này sẽ được thông báo và thay đổi được audit. Quyền truy cập thật không đổi.',
+      confirmText: 'Có thể đổi vai trò trong mục Người dùng. Backend hiện chưa hỗ trợ chỉnh sửa quyền chi tiết.',
     },
     auditPage: {
       title: 'Audit log & cảnh báo bảo mật',
       text: 'Các hành động quan trọng từ mọi flow. Mật khẩu, mã OTP, số giấy tờ, khóa và nội dung tài sản không bao giờ được ghi.',
-      warning: 'Audit log demo lưu trên trình duyệt này. Đây không phải audit trail an toàn, chống sửa đổi phía server.',
+      warning: 'Audit event được tải từ backend.',
     },
     policies: {
       title: 'Chính sách mã hóa & sao lưu',
-      text: 'Các giá trị chính sách nền tảng cần áp dụng. Trong demo không có gì thực sự được mã hóa, xoay khóa hay sao lưu.',
+      text: 'Cấu hình mã hóa và sao lưu cho nền tảng.',
       encryption: 'Mã hóa',
       backup: 'Sao lưu',
       algorithm: 'Thuật toán mã hóa',
@@ -437,7 +452,7 @@ const vi = {
     },
     integrations: {
       title: 'Tích hợp bên thứ ba',
-      text: 'Các dịch vụ nền tảng có thể kết nối. Chưa có dịch vụ nào được kết nối: bật chỉ ghi lại cài đặt.',
+      text: 'Kết nối tới dịch vụ thông báo, định danh, lưu trữ và pháp lý.',
       status: { on: 'Đã bật (demo)', off: 'Đã tắt' },
       notConnected: 'Chưa kết nối',
       enable: 'Bật',
@@ -453,8 +468,10 @@ const vi = {
     ADMIN_ONLY: 'Chỉ quản trị viên mới làm được việc này.',
     NOT_FOUND: 'Không tìm thấy.',
     SELF_CHANGE: 'Bạn không thể tự thay đổi tài khoản của mình ở đây.',
+    INVALID_INPUT: 'Máy chủ từ chối một hoặc nhiều giá trị.',
+    CONFLICT: 'Yêu cầu không phù hợp với trạng thái hiện tại. Hãy tải lại rồi thử lại.',
+    NETWORK: 'Không thể kết nối backend. Kiểm tra backend đang chạy rồi thử lại.',
     LOCKED_PERMISSION: 'Quyền này bắt buộc cho quản trị viên và không thể gỡ.',
-    INVALID_INPUT: 'Một số giá trị không hợp lệ.',
     generic: 'Đã xảy ra lỗi. Vui lòng thử lại.',
   },
 }

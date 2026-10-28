@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import Icon from '../../components/Icon.jsx'
 import { AdminLayout, AuditTable } from '../../components/admin/AdminParts.jsx'
 import { EmptyState, ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
@@ -8,7 +7,7 @@ import { AUDIT_ACTIONS, OUTCOME } from '../../audit/auditRules.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { listAuditLog } from '../../services/auditService.js'
+import { listAuditLog } from '../../services/adminService.js'
 
 const EMPTY = { actor: '', action: '', outcome: '', from: '', to: '', alertsOnly: false }
 
@@ -31,10 +30,6 @@ export default function AdminAuditPage() {
           <p className="page-text">{t.admin.auditPage.text}</p>
         </div>
       </div>
-      <p className="handover-note handover-note--danger admin-warning">
-        <Icon name="alertCircle" size={15} /> {t.admin.auditPage.warning}
-      </p>
-
       <form className="card admin-filters" onSubmit={(e) => e.preventDefault()} aria-label="Audit filters">
         <label className="admin-filter">
           <span>{a.filters.search}</span>

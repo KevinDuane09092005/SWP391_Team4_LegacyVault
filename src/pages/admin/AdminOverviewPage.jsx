@@ -6,48 +6,68 @@ import { adminPaths } from '../../admin/adminPaths.js'
 import { ConfirmDialog } from '../../components/handover/HandoverParts.jsx'
 import { ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
-import { isSecurityAlert } from '../../audit/auditRules.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { listUsers, resetAllDemoData } from '../../services/adminService.js'
-import { listAuditLog } from '../../services/auditService.js'
+import {
+  approveAccessRequest,
+  getAdminDashboard,
+  getAdminUsersPage,
+  listAuditLog,
+  rejectAccessRequest,
+} from '../../services/adminService.js'
 
 const RECENT_ALERTS = 5
 
-// Flow 7 — Admin dashboard: totals, recent security alerts, demo reset.
 export default function AdminOverviewPage() {
   const { user } = useAuth()
   const { language } = useLanguage()
   const t = flow7Content[language]
   const o = t.admin.overview
-  const { status, data, error, reload } = useAsync(() => Promise.all([listUsers(user), listAuditLog(user)]), user.id)
-  const [confirming, setConfirming] = useState(false)
+  const [pendingDecision, setPendingDecision] = useState(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
 
-  const reset = async () => {
+  const loadOverview = async () => {
+    const [dashboard, suspendedUsers, alerts] = await Promise.all([
+      getAdminDashboard(),
+      getAdminUsersPage({ status: 'SUSPENDED', page: 0, size: 1 }),
+      listAuditLog(user, { alertsOnly: true, page: 0, size: 100 }),
+    ])
+    return {
+      dashboard,
+      suspendedCount: suspendedUsers.pagination?.totalElements ?? suspendedUsers.users.length,
+      alerts,
+    }
+  }
+
+  const { status, data, error, reload } = useAsync(loadOverview, user.id)
+  const metrics = data?.dashboard?.kpi_metrics ?? {}
+  const requests = data?.dashboard?.access_requests_queue ?? []
+  const stats = [
+    [o.users, metrics.total_users ?? 0],
+    [o.suspended, data?.suspendedCount ?? 0],
+    [o.alerts, data?.alerts?.length ?? 0],
+    [o.events, metrics.audit_events ?? 0],
+  ]
+
+  const decideRequest = async () => {
+    if (!pendingDecision) return
     setBusy(true)
+    setMessage(null)
     try {
-      await resetAllDemoData(user)
-      setMessage({ tone: 'success', text: o.resetDone })
+      const { request, decision } = pendingDecision
+      if (decision === 'approve') await approveAccessRequest(request.request_id)
+      else await rejectAccessRequest(request.request_id)
+      setMessage({ tone: 'success', text: o.requestReviewed })
       reload()
     } catch (err) {
       setMessage({ tone: 'error', text: flow7ErrorText(t, err) })
     } finally {
       setBusy(false)
-      setConfirming(false)
+      setPendingDecision(null)
     }
   }
-
-  const [users, entries] = data ?? [[], []]
-  const alerts = entries.filter(isSecurityAlert)
-  const stats = [
-    [o.users, users.length],
-    [o.suspended, users.filter((item) => item.status === 'SUSPENDED').length],
-    [o.alerts, alerts.length],
-    [o.events, entries.length],
-  ]
 
   return (
     <AdminLayout>
@@ -56,9 +76,6 @@ export default function AdminOverviewPage() {
           <span className="badge badge--accent">{t.admin.badge}</span>
           <h1 className="page-title">{o.title}</h1>
           <p className="page-text">{o.text}</p>
-        </div>
-        <div className="page-head__actions">
-          <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>{o.reset}</Button>
         </div>
       </div>
 
@@ -75,29 +92,82 @@ export default function AdminOverviewPage() {
               </div>
             ))}
           </dl>
+
           <section className="card handover-panel">
             <div className="handover-card__head">
               <h2 className="section-title">{o.recentAlerts}</h2>
               <Button variant="secondary" size="sm" to={`${adminPaths.audit}?alerts=1`}>{o.viewAll}</Button>
             </div>
-            {alerts.length ? <AuditTable entries={alerts.slice(0, RECENT_ALERTS)} /> : <p className="page-text">{o.noAlerts}</p>}
+            {data.alerts.length
+              ? <AuditTable entries={data.alerts.slice(0, RECENT_ALERTS)} />
+              : <p className="page-text">{o.noAlerts}</p>}
+          </section>
+
+          <section className="card handover-panel">
+            <div className="handover-card__head">
+              <h2 className="section-title">{o.requests}</h2>
+            </div>
+            {requests.length === 0 ? (
+              <p className="page-text">{o.noRequests}</p>
+            ) : (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">{o.requester}</th>
+                      <th scope="col">{o.request}</th>
+                      <th scope="col">{o.requestActions}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requests.map((request) => (
+                      <tr key={request.request_id}>
+                        <td>{request.requester_name}</td>
+                        <td className="admin-table__details">{request.requested_role_or_purpose}</td>
+                        <td className="admin-actions">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => setPendingDecision({ request, decision: 'approve' })}
+                          >
+                            {o.approve}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => setPendingDecision({ request, decision: 'reject' })}
+                          >
+                            {o.reject}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </>
       )}
 
-      {confirming && (
+      {pendingDecision && (
         <ConfirmDialog
-          title={o.resetTitle}
+          title={o.confirmRequest(
+            pendingDecision.decision === 'approve' ? o.approve : o.reject,
+            pendingDecision.request.requester_name,
+          )}
           busy={busy}
-          onClose={() => setConfirming(false)}
-          actions={
+          onClose={() => setPendingDecision(null)}
+          actions={(
             <>
-              <Button variant="secondary" onClick={() => setConfirming(false)} disabled={busy}>{t.cancel}</Button>
-              <Button onClick={reset} disabled={busy}>{busy ? t.saving : t.confirm}</Button>
+              <Button variant="secondary" onClick={() => setPendingDecision(null)} disabled={busy}>{t.cancel}</Button>
+              <Button onClick={decideRequest} disabled={busy}>{busy ? t.saving : t.confirm}</Button>
             </>
-          }
+          )}
         >
-          <p className="page-text">{o.resetText}</p>
+          <p className="page-text">{pendingDecision.request.requested_role_or_purpose}</p>
         </ConfirmDialog>
       )}
     </AdminLayout>

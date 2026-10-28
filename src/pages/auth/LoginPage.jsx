@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/auth/AuthLayout.jsx'
-import DemoAccounts from '../../components/auth/DemoAccounts.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import FormField from '../../components/auth/FormField.jsx'
 import SubmitButton from '../../components/auth/SubmitButton.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { ROLES } from '../../auth/roles.js'
-import { savePendingVerification, saveSession } from '../../auth/session.js'
+import { savePendingVerification } from '../../auth/session.js'
 import { normalizeIdentifier, validateLogin } from '../../auth/validation.js'
 import { authContent } from '../../data/authContent.js'
-import { dashboardContent } from '../../data/dashboardContent.js'
 import useForm from '../../hooks/useForm.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { IS_DEMO_MODE } from '../../services/authService.js'
 
 // Flow 1 — Sign in with email or phone + password.
 // After a successful sign-in, RedirectIfSignedIn (src/auth/guards.jsx) sends the user
@@ -22,7 +19,7 @@ export default function LoginPage() {
   const { language } = useLanguage()
   const t = authContent[language]
   const copy = t.signin
-  const { login, justLoggedOut, markLogoutSeen, setSessionUser } = useAuth()
+  const { justLoggedOut, markLogoutSeen, setSessionUser } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -100,16 +97,12 @@ export default function LoginPage() {
       }
 
       // 4. Khi thành công (HTTP 200 OK): Lưu trữ Authentication State
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('role', data.role)
-      localStorage.setItem('userId', data.userId)
-      localStorage.setItem('legacyvault-access-token', data.token)
-
       // Chuẩn hóa role và thông tin người dùng cho hệ thống frontend
       const roleMapping = {
         vault_owner: ROLES.VAULT_OWNER,
         admin: ROLES.ADMIN,
         executor: ROLES.EXECUTOR,
+        digital_executor: ROLES.EXECUTOR,
         beneficiary: ROLES.BENEFICIARY,
         legal_verifier: ROLES.LEGAL_VERIFIER,
       }
@@ -125,10 +118,7 @@ export default function LoginPage() {
         role: appRole,
       }
 
-      saveSession(userProfile, form.values.remember)
-      if (typeof setSessionUser === 'function') {
-        setSessionUser(userProfile, form.values.remember)
-      }
+      setSessionUser(userProfile, form.values.remember, data.token)
 
       // 5. Điều hướng: Chuyển sang trang Dashboard (/dashboard hoặc trang yêu cầu trước đó)
       const redirectTarget = location.state?.from ?? '/dashboard'
@@ -150,12 +140,6 @@ export default function LoginPage() {
   const goToVerification = () => {
     savePendingVerification({ identifier: normalizeIdentifier(form.values.identifier), fullName: '' })
     navigate('/verify-otp')
-  }
-
-  const fillDemoAccount = (identifier, password) => {
-    form.setValue('identifier', identifier)
-    form.setValue('password', password)
-    setServerError(null)
   }
 
   return (
@@ -224,13 +208,6 @@ export default function LoginPage() {
         </Link>
       </p>
 
-      {IS_DEMO_MODE && (
-        <DemoAccounts
-          labels={{ ...t.demoAccounts, badge: t.demoBadge }}
-          roleLabels={dashboardContent[language].roles}
-          onUse={fillDemoAccount}
-        />
-      )}
     </AuthLayout>
   )
 }

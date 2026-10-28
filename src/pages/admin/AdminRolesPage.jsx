@@ -1,44 +1,17 @@
-import { useState } from 'react'
-import Button from '../../components/Button.jsx'
-import FormAlert from '../../components/auth/FormAlert.jsx'
+import Icon from '../../components/Icon.jsx'
 import { AdminLayout } from '../../components/admin/AdminParts.jsx'
-import { ConfirmDialog } from '../../components/handover/HandoverParts.jsx'
 import { ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
-import { useAuth } from '../../auth/AuthContext.jsx'
-import { ROLES } from '../../auth/roles.js'
-import { dashboardContent } from '../../data/dashboardContent.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { getPermissions, setPermission } from '../../services/adminService.js'
+import { getAdminDashboard } from '../../services/adminService.js'
 
-// Flow 7 — Role / permission matrix (demo record; real guards are unchanged).
 export default function AdminRolesPage() {
-  const { user } = useAuth()
   const { language } = useLanguage()
   const t = flow7Content[language]
   const r = t.admin.roles
-  const roleLabels = dashboardContent[language].roles
-  const { status, data, error, reload } = useAsync(() => getPermissions(user), user.id)
-  const [pending, setPending] = useState(null) // { role, permission, granted }
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState(null)
-  const roles = Object.values(ROLES)
-
-  const apply = async () => {
-    setBusy(true)
-    setMessage(null)
-    try {
-      await setPermission(user, pending.role, pending.permission, pending.granted)
-      setMessage({ tone: 'success', text: t.saved })
-      reload()
-    } catch (err) {
-      setMessage({ tone: 'error', text: flow7ErrorText(t, err) })
-    } finally {
-      setBusy(false)
-      setPending(null)
-    }
-  }
+  const { status, data, error, reload } = useAsync(getAdminDashboard, 'admin-role-summary')
+  const roleSummary = data?.roles_and_permissions_summary ?? []
 
   return (
     <AdminLayout>
@@ -49,62 +22,38 @@ export default function AdminRolesPage() {
         </div>
       </div>
 
-      {message && <FormAlert tone={message.tone}>{message.text}</FormAlert>}
+      <p className="handover-note">
+        <Icon name="info" size={15} /> {t.admin.rolesReadOnly}
+      </p>
+
       {status === 'loading' && <LoadingState label={t.loading} />}
       {status === 'error' && <ErrorState message={flow7ErrorText(t, error)} retryLabel={t.retry} onRetry={reload} />}
       {status === 'ready' && (
         <div className="admin-table-wrap card">
-          <table className="admin-table admin-matrix">
+          <table className="admin-table">
             <thead>
               <tr>
-                <th scope="col">{r.permission}</th>
-                {roles.map((role) => <th key={role} scope="col">{roleLabels[role].label}</th>)}
+                <th scope="col">{r.role}</th>
+                <th scope="col">{r.description}</th>
+                <th scope="col">{r.userCount}</th>
               </tr>
             </thead>
             <tbody>
-              {data.permissions.map((permission) => (
-                <tr key={permission}>
-                  <th scope="row">
-                    {r.labels[permission] ?? permission}
-                    <small className="admin-muted"><code>{permission}</code></small>
-                  </th>
-                  {roles.map((role) => {
-                    const granted = data.matrix[role]?.includes(permission) ?? false
-                    const locked = granted && data.locked[role]?.includes(permission)
-                    return (
-                      <td key={role} className="admin-matrix__cell">
-                        <input
-                          type="checkbox"
-                          checked={granted}
-                          disabled={locked || busy}
-                          title={locked ? r.locked : undefined}
-                          aria-label={`${roleLabels[role].label}: ${r.labels[permission] ?? permission}`}
-                          onChange={() => setPending({ role, permission, granted: !granted })}
-                        />
-                      </td>
-                    )
-                  })}
+              {roleSummary.map((role) => (
+                <tr key={role.role_name}>
+                  <th scope="row">{role.role_name}</th>
+                  <td>{role.description}</td>
+                  <td>{role.user_count}</td>
                 </tr>
               ))}
+              {roleSummary.length === 0 && (
+                <tr>
+                  <td colSpan="3" className="admin-table__details">{t.admin.backendUnavailable}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-      )}
-
-      {pending && (
-        <ConfirmDialog
-          title={r.confirm(pending.granted, r.labels[pending.permission] ?? pending.permission, roleLabels[pending.role].label)}
-          busy={busy}
-          onClose={() => setPending(null)}
-          actions={
-            <>
-              <Button variant="secondary" onClick={() => setPending(null)} disabled={busy}>{t.cancel}</Button>
-              <Button onClick={apply} disabled={busy}>{busy ? t.saving : t.confirm}</Button>
-            </>
-          }
-        >
-          <p className="page-text">{r.confirmText}</p>
-        </ConfirmDialog>
       )}
     </AdminLayout>
   )
