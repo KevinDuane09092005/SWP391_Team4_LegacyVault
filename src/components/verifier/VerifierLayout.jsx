@@ -15,7 +15,7 @@ export default function VerifierLayout({ children }) {
   const links = [
     { to: '/dashboard/verifier', label: t.nav.queue, icon: 'users', end: true },
     { to: '/dashboard/verifier/history', label: t.nav.history, icon: 'grid' },
-    { to: '/dashboard/verifier/settings', label: t.nav.settings, icon: 'settings' },
+    // { to: '/dashboard/verifier/settings', label: t.nav.settings, icon: 'settings' },
   ]
 
   return (

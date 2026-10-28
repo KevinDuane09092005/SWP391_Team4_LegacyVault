@@ -1,10 +1,6 @@
+import { apiFetch, IS_DEMO_MODE } from './apiClient.js'
+
 // Plan data for the pricing page.
-//
-// Backend hook-up: replace the body of fetchPlans() with a real request, e.g.
-//
-//   const response = await fetch('/api/plans')
-//   if (!response.ok) throw new Error(`Failed to load plans (${response.status})`)
-//   return response.json()
 //
 // The response must keep the shape of `mockPlans` below. The API only returns ids,
 // numbers, and flags; all wording (names, headlines, feature lines) is translated on
@@ -41,5 +37,6 @@ const mockPlans = [
 ]
 
 export async function fetchPlans() {
-  return structuredClone(mockPlans)
+  if (IS_DEMO_MODE) return structuredClone(mockPlans)
+  return apiFetch('/plans')
 }

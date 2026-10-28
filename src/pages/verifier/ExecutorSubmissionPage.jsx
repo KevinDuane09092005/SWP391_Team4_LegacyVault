@@ -44,7 +44,7 @@ export default function ExecutorSubmissionPage() {
             }
           }
         })
-        .catch(() => {})
+        .catch(() => { })
     }
   }, [user])
 
@@ -236,19 +236,6 @@ export default function ExecutorSubmissionPage() {
               placeholder={language === 'vi' ? 'Kính gửi Chuyên viên pháp lý thẩm định giấy tờ' : 'Notes for verifier'}
             />
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '14px', fontSize: '0.875rem', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={autoSubmit}
-                onChange={(e) => setAutoSubmit(e.target.checked)}
-              />
-              <span>
-                {language === 'vi'
-                  ? 'Nộp hồ sơ ngay sau khi tải lên (Chuyển sang trạng thái SUBMITTED)'
-                  : 'Submit case immediately after upload (Status becomes SUBMITTED)'}
-              </span>
-            </label>
-
             {error && (
               <p className="form-error" role="alert" style={{ marginTop: '12px' }}>
                 {error}
@@ -268,8 +255,8 @@ export default function ExecutorSubmissionPage() {
                     <p style={{ margin: '4px 0 0' }}>
                       {success.file_name} · {success.submitted
                         ? (language === 'vi'
-                            ? 'Hồ sơ đã được gửi đi thẩm định thành công (Trạng thái: SUBMITTED).'
-                            : 'Case submitted successfully for legal verification (Status: SUBMITTED).')
+                          ? 'Hồ sơ đã được gửi đi thẩm định thành công (Trạng thái: SUBMITTED).'
+                          : 'Case submitted successfully for legal verification (Status: SUBMITTED).')
                         : (ht.executor.uploadSuccessMsg || u.successMessage)}
                     </p>
                   </div>

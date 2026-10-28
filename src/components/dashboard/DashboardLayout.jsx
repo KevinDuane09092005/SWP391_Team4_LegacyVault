@@ -11,7 +11,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import '../../styles/dashboard.css'
 
 // Frame for every signed-in page: top bar with the user, their role, and Log out.
-export default function DashboardLayout({ children }) {
+export default function DashboardLayout({ children, showThemeToggle = true }) {
   const { user, logout } = useAuth()
   const { language } = useLanguage()
   const t = dashboardContent[language]
@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }) {
               <span className="badge">{t.roles[user.role].label}</span>
             </div>
             <NotificationBell />
-            <ThemeToggle />
+            {showThemeToggle && <ThemeToggle />}
             <LanguageSwitcher label={t.languageLabel} />
             {/* aria-label keeps the button named on phones, where only the icon shows */}
             <Button

@@ -189,6 +189,48 @@
   margin-top: 12px;
 }
 
+.admin-access-queue {
+  margin-top: 18px;
+}
+
+.admin-access-queue__list {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-access-queue__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.admin-access-queue__details {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-access-queue__details span,
+.admin-access-queue__details small {
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .admin-access-queue__item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 /* Audit filters */
 .admin-filters {
   display: grid;

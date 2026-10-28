@@ -74,7 +74,13 @@ export async function getAdminDashboardApi() {
       status: u.status?.toUpperCase() || 'ACTIVE',
       created_date_formatted: u.created_date_formatted,
     })),
-    access_requests: data.access_requests_queue || data.access_requests || [],
+    access_requests: (data.access_requests_queue || data.access_requests || []).map((request) => ({
+      ...request,
+      request_id: request.request_id || request.requestId,
+      user_name: request.requester_name || request.user_name || request.userName || 'User',
+      requested_role: request.requested_role_or_purpose || request.requested_role || request.requestedRole || '',
+      status: request.status || 'PENDING',
+    })),
     roles_summary: data.roles_and_permissions_summary || data.roles_summary || [],
     system_settings: data.system_settings_modules || data.system_settings || [],
   }
@@ -102,15 +108,63 @@ export async function rejectAccessRequestApi(requestId) {
 
 // ---------------- Existing Page Wrapper Methods ----------------
 
-export const listUsers = (user) => {
-  if (IS_DEMO_MODE) return mockAdminListUsers(user)
-  return getAdminDashboardApi().then((d) => d.users || [])
+function normalizeAdminUser(user) {
+  return {
+    id: String(user.id || user.user_id || ''),
+    user_id: String(user.id || user.user_id || ''),
+    fullName: user.fullName || user.full_name || user.name || 'User',
+    name: user.fullName || user.full_name || user.name || 'User',
+    identifier: user.identifier || user.email || '',
+    email: user.email || user.identifier || '',
+    role: String(user.role || 'VAULT_OWNER').toUpperCase(),
+    status: String(user.status || 'ACTIVE').toUpperCase(),
+    createdAt: user.createdAt || user.created_at || null,
+    created_date_formatted: user.createdAt || user.created_at || null,
+  }
 }
 
-export const setUserStatus = (user, userId, status) =>
-  mockAdminSetUserStatus(user, userId, status)
-export const setUserRole = (user, userId, role) =>
-  mockAdminSetUserRole(user, userId, role)
+export async function listUsers(user, filters = {}) {
+  if (IS_DEMO_MODE) return mockAdminListUsers(user)
+
+  const params = new URLSearchParams({
+    search: filters.search || '',
+    role: filters.role || 'ALL',
+    status: filters.status || 'ALL',
+    page: '0',
+    size: '100',
+  })
+  const firstPage = await apiFetch(`/admin/users?${params}`)
+  const users = firstPage.users || []
+  const totalPages = firstPage.pagination?.totalPages ?? firstPage.pagination?.total_pages ?? 1
+
+  if (totalPages > 1) {
+    const remainingPages = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, index) => {
+        params.set('page', String(index + 1))
+        return apiFetch(`/admin/users?${params}`)
+      }),
+    )
+    users.push(...remainingPages.flatMap((page) => page.users || []))
+  }
+
+  return users.map(normalizeAdminUser)
+}
+
+export async function setUserStatus(user, userId, status) {
+  if (IS_DEMO_MODE) return mockAdminSetUserStatus(user, userId, status)
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/status`, {
+    method: 'PATCH',
+    body: { status },
+  })
+}
+
+export async function setUserRole(user, userId, role) {
+  if (IS_DEMO_MODE) return mockAdminSetUserRole(user, userId, role)
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/role`, {
+    method: 'PATCH',
+    body: { role },
+  })
+}
 export const getPermissions = (user) => mockAdminGetPermissions(user)
 export const setPermission = (user, role, permission, granted) =>
   mockAdminSetPermission(user, role, permission, granted)

@@ -7,8 +7,8 @@ import FormField from '../../components/auth/FormField.jsx'
 import SubmitButton from '../../components/auth/SubmitButton.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { ROLES } from '../../auth/roles.js'
-import { savePendingVerification, saveSession } from '../../auth/session.js'
-import { normalizeIdentifier, validateLogin } from '../../auth/validation.js'
+import { savePendingVerification } from '../../auth/session.js'
+import { getIdentifierType, normalizeIdentifier, validateLogin } from '../../auth/validation.js'
 import { authContent } from '../../data/authContent.js'
 import { dashboardContent } from '../../data/dashboardContent.js'
 import useForm from '../../hooks/useForm.js'
@@ -64,96 +64,39 @@ export default function LoginPage() {
     event.preventDefault()
     setServerError(null)
 
-    const email = form.values.identifier?.trim()
+    const identifier = normalizeIdentifier(form.values.identifier || '')
     const password = form.values.password
 
-    // Validate nhanh: kiểm tra email và password không để trống trước khi gửi request
-    if (!email || !password) {
-      if (!email) {
+    if (!identifier || !password) {
+      if (!identifier) {
         setServerError(language === 'vi' ? 'Vui lòng nhập email.' : 'Please enter your email.')
       } else {
         setServerError(language === 'vi' ? 'Vui lòng nhập mật khẩu.' : 'Please enter your password.')
       }
       return
     }
+    if (!IS_DEMO_MODE && getIdentifierType(identifier) !== 'email') {
+      setServerError(language === 'vi'
+        ? 'Backend hiện chỉ hỗ trợ đăng nhập bằng email.'
+        : 'The backend currently supports email sign-in only.')
+      return
+    }
 
     setLoading(true)
 
     try {
-      // 1. Xác định URL Backend từ biến môi trường hoặc fallback
-      const baseUrl = (
-        import.meta.env.VITE_API_BASE_URL ||
-        import.meta.env.REACT_APP_API_BASE_URL ||
-        ''
-      ).replace(/\/$/, '')
-
-      const endpoint = baseUrl
-        ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/login` : `${baseUrl}/api/v1/auth/login`)
-        : '/api/v1/auth/login'
-
-      // 2. Gọi HTTP POST tới Backend API
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json().catch(() => ({}))
-
-      // 3. Xử lý khi API trả về lỗi (HTTP 400 Bad Request / 401 / ...)
-      if (!response.ok) {
-        const errorMsg =
-          data?.error ||
-          data?.message ||
-          (language === 'vi'
-            ? 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.'
-            : 'Login failed. Please check your credentials.')
-        throw new Error(errorMsg)
-      }
-
-      // 4. Khi thành công (HTTP 200 OK): Lưu trữ Authentication State
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('role', data.role)
-      localStorage.setItem('userId', data.userId)
-      localStorage.setItem('legacyvault-access-token', data.token)
-
-      // Chuẩn hóa role và thông tin người dùng cho hệ thống frontend
-      const roleMapping = {
-        vault_owner: ROLES.VAULT_OWNER,
-        admin: ROLES.ADMIN,
-        executor: ROLES.EXECUTOR,
-        beneficiary: ROLES.BENEFICIARY,
-        legal_verifier: ROLES.LEGAL_VERIFIER,
-      }
-      const appRole =
-        roleMapping[data.role?.toLowerCase()] ||
-        data.role?.toUpperCase() ||
-        ROLES.VAULT_OWNER
-
-      const userProfile = {
-        id: data.userId,
-        fullName: data.fullName || email.split('@')[0],
-        identifier: email,
-        role: appRole,
-      }
-
-      saveSession(userProfile, form.values.remember)
-      if (typeof setSessionUser === 'function') {
-        setSessionUser(userProfile, form.values.remember)
-      }
-
-      // 5. Điều hướng: Chuyển sang trang Dashboard (/dashboard hoặc trang yêu cầu trước đó)
-      const redirectTarget = location.state?.from ?? '/dashboard'
+      await login({ identifier, password, remember: form.values.remember })
+      const planTarget = location.state?.planId
+        ? `/dashboard/owner/billing?plan=${encodeURIComponent(location.state.planId)}&billing=${encodeURIComponent(location.state.billing || 'monthly')}`
+        : '/dashboard'
+      const redirectTarget = location.state?.from ?? planTarget
       navigate(redirectTarget, { replace: true })
     } catch (error) {
-      // Bắt lỗi qua khối catch, trích xuất thông điệp từ trường error và hiển thị lên giao diện
       setServerError(
-        error.message ||
-          (language === 'vi'
-            ? 'Đã có lỗi xảy ra khi kết nối máy chủ.'
-            : 'Connection error. Please try again.'),
+        error.code || error.message ||
+        (language === 'vi'
+          ? 'Đã có lỗi xảy ra khi kết nối máy chủ.'
+          : 'Connection error. Please try again.'),
       )
     } finally {
       setLoading(false)
@@ -227,9 +170,8 @@ export default function LoginPage() {
           identifier: accessForm.email,
           role: ROLES.BENEFICIARY,
         }
-        saveSession(profile, false)
         if (typeof setSessionUser === 'function') {
-          setSessionUser(profile, false)
+          setSessionUser({ ...profile, token }, false)
         }
         navigate('/dashboard/beneficiary', { replace: true })
       } else {
@@ -383,9 +325,9 @@ export default function LoginPage() {
                 ? `Mã OTP xác thực đã được gửi đến thiết bị của ${accessForm.beneficiaryName || accessForm.email}.`
                 : `Verification OTP has been sent to ${accessForm.beneficiaryName || accessForm.email}.`}
             </p>
-            <small style={{ color: 'var(--color-primary)', display: 'block', marginTop: '4px', fontWeight: 600 }}>
+            {/* <small style={{ color: 'var(--color-primary)', display: 'block', marginTop: '4px', fontWeight: 600 }}>
               {language === 'vi' ? 'Mã test OTP: 482916' : 'Test OTP: 482916'}
-            </small>
+            </small> */}
           </div>
 
           <FormField
@@ -393,7 +335,7 @@ export default function LoginPage() {
             label={language === 'vi' ? 'Nhập mã OTP 6 số' : 'Enter 6-digit OTP'}
             value={accessForm.otpCode}
             onChange={(e) => setAccessForm((prev) => ({ ...prev, otpCode: e.target.value }))}
-            placeholder="482916"
+            placeholder=""
             maxLength={6}
             autoComplete="one-time-code"
             hint={language === 'vi' ? 'Nhập mã gồm 6 chữ số' : 'Enter 6-digit code'}

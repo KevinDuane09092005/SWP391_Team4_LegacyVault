@@ -197,10 +197,6 @@ export default function VerifierQueuePage() {
           <h1 className="page-title">{t.titles.queue}</h1>
           <p className="page-text">{t.descriptions.queue}</p>
         </div>
-        <Button variant="primary" onClick={newReview}>
-          <Plus size={16} />
-          <span>{t.actions.newReview}</span>
-        </Button>
       </header>
 
       <div className="verifier-toolbar">
