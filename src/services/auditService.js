@@ -40,8 +40,8 @@ export async function getAuditLogsApi({
 
   const params = new URLSearchParams({
     ...(search ? { search } : {}),
-    ...(role !== 'ALL' ? { role } : {}),
-    ...(action !== 'ALL' ? { action } : {}),
+    ...(role && role !== 'ALL' ? { role } : {}),
+    ...(action && action !== 'ALL' ? { action } : {}),
     ...(from_date ? { from_date } : {}),
     ...(to_date ? { to_date } : {}),
     page: String(page),
@@ -82,20 +82,38 @@ export async function exportAuditLogsCsvApi({ from_date = '', to_date = '' } = {
 // Admin only
 export const listAuditLog = async (user, filters) => {
   if (IS_DEMO_MODE) return mockListAudit(user, filters)
-  const data = await getAuditLogsApi({ search: filters?.actor, action: filters?.action })
-  return (data?.logs || []).map((l, idx) => ({
+  const data = await getAuditLogsApi({
+    search: filters?.actor,
+    role: filters?.role,
+    action: filters?.action,
+    from_date: filters?.from,
+    to_date: filters?.to,
+    size: 100,
+  })
+  const entries = (data?.logs || []).map((l, idx) => {
+    const actor = typeof l.user === 'string' ? l.user : l.user?.name || 'System'
+    const outcome = String(l.status || 'SUCCESS').toUpperCase()
+    return {
     id: l.log_id || `log-${idx + 1}`,
     at: l.timestamp_formatted || l.time_formatted || new Date().toISOString(),
     actor: {
-      name: typeof l.user === 'string' ? l.user : l.user?.name || 'System',
+      name: actor,
       role: (typeof l.user === 'object' ? l.user?.role : l.role) || 'SYSTEM',
     },
     action: l.action,
     entity: { id: l.target || 'System', type: 'RECORD' },
-    outcome: l.status || 'SUCCESS',
+    outcome,
+    severity: outcome === 'SUCCESS' ? 'INFO' : 'WARNING',
     ip_address: l.ip_address,
     details: {},
-  }))
+    }
+  })
+
+  return entries.filter((entry) => {
+    if (filters?.outcome && entry.outcome !== filters.outcome) return false
+    if (filters?.alertsOnly && entry.outcome === 'SUCCESS') return false
+    return true
+  })
 }
 
 // Sign-in / sign-out events from Flow 1

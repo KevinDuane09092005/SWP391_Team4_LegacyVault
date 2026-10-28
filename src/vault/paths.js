@@ -13,5 +13,6 @@ export const ownerPaths = {
   contacts: '/dashboard/owner/contacts',
   assignments: '/dashboard/owner/assignments',
   dms: '/dashboard/owner/dms',
+  billing: '/dashboard/owner/billing',
 }
 

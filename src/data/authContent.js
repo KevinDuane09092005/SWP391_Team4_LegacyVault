@@ -119,6 +119,9 @@ const en = {
     ACCOUNT_NOT_VERIFIED: 'This account is not verified yet. Enter your verification code first.',
     INVALID_OTP: 'That code is not correct. Check it and try again.',
     OTP_ATTEMPTS_EXCEEDED: 'Too many wrong codes. Request a new code to try again.',
+    REGISTRATION_FAILED: 'Registration failed. Please try again.',
+    OTP_RESEND_UNAVAILABLE: 'The backend does not provide a resend-code endpoint yet. Use the code shown after registering or contact the team for a new code.',
+    PASSWORD_RESET_UNAVAILABLE: 'Password reset is not supported by the backend yet.',
     REGISTRATION_NOT_FOUND:
       'We could not find this registration. In demo mode new accounts are lost when the page reloads, so please register again.',
     NETWORK: 'We could not reach the server. Check your connection and try again.',
@@ -245,6 +248,9 @@ const vi = {
     ACCOUNT_NOT_VERIFIED: 'Tài khoản chưa được xác minh. Hãy nhập mã xác minh trước.',
     INVALID_OTP: 'Mã không đúng. Kiểm tra lại và thử lần nữa.',
     OTP_ATTEMPTS_EXCEEDED: 'Bạn đã nhập sai quá nhiều lần. Hãy yêu cầu mã mới để thử lại.',
+    REGISTRATION_FAILED: 'Đăng ký không thành công. Vui lòng thử lại.',
+    OTP_RESEND_UNAVAILABLE: 'Backend hiện chưa hỗ trợ gửi lại mã. Hãy dùng mã hiển thị sau khi đăng ký hoặc liên hệ nhóm để cấp mã mới.',
+    PASSWORD_RESET_UNAVAILABLE: 'Backend hiện chưa hỗ trợ đặt lại mật khẩu.',
     REGISTRATION_NOT_FOUND:
       'Không tìm thấy lượt đăng ký này. Ở chế độ demo, tài khoản mới sẽ mất khi tải lại trang, vui lòng đăng ký lại.',
     NETWORK: 'Không kết nối được máy chủ. Kiểm tra mạng và thử lại.',
