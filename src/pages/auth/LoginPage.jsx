@@ -7,7 +7,7 @@ import FormField from '../../components/auth/FormField.jsx'
 import SubmitButton from '../../components/auth/SubmitButton.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { ROLES } from '../../auth/roles.js'
-import { savePendingVerification, saveSession } from '../../auth/session.js'
+import { savePendingVerification } from '../../auth/session.js'
 import { normalizeIdentifier, validateLogin } from '../../auth/validation.js'
 import { authContent } from '../../data/authContent.js'
 import { dashboardContent } from '../../data/dashboardContent.js'
@@ -123,11 +123,6 @@ export default function LoginPage() {
       }
 
       // 4. Khi thành công (HTTP 200 OK): Lưu trữ Authentication State
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('role', data.role)
-      localStorage.setItem('userId', data.userId)
-      localStorage.setItem('legacyvault-access-token', data.token)
-
       // Chuẩn hóa role và thông tin người dùng cho hệ thống frontend
       const roleMapping = {
         vault_owner: ROLES.VAULT_OWNER,
@@ -148,10 +143,7 @@ export default function LoginPage() {
         role: appRole,
       }
 
-      saveSession(userProfile, form.values.remember)
-      if (typeof setSessionUser === 'function') {
-        setSessionUser(userProfile, form.values.remember)
-      }
+      setSessionUser(userProfile, form.values.remember, data.token)
 
       // 5. Điều hướng: Chuyển sang trang Dashboard (/dashboard hoặc trang yêu cầu trước đó)
       const redirectTarget = location.state?.from ?? '/dashboard'
@@ -227,19 +219,13 @@ export default function LoginPage() {
       })
       const token = res.access_token || res.token
       if (token) {
-        localStorage.setItem('token', token)
-        localStorage.setItem('legacyvault-access-token', token)
-        localStorage.setItem('role', 'BENEFICIARY')
         const profile = {
           id: 'beneficiary-access',
           fullName: accessForm.beneficiaryName || accessForm.email.split('@')[0],
           identifier: accessForm.email,
           role: ROLES.BENEFICIARY,
         }
-        saveSession(profile, false)
-        if (typeof setSessionUser === 'function') {
-          setSessionUser(profile, false)
-        }
+        setSessionUser(profile, false, token)
         navigate('/dashboard/beneficiary', { replace: true })
       } else {
         throw new Error(res.message || 'OTP verification failed.')

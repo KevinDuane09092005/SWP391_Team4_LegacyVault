@@ -550,7 +550,7 @@ export const recordAssetDownload = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockRecordAssetDownload(user, caseId, assetId)
   try {
     await acknowledgeIndividualAssetApi(assetId)
-  } catch (e) {
+  } catch {
     // non-fatal
   }
 }

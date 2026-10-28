@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import Icon from '../../components/Icon.jsx'
@@ -55,6 +56,7 @@ function cameraErrorMessage(error, copy) {
 
 export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificationStateChange }) {
   const videoRef = useRef(null)
+  const dialogRef = useRef(null)
   const streamRef = useRef(null)
   const humanRef = useRef(null)
   const latestFaceRef = useRef(null)
@@ -78,6 +80,22 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
   const [result, setResult] = useState(null)
   const [enrollmentSaved, setEnrollmentSaved] = useState(false)
   const [metrics, setMetrics] = useState({ faceCount: 0, confidence: null })
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  const cancelVerification = useCallback(() => {
+    const wasEnrolling = challengeRef.current?.mode === 'enroll'
+    challengeRef.current = null
+    setChallenge(null)
+    setBusy(false)
+    setMessage(wasEnrolling ? copy.enrollmentCancelled : copy.scanCancelled)
+  }, [copy])
+
+  const closeDialog = useCallback(() => {
+    if (busy) cancelVerification()
+    stopStream(streamRef, videoRef)
+    setCameraActive(false)
+    setDialogOpen(false)
+  }, [busy, cancelVerification])
 
   useEffect(() => {
     onStatusChangeRef.current = onVerificationStateChange
@@ -96,6 +114,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
       setEnrolled(hasReference)
       setMode(hasReference ? 'verify' : 'enroll')
       setVerified(passed)
+      setDialogOpen(!passed)
       setMessage(passed ? copy.alreadyVerified : hasReference ? copy.enrolledNeedsScan : copy.enrollmentIntro)
       onStatusChangeRef.current?.(passed)
     }).catch((error) => {
@@ -110,6 +129,21 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
   }, [caseRef, copy, statusRetry])
 
   useEffect(() => () => stopStream(streamRef, videoRef), [])
+
+  useEffect(() => {
+    if (!dialogOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialogRef.current?.focus()
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && !busy) closeDialog()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [dialogOpen, busy, closeDialog])
 
   async function loadModels() {
     if (humanRef.current) return humanRef.current
@@ -218,14 +252,6 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
     }
   }
 
-  function cancelVerification() {
-    const wasEnrolling = challengeRef.current?.mode === 'enroll'
-    challengeRef.current = null
-    setChallenge(null)
-    setBusy(false)
-    setMessage(wasEnrolling ? copy.enrollmentCancelled : copy.scanCancelled)
-  }
-
   function startOver() {
     setVerified(false)
     setResult(null)
@@ -258,6 +284,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
         if (passed) {
           stopStream(streamRef, videoRef)
           setCameraActive(false)
+          setDialogOpen(false)
         }
       } catch (error) {
         setFailure(error?.message || copy.scanFailure)
@@ -380,17 +407,109 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
         ? copy.holdStill
         : ''
 
+  const enrollmentMode = mode === 'enroll' && !verified
+  const title = enrollmentMode ? copy.enrollmentTitle : copy.title
+  const description = enrollmentMode ? copy.enrollmentDescription : copy.description
+  const body = !verified && (
+    <div className="flow6-face__dialog-body">
+      <div className={`flow6-face__preview ${cameraActive ? 'is-active' : ''}`}>
+        <video ref={videoRef} muted playsInline autoPlay aria-label={copy.livePreview} className={cameraActive ? 'is-visible' : ''} />
+        {!cameraActive && (
+          <div className="flow6-face__placeholder">
+            <span className="flow6-face__camera-icon"><Icon name="eye" size={22} /></span>
+            <strong>{copy.livePreview}</strong>
+            <span>{copy.cameraInstructions}</span>
+          </div>
+        )}
+        {cameraActive && <div className="flow6-face__guide" aria-hidden="true" />}
+        {cameraActive && (
+          <div className="flow6-face__camera-status">
+            <i className={metrics.faceCount === 1 ? 'is-detected' : ''} />
+            {metrics.faceCount === 1 ? copy.oneFace : metrics.faceCount > 1 ? copy.multipleFaces : copy.noFace}
+          </div>
+        )}
+        {challengePrompt && <div className="flow6-face__challenge">{challengePrompt}</div>}
+      </div>
+
+      <div className="flow6-face__dialog-aside">
+        <label className="handover-check flow6-face__consent">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(event) => setConsent(event.target.checked)}
+            disabled={starting || busy}
+          />
+          <span>{enrollmentMode ? copy.enrollmentConsent : copy.consent}</span>
+        </label>
+
+        <div className="flow6-face__controls">
+          <div className="flow6-face__actions">
+            {!cameraActive ? (
+              <Button onClick={startCamera} disabled={starting || busy || !consent}>
+                {starting ? copy.preparingCamera : copy.startCamera}
+              </Button>
+            ) : busy && challenge ? (
+              <Button variant="secondary" onClick={cancelVerification}>{copy.cancelScan}</Button>
+            ) : (
+              <Button
+                onClick={enrollmentMode ? beginEnrollment : beginVerification}
+                disabled={busy || metrics.faceCount !== 1 || !consent}
+              >
+                {busy
+                  ? copy.preparingCheck
+                  : enrollmentMode
+                    ? copy.startEnrollment
+                    : result?.passed === false ? copy.scanAgain : copy.startCheck}
+              </Button>
+            )}
+            {cameraActive && !busy && (
+              <Button variant="secondary" onClick={() => { stopStream(streamRef, videoRef); setCameraActive(false); setMessage(copy.cameraStopped) }}>
+                {copy.stopCamera}
+              </Button>
+            )}
+          </div>
+          <p className="flow6-face__status" role="status">
+            {failure || message || (cameraActive ? copy.cameraReady : modelStatus)}
+          </p>
+          {cameraActive && metrics.confidence != null && (
+            <small className="flow6-face__quality">{copy.faceQuality(percent(metrics.confidence))}</small>
+          )}
+        </div>
+
+        {failure && <FormAlert>{failure}</FormAlert>}
+        {result && (
+          <div className={`flow6-face__result ${result.passed ? 'flow6-face__result--success' : 'flow6-face__result--failure'}`} role={result.passed ? 'status' : 'alert'}>
+            <strong>{result.passed ? copy.scanPassed : copy.scanFailed}</strong>
+            <dl>
+              <div><dt>{copy.matchScore}</dt><dd>{percent(result.faceMatchScore || 0)}</dd></div>
+              <div><dt>{copy.livenessScore}</dt><dd>{percent(result.livenessScore || 0)}</dd></div>
+              <div><dt>{copy.antiSpoofScore}</dt><dd>{percent(result.antiSpoofScore || 0)}</dd></div>
+            </dl>
+            <p>{result.message}</p>
+          </div>
+        )}
+
+        {enrollmentSaved && (
+          <div className="flow6-face__result flow6-face__result--success" role="status">
+            <strong><Icon name="check" size={15} /> {copy.enrollmentSaved}</strong>
+            <p>{copy.enrollmentNext}</p>
+          </div>
+        )}
+
+        <div className="flow6-face__privacy">
+          <p><Icon name="lock" size={14} /> {enrollmentMode ? copy.enrollmentPrivacy : copy.privacy}</p>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="flow6-face">
       <header className="flow6-face__header">
         <span className="flow6-face__icon"><Icon name="shieldCheck" size={18} /></span>
         <div>
-          <h3 id="flow6-face-title" className="section-title">
-            {mode === 'enroll' && !verified ? copy.enrollmentTitle : copy.title}
-          </h3>
-          <p className="page-text">
-            {mode === 'enroll' && !verified ? copy.enrollmentDescription : copy.description}
-          </p>
+          <h3 id="flow6-face-title" className="section-title">{copy.title}</h3>
+          <p className="page-text">{copy.description}</p>
         </div>
         <span className={`handover-status ${verified ? 'handover-status--success' : 'handover-status--warning'}`}>
           <span className="handover-status__dot" />{verified ? copy.passedBadge : copy.requiredBadge}
@@ -425,97 +544,51 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
       )}
 
       {!statusLoading && !statusError && !verified && (
-        <>
-          <p className="handover-note" role="status">
-            {mode === 'enroll' ? copy.enrollmentIntro : copy.enrolledNeedsScan}
-          </p>
-          <label className="handover-check flow6-face__consent">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(event) => setConsent(event.target.checked)}
-              disabled={starting || busy}
-            />
-            <span>{mode === 'enroll' ? copy.enrollmentConsent : copy.consent}</span>
-          </label>
+        <div className="flow6-face__summary">
+          <div className="flow6-face__summary-copy">
+            <strong>{enrollmentMode ? copy.enrollmentTitle : copy.title}</strong>
+            <p role="status">{enrollmentMode ? copy.enrollmentIntro : copy.enrolledNeedsScan}</p>
+          </div>
+          <Button onClick={() => setDialogOpen(true)}>
+            {enrollmentMode ? copy.startEnrollment : copy.startCheck}
+          </Button>
+        </div>
+      )}
 
-          <div className={`flow6-face__preview ${cameraActive ? 'is-active' : ''}`}>
-            <video ref={videoRef} muted playsInline autoPlay aria-label={copy.livePreview} className={cameraActive ? 'is-visible' : ''} />
-            {!cameraActive && (
-              <div className="flow6-face__placeholder">
-                <span className="flow6-face__camera-icon"><Icon name="eye" size={22} /></span>
-                <strong>{copy.livePreview}</strong>
-                <span>{copy.cameraInstructions}</span>
+      {dialogOpen && !statusLoading && !statusError && createPortal(
+        <div
+          className="flow6-face__overlay"
+          onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) closeDialog() }}
+        >
+          <section
+            className="flow6-face__dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="flow6-face-dialog-title"
+            tabIndex={-1}
+            ref={dialogRef}
+          >
+            <header className="flow6-face__dialog-header">
+              <span className="flow6-face__icon"><Icon name="shieldCheck" size={18} /></span>
+              <div>
+                <span className="flow6-face__eyebrow">{copy.requiredBadge}</span>
+                <h2 id="flow6-face-dialog-title" className="section-title">{title}</h2>
+                <p className="page-text">{description}</p>
               </div>
-            )}
-            {cameraActive && <div className="flow6-face__guide" aria-hidden="true" />}
-            {cameraActive && (
-              <div className="flow6-face__camera-status">
-                <i className={metrics.faceCount === 1 ? 'is-detected' : ''} />
-                {metrics.faceCount === 1 ? copy.oneFace : metrics.faceCount > 1 ? copy.multipleFaces : copy.noFace}
-              </div>
-            )}
-            {challengePrompt && <div className="flow6-face__challenge">{challengePrompt}</div>}
-          </div>
-
-          <div className="flow6-face__controls">
-            <div className="flow6-face__actions">
-              {!cameraActive ? (
-                <Button onClick={startCamera} disabled={starting || busy || !consent}>
-                  {starting ? copy.preparingCamera : copy.startCamera}
-                </Button>
-              ) : busy && challenge ? (
-                <Button variant="secondary" onClick={cancelVerification}>{copy.cancelScan}</Button>
-              ) : (
-                <Button
-                  onClick={mode === 'enroll' ? beginEnrollment : beginVerification}
-                  disabled={busy || metrics.faceCount !== 1 || !consent}
-                >
-                  {busy
-                    ? copy.preparingCheck
-                    : mode === 'enroll'
-                      ? copy.startEnrollment
-                      : result?.passed === false ? copy.scanAgain : copy.startCheck}
-                </Button>
-              )}
-              {cameraActive && !busy && (
-                <Button variant="secondary" onClick={() => { stopStream(streamRef, videoRef); setCameraActive(false); setMessage(copy.cameraStopped) }}>
-                  {copy.stopCamera}
-                </Button>
-              )}
-            </div>
-            <p className="flow6-face__status" role="status">
-              {failure || message || (cameraActive ? copy.cameraReady : modelStatus)}
-            </p>
-            {cameraActive && metrics.confidence != null && (
-              <small className="flow6-face__quality">{copy.faceQuality(percent(metrics.confidence))}</small>
-            )}
-          </div>
-
-          {failure && <FormAlert>{failure}</FormAlert>}
-          {result && (
-            <div className={`flow6-face__result ${result.passed ? 'flow6-face__result--success' : 'flow6-face__result--failure'}`} role={result.passed ? 'status' : 'alert'}>
-              <strong>{result.passed ? copy.scanPassed : copy.scanFailed}</strong>
-              <dl>
-                <div><dt>{copy.matchScore}</dt><dd>{percent(result.faceMatchScore || 0)}</dd></div>
-                <div><dt>{copy.livenessScore}</dt><dd>{percent(result.livenessScore || 0)}</dd></div>
-                <div><dt>{copy.antiSpoofScore}</dt><dd>{percent(result.antiSpoofScore || 0)}</dd></div>
-              </dl>
-              <p>{result.message}</p>
-            </div>
-          )}
-
-          {enrollmentSaved && (
-            <div className="flow6-face__result flow6-face__result--success" role="status">
-              <strong><Icon name="check" size={15} /> {copy.enrollmentSaved}</strong>
-              <p>{copy.enrollmentNext}</p>
-            </div>
-          )}
-
-          <div className="flow6-face__privacy">
-            <p><Icon name="lock" size={14} /> {mode === 'enroll' ? copy.enrollmentPrivacy : copy.privacy}</p>
-          </div>
-        </>
+              <button
+                type="button"
+                className="flow6-face__close"
+                onClick={closeDialog}
+                disabled={busy}
+                aria-label={copy.closeDialog}
+              >
+                ×
+              </button>
+            </header>
+            {body}
+          </section>
+        </div>,
+        document.body,
       )}
     </div>
   )
