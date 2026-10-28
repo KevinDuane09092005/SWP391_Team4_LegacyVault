@@ -514,7 +514,6 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
 
           <div className="flow6-face__privacy">
             <p><Icon name="lock" size={14} /> {mode === 'enroll' ? copy.enrollmentPrivacy : copy.privacy}</p>
-            <small>{copy.prototypeNotice}</small>
           </div>
         </>
       )}
