@@ -5,6 +5,7 @@ import Icon from '../../components/Icon.jsx'
 import {
   completeBeneficiaryFaceCheckApi,
   createBeneficiaryFaceCheckApi,
+  enrollBeneficiaryFaceApi,
   getBeneficiaryFaceEnrollmentApi,
 } from '../../services/beneficiaryFaceService.js'
 import { getBeneficiaryKycStatusApi } from '../../services/handoverService.js'
@@ -13,6 +14,8 @@ import './beneficiaryFaceVerification.css'
 const MODEL_BASE_PATH = 'https://vladmandic.github.io/human-models/models/'
 const SAMPLE_COUNT = 5
 const SCAN_TIMEOUT_MS = 45_000
+const ENROLLMENT_LIVENESS_THRESHOLD = 0.6
+const ENROLLMENT_ANTI_SPOOF_THRESHOLD = 0.6
 
 const humanConfig = {
   backend: 'webgl',
@@ -62,6 +65,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
   const [statusLoading, setStatusLoading] = useState(true)
   const [statusError, setStatusError] = useState('')
   const [enrolled, setEnrolled] = useState(false)
+  const [mode, setMode] = useState('enroll')
   const [verified, setVerified] = useState(false)
   const [consent, setConsent] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -72,6 +76,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
   const [failure, setFailure] = useState('')
   const [challenge, setChallenge] = useState(null)
   const [result, setResult] = useState(null)
+  const [enrollmentSaved, setEnrollmentSaved] = useState(false)
   const [metrics, setMetrics] = useState({ faceCount: 0, confidence: null })
 
   useEffect(() => {
@@ -89,8 +94,9 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
       const hasReference = Boolean(enrollment?.enrolled)
       const passed = String(kyc?.biometric_facial_verification_status || '').toUpperCase() === 'VERIFIED'
       setEnrolled(hasReference)
+      setMode(hasReference ? 'verify' : 'enroll')
       setVerified(passed)
-      setMessage(passed ? copy.alreadyVerified : hasReference ? copy.enrolledNeedsScan : copy.enrollmentRequired)
+      setMessage(passed ? copy.alreadyVerified : hasReference ? copy.enrolledNeedsScan : copy.enrollmentIntro)
       onStatusChangeRef.current?.(passed)
     }).catch((error) => {
       if (!active) return
@@ -117,7 +123,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
   }
 
   async function startCamera() {
-    if (!enrolled) {
+    if (mode === 'verify' && !enrolled) {
       setFailure(copy.enrollmentRequired)
       return
     }
@@ -142,6 +148,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
       await videoRef.current.play()
       setCameraActive(true)
       setResult(null)
+      setEnrollmentSaved(false)
       setMetrics({ faceCount: 0, confidence: null })
       setMessage(copy.cameraReady)
     } catch (error) {
@@ -153,6 +160,28 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
     } finally {
       setStarting(false)
     }
+  }
+
+  function beginEnrollment() {
+    if (!consent || !cameraActive || metrics.faceCount !== 1) return
+    setBusy(true)
+    setFailure('')
+    setResult(null)
+    setEnrollmentSaved(false)
+    const direction = Math.random() < 0.5 ? 'left' : 'right'
+    challengeRef.current = {
+      active: true,
+      mode: 'enroll',
+      step: 'turn',
+      direction,
+      startedAt: Date.now(),
+      liveSamples: [],
+      realSamples: [],
+      embeddingSamples: [],
+      lastFace: null,
+    }
+    setChallenge({ step: 'turn', direction })
+    setMessage(copy.turnHead(direction))
   }
 
   async function beginVerification() {
@@ -170,6 +199,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
       challengeRef.current = {
         active: true,
         sessionId: session.sessionId,
+        mode: 'verify',
         step: 'turn',
         direction,
         startedAt: Date.now(),
@@ -189,10 +219,11 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
   }
 
   function cancelVerification() {
+    const wasEnrolling = challengeRef.current?.mode === 'enroll'
     challengeRef.current = null
     setChallenge(null)
     setBusy(false)
-    setMessage(copy.scanCancelled)
+    setMessage(wasEnrolling ? copy.enrollmentCancelled : copy.scanCancelled)
   }
 
   function startOver() {
@@ -238,6 +269,42 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
       }
     }
 
+    async function submitEnrollment(active) {
+      setMessage(copy.savingEnrollment)
+      try {
+        const livenessScore = average(active.liveSamples)
+        const antiSpoofScore = average(active.realSamples)
+        if (livenessScore < ENROLLMENT_LIVENESS_THRESHOLD || antiSpoofScore < ENROLLMENT_ANTI_SPOOF_THRESHOLD) {
+          throw new Error(copy.enrollmentLivenessFailure)
+        }
+
+        const embeddings = active.embeddingSamples
+        const embedding = embeddings[0].map((_, index) =>
+          average(embeddings.map((sample) => sample[index])),
+        )
+        const response = await enrollBeneficiaryFaceApi({
+          consent: true,
+          embedding,
+        })
+        if (!response?.enrolled) throw new Error(copy.enrollmentFailure)
+        setEnrolled(true)
+        setMode('verify')
+        setConsent(false)
+        setEnrollmentSaved(true)
+        setMessage(copy.enrollmentSaved)
+        stopStream(streamRef, videoRef)
+        setCameraActive(false)
+        onStatusChangeRef.current?.(false)
+      } catch (error) {
+        setFailure(error?.message || copy.enrollmentFailure)
+        setMessage('')
+      } finally {
+        challengeRef.current = null
+        setChallenge(null)
+        setBusy(false)
+      }
+    }
+
     async function detectLoop() {
       if (!running) return
       const video = videoRef.current
@@ -273,10 +340,15 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
                 active.liveSamples.push(face.live)
                 active.realSamples.push(face.real)
                 active.lastFace = face
+                if (active.mode === 'enroll') active.embeddingSamples.push(Array.from(face.embedding))
               }
               if (active.liveSamples.length >= SAMPLE_COUNT) {
                 active.active = false
-                await submitVerification(active, active.lastFace, true)
+                if (active.mode === 'enroll') {
+                  await submitEnrollment(active)
+                } else {
+                  await submitVerification(active, active.lastFace, true)
+                }
               }
             }
           }
@@ -313,8 +385,12 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
       <header className="flow6-face__header">
         <span className="flow6-face__icon"><Icon name="shieldCheck" size={18} /></span>
         <div>
-          <h3 id="flow6-face-title" className="section-title">{copy.title}</h3>
-          <p className="page-text">{copy.description}</p>
+          <h3 id="flow6-face-title" className="section-title">
+            {mode === 'enroll' && !verified ? copy.enrollmentTitle : copy.title}
+          </h3>
+          <p className="page-text">
+            {mode === 'enroll' && !verified ? copy.enrollmentDescription : copy.description}
+          </p>
         </div>
         <span className={`handover-status ${verified ? 'handover-status--success' : 'handover-status--warning'}`}>
           <span className="handover-status__dot" />{verified ? copy.passedBadge : copy.requiredBadge}
@@ -350,11 +426,9 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
 
       {!statusLoading && !statusError && !verified && (
         <>
-          {!enrolled ? (
-            <p className="handover-note" role="status">{copy.enrollmentRequired}</p>
-          ) : (
-            <>
-              <p className="handover-note">{copy.enrolledNeedsScan}</p>
+          <p className="handover-note" role="status">
+            {mode === 'enroll' ? copy.enrollmentIntro : copy.enrolledNeedsScan}
+          </p>
           <label className="handover-check flow6-face__consent">
             <input
               type="checkbox"
@@ -362,7 +436,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
               onChange={(event) => setConsent(event.target.checked)}
               disabled={starting || busy}
             />
-            <span>{copy.consent}</span>
+            <span>{mode === 'enroll' ? copy.enrollmentConsent : copy.consent}</span>
           </label>
 
           <div className={`flow6-face__preview ${cameraActive ? 'is-active' : ''}`}>
@@ -393,8 +467,15 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
               ) : busy && challenge ? (
                 <Button variant="secondary" onClick={cancelVerification}>{copy.cancelScan}</Button>
               ) : (
-                <Button onClick={beginVerification} disabled={busy || metrics.faceCount !== 1 || !consent}>
-                  {busy ? copy.preparingCheck : result?.passed === false ? copy.scanAgain : copy.startCheck}
+                <Button
+                  onClick={mode === 'enroll' ? beginEnrollment : beginVerification}
+                  disabled={busy || metrics.faceCount !== 1 || !consent}
+                >
+                  {busy
+                    ? copy.preparingCheck
+                    : mode === 'enroll'
+                      ? copy.startEnrollment
+                      : result?.passed === false ? copy.scanAgain : copy.startCheck}
                 </Button>
               )}
               {cameraActive && !busy && (
@@ -424,12 +505,17 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
             </div>
           )}
 
+          {enrollmentSaved && (
+            <div className="flow6-face__result flow6-face__result--success" role="status">
+              <strong><Icon name="check" size={15} /> {copy.enrollmentSaved}</strong>
+              <p>{copy.enrollmentNext}</p>
+            </div>
+          )}
+
           <div className="flow6-face__privacy">
-            <p><Icon name="lock" size={14} /> {copy.privacy}</p>
+            <p><Icon name="lock" size={14} /> {mode === 'enroll' ? copy.enrollmentPrivacy : copy.privacy}</p>
             <small>{copy.prototypeNotice}</small>
           </div>
-            </>
-          )}
         </>
       )}
     </div>
