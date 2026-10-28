@@ -80,6 +80,15 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      // The demo account list explicitly promises browser-only sign-in. Keep that
+      // path on the mock auth service; only contact the backend in backend mode.
+      if (IS_DEMO_MODE) {
+        await login({ identifier: email, password, remember: form.values.remember })
+        const redirectTarget = location.state?.from ?? '/dashboard'
+        navigate(redirectTarget, { replace: true })
+        return
+      }
+
       // 1. Xác định URL Backend từ biến môi trường hoặc fallback
       const baseUrl = (
         import.meta.env.VITE_API_BASE_URL ||

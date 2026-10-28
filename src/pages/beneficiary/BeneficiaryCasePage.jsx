@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
@@ -28,6 +28,7 @@ import {
 } from '../../services/handoverService.js'
 import { formatFileSize } from '../../vault/documentRules.js'
 import { formatDisplayDateTime } from '../../vault/format.js'
+import BeneficiaryFaceVerification from './BeneficiaryFaceVerification.jsx'
 
 const LIST_PATH = '/dashboard/beneficiary'
 
@@ -240,8 +241,11 @@ function AuthorizationPanel({ handover, user, t, onChange }) {
   const c = t.caseView
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState(null)
+  const [facePassed, setFacePassed] = useState(false)
+  const updateFaceState = useCallback((passed) => setFacePassed(passed), [])
 
   const run = async () => {
+    if (!facePassed) return
     setBusy(true)
     setFailure(null)
     try {
@@ -263,8 +267,14 @@ function AuthorizationPanel({ handover, user, t, onChange }) {
           <DenyReasons reasons={failure.details?.reasons} />
         </FormAlert>
       )}
+      <BeneficiaryFaceVerification
+        caseRef={handover.id}
+        copy={c.face}
+        onVerificationStateChange={updateFaceState}
+      />
+      {!facePassed && <p className="handover-note">{c.face.authorizationBlocked}</p>}
       <div className="form-actions">
-        <Button onClick={run} disabled={busy}>{busy ? c.runningAuth : c.runAuth}</Button>
+        <Button onClick={run} disabled={busy || !facePassed}>{busy ? c.runningAuth : c.runAuth}</Button>
       </div>
     </section>
   )
