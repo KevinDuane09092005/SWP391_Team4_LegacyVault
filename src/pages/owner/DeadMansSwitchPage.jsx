@@ -40,9 +40,9 @@ export default function DeadMansSwitchPage() {
   const [clock, setClock] = useState(Date.now())
   const [simulatedOffsetMs, setSimulatedOffsetMs] = useState(0) // for presentation testing
 
-  // Form states for config in seconds (matching backend schema: 30s interval, 50s grace default)
-  const [formInterval, setFormInterval] = useState(30)
-  const [formGrace, setFormGrace] = useState(50)
+  // Form states for config in seconds (matching backend schema: 60s interval, 120s grace default)
+  const [formInterval, setFormInterval] = useState(60)
+  const [formGrace, setFormGrace] = useState(120)
   const [isEditingConfig, setIsEditingConfig] = useState(false)
 
   // Live timer tick every 1 second
@@ -104,10 +104,10 @@ export default function DeadMansSwitchPage() {
       // 1. GET /api/v1/dms/status
       const statusData = await getDmsStatusApi()
       setDmsData(statusData)
-      const intervalSec = statusData?.checkInIntervalSeconds ?? statusData?.checkInIntervalDays ?? 30
-      const graceSec = statusData?.gracePeriodSeconds ?? statusData?.gracePeriodDays ?? 50
-      setFormInterval(intervalSec)
-      setFormGrace(graceSec)
+      const rawIntervalSec = statusData?.checkInIntervalSeconds ?? statusData?.checkInIntervalDays ?? 60
+      const rawGraceSec = statusData?.gracePeriodSeconds ?? statusData?.gracePeriodDays ?? 120
+      setFormInterval(rawIntervalSec < 3600 ? 60 : rawIntervalSec)
+      setFormGrace(rawGraceSec < 3600 ? 120 : rawGraceSec)
 
       // 2. GET /api/v1/dms/audit-logs
       try {
@@ -150,6 +150,22 @@ export default function DeadMansSwitchPage() {
     loadDmsData()
   }, [loadDmsData])
 
+  // Đồng bộ ngầm trạng thái DMS và Hồ sơ bàn giao khi chuyển giai đoạn (không gây loading giật trang)
+  const syncDmsStateSilently = useCallback(async () => {
+    try {
+      const statusData = await getDmsStatusApi()
+      if (statusData) {
+        setDmsData(statusData)
+      }
+      const casesData = await getHandoverCasesApi().catch(() => null)
+      if (Array.isArray(casesData)) {
+        setHandoverCases(casesData)
+      }
+    } catch (err) {
+      console.warn('Silent DMS sync warning:', err)
+    }
+  }, [])
+
   // 2. POST /api/v1/dms/config: Save DMS configuration to backend and simultaneously reset countdown timer
   const saveConfig = async () => {
     setSyncing(true)
@@ -157,7 +173,7 @@ export default function DeadMansSwitchPage() {
     setSuccessToast('')
 
     try {
-      const res = await saveDmsConfigApi({
+      await saveDmsConfigApi({
         checkInIntervalSeconds: Number(formInterval),
         gracePeriodSeconds: Number(formGrace),
       })
@@ -185,8 +201,10 @@ export default function DeadMansSwitchPage() {
         ])
         setDmsData(updatedStatus)
         setLogs(mapAuditLogs(updatedLogs))
-        setFormInterval(updatedStatus?.checkInIntervalSeconds ?? updatedStatus?.checkInIntervalDays ?? formInterval)
-        setFormGrace(updatedStatus?.gracePeriodSeconds ?? updatedStatus?.gracePeriodDays ?? formGrace)
+        const nextInterval = updatedStatus?.checkInIntervalSeconds ?? updatedStatus?.checkInIntervalDays ?? formInterval
+        const nextGrace = updatedStatus?.gracePeriodSeconds ?? updatedStatus?.gracePeriodDays ?? formGrace
+        setFormInterval(nextInterval < 3600 ? 60 : nextInterval)
+        setFormGrace(nextGrace < 3600 ? 120 : nextGrace)
       } catch {
         const nowIso = new Date().toISOString()
         setDmsData((prev) => ({
@@ -329,6 +347,27 @@ export default function DeadMansSwitchPage() {
     intervalMs: intervalSeconds * 1000,
   })
 
+  // Tự động đồng bộ ngầm với Backend ngay khi đồng hồ đếm ngược chuyển trạng thái (Soon / Grace Period / Triggered)
+  const hasDmsData = !!dmsData
+  useEffect(() => {
+    if (loading || !hasDmsData || simulatedOffsetMs !== 0) return
+    if (dms === 'soon' || dms === 'warning' || dms === 'triggered') {
+      const timer1 = setTimeout(() => {
+        syncDmsStateSilently()
+      }, 300)
+      const timer2 =
+        dms === 'triggered'
+          ? setTimeout(() => {
+              syncDmsStateSilently()
+            }, 1500)
+          : null
+      return () => {
+        clearTimeout(timer1)
+        if (timer2) clearTimeout(timer2)
+      }
+    }
+  }, [dms, loading, hasDmsData, simulatedOffsetMs, syncDmsStateSilently])
+
   const dueText = dateLabel(due, isVi ? 'vi-VN' : 'en-US', true)
   const lastText = dateLabel(lastCheck, isVi ? 'vi-VN' : 'en-US', true)
   const graceText = dateLabel(graceEnd, isVi ? 'vi-VN' : 'en-US', true)
@@ -411,9 +450,7 @@ export default function DeadMansSwitchPage() {
                   onChange={(e) => setFormInterval(Number(e.target.value))}
                 >
                   <optgroup label={isVi ? '⚡ Chế độ kiểm thử / Thử nghiệm nhanh' : '⚡ Quick Demo / Testing Mode'}>
-                    <option value={30}>{isVi ? '30 Giây (30s) — Mặc định kiểm thử' : '30 Seconds (30s) — Test Default'}</option>
-                    <option value={60}>{isVi ? '1 Phút (60s)' : '1 Minute (60s)'}</option>
-                    <option value={300}>{isVi ? '5 Phút (300s)' : '5 Minutes (300s)'}</option>
+                    <option value={60}>{isVi ? '1 Phút (60s) — Mặc định kiểm thử' : '1 Minute (60s) — Test Default'}</option>
                   </optgroup>
                   <optgroup label={isVi ? '⏱️ Theo Giờ' : '⏱️ Hourly Schedule'}>
                     <option value={3600}>{isVi ? '1 Giờ (3,600s)' : '1 Hour (3,600s)'}</option>
@@ -429,9 +466,6 @@ export default function DeadMansSwitchPage() {
                     <option value={15552000}>{isVi ? '6 Tháng (180 ngày)' : '6 Months (180 days)'}</option>
                     <option value={31536000}>{isVi ? '1 Năm (365 ngày)' : '1 Year (365 days)'}</option>
                   </optgroup>
-                  {![30, 60, 300, 3600, 7200, 21600, 43200, 86400, 604800, 2592000, 7776000, 15552000, 31536000].includes(Number(formInterval)) && (
-                    <option value={formInterval}>{formatTimeInterval(formInterval, isVi)}</option>
-                  )}
                 </select>
                 <p>
                   {isVi
@@ -447,9 +481,7 @@ export default function DeadMansSwitchPage() {
                   onChange={(e) => setFormGrace(Number(e.target.value))}
                 >
                   <optgroup label={isVi ? '⚡ Chế độ kiểm thử / Thử nghiệm nhanh' : '⚡ Quick Demo / Testing Mode'}>
-                    <option value={50}>{isVi ? '50 Giây (50s) — Mặc định kiểm thử' : '50 Seconds (50s) — Test Default'}</option>
-                    <option value={120}>{isVi ? '2 Phút (120s)' : '2 Minutes (120s)'}</option>
-                    <option value={600}>{isVi ? '10 Phút (600s)' : '10 Minutes (600s)'}</option>
+                    <option value={120}>{isVi ? '2 Phút (120s) — Mặc định kiểm thử' : '2 Minutes (120s) — Test Default'}</option>
                   </optgroup>
                   <optgroup label={isVi ? '⏱️ Theo Giờ' : '⏱️ Hourly Schedule'}>
                     <option value={3600}>{isVi ? '1 Giờ (3,600s)' : '1 Hour (3,600s)'}</option>
@@ -464,9 +496,6 @@ export default function DeadMansSwitchPage() {
                     <option value={1209600}>{isVi ? '14 Ngày (2 tuần)' : '14 Days (2 weeks)'}</option>
                     <option value={2592000}>{isVi ? '30 Ngày (1 tháng)' : '30 Days (1 month)'}</option>
                   </optgroup>
-                  {![50, 120, 600, 3600, 7200, 21600, 43200, 86400, 259200, 604800, 1209600, 2592000].includes(Number(formGrace)) && (
-                    <option value={formGrace}>{formatTimeInterval(formGrace, isVi)}</option>
-                  )}
                 </select>
                 <p>
                   {isVi

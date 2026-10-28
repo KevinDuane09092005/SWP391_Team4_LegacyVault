@@ -329,15 +329,17 @@ export default function ExecutorSubmissionPage() {
               </div>
             )}
 
-            <Button
-              className="upload-submit"
-              variant="primary"
-              type="submit"
-              disabled={busy}
-              style={{ marginTop: '16px' }}
-            >
-              {busy ? (autoSubmit ? (language === 'vi' ? 'Đang tải lên & nộp...' : 'Uploading & Submitting...') : t.actions.uploading) : (autoSubmit ? (language === 'vi' ? 'Tải lên & Nộp thẩm định' : 'Upload & Submit for Review') : t.actions.upload)}
-            </Button>
+            {!success && (
+              <Button
+                className="upload-submit"
+                variant="primary"
+                type="submit"
+                disabled={busy}
+                style={{ marginTop: '16px' }}
+              >
+                {busy ? (autoSubmit ? (language === 'vi' ? 'Đang tải lên & nộp...' : 'Uploading & Submitting...') : t.actions.uploading) : (autoSubmit ? (language === 'vi' ? 'Tải lên & Nộp thẩm định' : 'Upload & Submit for Review') : t.actions.upload)}
+              </Button>
+            )}
           </form>
         </section>
 
@@ -346,10 +348,7 @@ export default function ExecutorSubmissionPage() {
             <Info size={22} />
           </span>
           <h3>{u.workflowTitle}</h3>
-          <p>{u.workflowEndpoint}:</p>
-          <code>{u.workflowEndpoint}</code>
-          <p style={{ marginTop: '14px', lineHeight: 1.6 }}>{u.workflowNote}</p>
-          <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '14px', fontSize: '0.8125rem' }}>
+          <div style={{ marginTop: '12px', fontSize: '0.8125rem' }}>
             <strong>{language === 'vi' ? 'Quy trình thẩm định:' : 'Verification Flow:'}</strong>
             <ol style={{ paddingLeft: '18px', margin: '8px 0 0', display: 'grid', gap: '6px' }}>
               <li>{language === 'vi' ? 'Executor nộp Giấy chứng tử (PDF/Ảnh).' : 'Executor uploads Death Certificate.'}</li>
