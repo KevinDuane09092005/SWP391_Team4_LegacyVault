@@ -182,17 +182,22 @@ export async function verifyBeneficiaryOtpApi(payload) {
   })
 }
 
-// 7. GET /handover/beneficiary/kyc-status
-export async function getBeneficiaryKycStatusApi() {
+// 7. GET /handover/beneficiary/kyc-status?case_ref=LV-1042
+export async function getBeneficiaryKycStatusApi(caseRef) {
   if (isDemoMode()) {
     return {
-      face_match_verified: true,
+      biometric_facial_verification_status: 'PENDING_SCAN',
+      face_match_verified: false,
       national_id_verified: true,
-      liveness_check_passed: true,
-      kyc_status: 'VERIFIED',
+      liveness_check_passed: false,
+      kyc_status: 'PENDING',
     }
   }
-  return apiFetch('/handover/beneficiary/kyc-status')
+
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/kyc-status${query ? `?${query}` : ''}`)
 }
 
 // 8. GET /handover/cases/{caseId}/authorization-evaluation

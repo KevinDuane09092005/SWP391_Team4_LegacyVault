@@ -5,9 +5,9 @@ import Icon from '../../components/Icon.jsx'
 import {
   completeBeneficiaryFaceCheckApi,
   createBeneficiaryFaceCheckApi,
-  getBeneficiaryFaceCaseStatusApi,
   getBeneficiaryFaceEnrollmentApi,
 } from '../../services/beneficiaryFaceService.js'
+import { getBeneficiaryKycStatusApi } from '../../services/handoverService.js'
 import './beneficiaryFaceVerification.css'
 
 const MODEL_BASE_PATH = 'https://vladmandic.github.io/human-models/models/'
@@ -83,7 +83,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
 
     Promise.all([
       getBeneficiaryFaceEnrollmentApi(),
-      getBeneficiaryFaceCaseStatusApi(caseRef),
+      getBeneficiaryKycStatusApi(caseRef),
     ]).then(([enrollment, kyc]) => {
       if (!active) return
       const hasReference = Boolean(enrollment?.enrolled)
