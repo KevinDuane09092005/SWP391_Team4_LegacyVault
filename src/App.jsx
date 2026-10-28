@@ -17,6 +17,7 @@ import VaultDetailsPage from './pages/owner/VaultDetailsPage.jsx'
 import ContactsPage from './pages/owner/ContactsPage.jsx'
 import AssignmentsPage from './pages/owner/AssignmentsPage.jsx'
 import DeadMansSwitchPage from './pages/owner/DeadMansSwitchPage.jsx'
+import BillingPage from './pages/owner/BillingPage.jsx'
 import HomePage from './pages/HomePage.jsx'
 import HowItWorksPage from './pages/HowItWorksPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
@@ -107,6 +108,7 @@ export default function App() {
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="assignments" element={<AssignmentsPage />} />
           <Route path="dms" element={<DeadMansSwitchPage />} />
+          <Route path="billing" element={<BillingPage />} />
         </Route>
 
         {/* Flow 6: Asset Handover. Executor starts it; only the BENEFICIARY role can open the beneficiary pages. */}

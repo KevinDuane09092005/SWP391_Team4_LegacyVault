@@ -40,6 +40,8 @@ export default function VerifyOtpPage() {
         fullName: location.state?.fullName || '',
         userId: location.state?.userId,
         testOtp: location.state?.testOtp,
+        planId: location.state?.planId,
+        billing: location.state?.billing,
       }
       savePendingVerification(fallback)
       return fallback
@@ -100,36 +102,7 @@ export default function VerifyOtpPage() {
     setVerifying(true)
 
     try {
-      // 1. Xác định endpoint Backend
-      const baseUrl = (
-        import.meta.env.VITE_API_BASE_URL ||
-        import.meta.env.REACT_APP_API_BASE_URL ||
-        ''
-      ).replace(/\/$/, '')
-
-      const endpoint = baseUrl
-        ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/verify-otp` : `${baseUrl}/api/v1/auth/verify-otp`)
-        : '/api/v1/auth/verify-otp'
-
-      // 2. Gửi request POST xác thực mã OTP
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, otpCode }),
-      })
-
-      const data = await response.json().catch(() => ({}))
-
-      // 3. Xử lý khi API trả về lỗi (400 / 500 / "Invalid OTP" / "OTP expired"...)
-      if (!response.ok) {
-        const errorMsg =
-          data?.error ||
-          data?.message ||
-          (language === 'vi' ? 'Mã OTP không hợp lệ hoặc đã hết hạn.' : 'Invalid or expired OTP.')
-        throw new Error(errorMsg)
-      }
+      await verifyOtp({ identifier: email, code: otpCode })
 
       // 4. Thành công: Xóa thông tin pending tạm thời
       clearPendingVerification()
@@ -141,6 +114,8 @@ export default function VerifyOtpPage() {
         state: {
           verified: true,
           identifier: email,
+          planId: pending.planId,
+          billing: pending.billing,
           message:
             language === 'vi'
               ? 'Xác thực tài khoản thành công! Vui lòng đăng nhập.'
@@ -166,37 +141,14 @@ export default function VerifyOtpPage() {
     setResending(true)
     const email = pending?.identifier?.trim()
     try {
-      const baseUrl = (
-        import.meta.env.VITE_API_BASE_URL ||
-        import.meta.env.REACT_APP_API_BASE_URL ||
-        ''
-      ).replace(/\/$/, '')
-
-      const endpoint = baseUrl
-        ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/resend-otp` : `${baseUrl}/api/v1/auth/resend-otp`)
-        : '/api/v1/auth/resend-otp'
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      }).catch(() => null)
-
-      if (res && res.ok) {
-        const data = await res.json().catch(() => ({}))
-        if (data.testOtp) {
-          pending.testOtp = data.testOtp
-        }
-      } else {
-        await resendOtp({ identifier: email }).catch(() => ({}))
-      }
+      await resendOtp({ identifier: email })
 
       setResent(true)
       setCooldown(RESEND_WAIT_SECONDS)
       form.setValue('code', '')
     } catch (error) {
       setServerError(
-        error.message || (language === 'vi' ? 'Không thể gửi lại mã OTP.' : 'Failed to resend OTP.'),
+        error.code || error.message || (language === 'vi' ? 'Không thể gửi lại mã OTP.' : 'Failed to resend OTP.'),
       )
     } finally {
       setResending(false)

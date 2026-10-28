@@ -21,6 +21,7 @@ export default function OwnerLayout({ children }) {
     { to: ownerPaths.contacts, label: t.nav.contacts, icon: 'users' },
     { to: ownerPaths.assignments, label: t.nav.assignments, icon: 'layers' },
     { to: ownerPaths.dms, label: t.nav.dms, icon: 'shield' },
+    { to: ownerPaths.billing, label: language === 'vi' ? 'Gói & thanh toán' : 'Plan & billing', icon: 'creditCard' },
   ]
 
   return (

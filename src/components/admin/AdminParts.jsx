@@ -52,6 +52,19 @@ export function AdminLayout({ children }) {
   )
 }
 
+export function PrototypeOnlyNotice() {
+  const { language } = useLanguage()
+  if (IS_DEMO_MODE) return null
+  return (
+    <p className="handover-note admin-warning" role="status">
+      <Icon name="info" size={15} />
+      {language === 'vi'
+        ? 'Trang này hiện chỉ là giao diện mẫu; dữ liệu và thay đổi chưa được kết nối với backend.'
+        : 'This screen is still a frontend prototype; its data and changes are not connected to the backend.'}
+    </p>
+  )
+}
+
 export function OutcomeBadge({ outcome, severity }) {
   const { language } = useLanguage()
   const t = flow7Content[language].audit
