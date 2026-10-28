@@ -1,10 +1,9 @@
 .flow6-face {
   display: grid;
   gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
 }
 
 .flow6-face__header {
@@ -245,7 +244,8 @@
 
 @media (max-width: 560px) {
   .flow6-face {
-    padding: 14px;
+    margin-top: 14px;
+    padding-top: 14px;
   }
 
   .flow6-face__header {

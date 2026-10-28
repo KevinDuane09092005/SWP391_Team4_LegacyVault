@@ -309,7 +309,7 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
         : ''
 
   return (
-    <section className="flow6-face" aria-labelledby="flow6-face-title">
+    <div className="flow6-face">
       <header className="flow6-face__header">
         <span className="flow6-face__icon"><Icon name="shieldCheck" size={18} /></span>
         <div>
@@ -432,6 +432,6 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
           )}
         </>
       )}
-    </section>
+    </div>
   )
 }
