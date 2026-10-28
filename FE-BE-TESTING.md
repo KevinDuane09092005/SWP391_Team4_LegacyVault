@@ -36,13 +36,13 @@ Open the Vite URL printed in the terminal.
 
 1. Open `/pricing`. The plan cards should load from `GET /api/v1/plans`.
 2. Choose a plan and register with an email. The current backend returns a test OTP in its registration response; enter it before it expires, then sign in.
-3. For a paid plan, registration does not charge anything. After verification and sign-in, the selected plan opens in **Plan & billing**. Add a simulated payment method using only a fake last-four value (never enter a real card number or CVV), confirm recurring billing, and submit checkout.
-4. To test a declined payment, add another simulated method with **Simulate a declined transaction** checked, select it, and retry checkout. The backend's mock gateway never charges money.
+3. For a paid plan, registration does not charge anything. After verification and sign-in, the selected plan opens in **Plan & billing**. Compare the plan cards, choose a monthly or yearly cycle, then select a plan to open the clearly labeled simulated provider checkout. Confirm recurring billing before checkout.
+4. The saved payment-method form accepts only fake display metadata (name, brand, last four, expiry)—never enter a real card number or CVV. To see a declined result, add another simulated method with **Simulate a declined transaction** checked, select it during checkout, and confirm. The backend's mock gateway never charges money.
 5. Sign in with the locally bootstrapped admin account to test user listing, role/status changes, and audit logs. These requests require an admin JWT.
 
 ## Current limitations
 
 - OTP resend and password reset endpoints are not present in the backend, so the frontend reports that instead of pretending a request succeeded.
 - Admin role/permission matrix, policy settings, and integration toggles are still frontend prototypes; their pages are marked as unconnected and edits are disabled in backend mode.
-- The payment gateway is intentionally simulated. This is for functional coursework testing, not real billing.
+- The payment gateway is intentionally simulated. The checkout screen imitates a provider handoff but does not connect to an external processor. This is for functional coursework testing, not real billing.
 - The JWT is stored in browser storage for this prototype. A production system should use a server-managed secure, httpOnly session.

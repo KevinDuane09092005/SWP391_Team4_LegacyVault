@@ -106,6 +106,46 @@ export function addPaymentMethod(data) {
   return apiFetch('/billing/payment-methods', { method: 'POST', body: data })
 }
 
+export function setDefaultPaymentMethod(paymentMethodId) {
+  if (IS_DEMO_MODE) {
+    const state = getDemoState()
+    const selected = state.methods.find((method) => method.paymentMethodId === paymentMethodId)
+    if (!selected) return Promise.reject(new Error('Payment method not found.'))
+
+    state.methods = state.methods.map((method) => ({
+      ...method,
+      isDefault: method.paymentMethodId === paymentMethodId,
+    }))
+    saveDemoState(state)
+    return Promise.resolve(publicPaymentMethod(state.methods.find((method) => method.paymentMethodId === paymentMethodId)))
+  }
+  return apiFetch(`/billing/payment-methods/${encodeURIComponent(paymentMethodId)}/default`, { method: 'PUT' })
+}
+
+export function updatePaymentMethod(paymentMethodId, data) {
+  if (IS_DEMO_MODE) {
+    const state = getDemoState()
+    const currentMethod = state.methods.find((method) => method.paymentMethodId === paymentMethodId)
+    if (!currentMethod) return Promise.reject(new Error('Payment method not found.'))
+
+    const updatedMethod = {
+      ...currentMethod,
+      expiryMonth: Number(data.expiryMonth),
+      expiryYear: Number(data.expiryYear),
+      billingAddress: data.billingAddress || currentMethod.billingAddress,
+    }
+    state.methods = state.methods.map((method) => (
+      method.paymentMethodId === paymentMethodId ? updatedMethod : method
+    ))
+    saveDemoState(state)
+    return Promise.resolve(publicPaymentMethod(updatedMethod))
+  }
+  return apiFetch(`/billing/payment-methods/${encodeURIComponent(paymentMethodId)}`, {
+    method: 'PATCH',
+    body: data,
+  })
+}
+
 export async function checkout(data) {
   if (!IS_DEMO_MODE) return apiFetch('/billing/checkout', { method: 'POST', body: data })
 
@@ -181,6 +221,32 @@ export function cancelSubscription() {
     return Promise.resolve({ ...state.subscription })
   }
   return apiFetch('/billing/subscription/cancel', { method: 'POST' })
+}
+
+export function setAutoRenew(autoRenew) {
+  if (IS_DEMO_MODE) {
+    const state = getDemoState()
+    const subscription = state.subscription
+    if (!subscription || subscription.planId === 'free') {
+      return Promise.reject(new Error('Auto-renew is only available for a paid subscription.'))
+    }
+    if (autoRenew && subscription.status !== 'ACTIVE') {
+      return Promise.reject(new Error('Only an active subscription can enable auto-renew.'))
+    }
+    if (!autoRenew && !['ACTIVE', 'PAST_DUE'].includes(subscription.status)) {
+      return Promise.reject(new Error('This subscription cannot change auto-renew.'))
+    }
+    if (autoRenew && !state.methods.some((method) => method.isDefault)) {
+      return Promise.reject(new Error('Set a default payment method before enabling auto-renew.'))
+    }
+    state.subscription = { ...subscription, autoRenew: Boolean(autoRenew) }
+    saveDemoState(state)
+    return Promise.resolve({ ...state.subscription })
+  }
+  return apiFetch('/billing/subscription/auto-renew', {
+    method: 'PUT',
+    body: { autoRenew: Boolean(autoRenew) },
+  })
 }
 
 export function listTransactions({ page = 0, size = 20 } = {}) {
