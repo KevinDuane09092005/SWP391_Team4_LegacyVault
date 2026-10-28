@@ -347,11 +347,18 @@ export default function DeadMansSwitchPage() {
     intervalMs: intervalSeconds * 1000,
   })
 
-  // Tự động đồng bộ ngầm với Backend ngay khi đồng hồ đếm ngược chuyển trạng thái (Soon / Grace Period / Triggered)
+  // Tự động đồng bộ ngầm với Backend ngay khi đồng hồ đếm ngược chuyển trạng thái (Soon / Grace Period / Gần hết Grace Period / Triggered)
   const hasDmsData = !!dmsData
+  const graceReminderThresholdMs =
+    graceSeconds <= 300
+      ? Math.min(30000, Math.max(10000, (graceSeconds * 1000) / 3))
+      : Math.min(3 * 86400000, Math.max(3600000, (graceSeconds * 1000) / 3))
+  const isGraceEndingSoon =
+    dms === 'warning' && graceRemaining > 0 && graceRemaining <= graceReminderThresholdMs
+
   useEffect(() => {
     if (loading || !hasDmsData || simulatedOffsetMs !== 0) return
-    if (dms === 'soon' || dms === 'warning' || dms === 'triggered') {
+    if (dms === 'soon' || dms === 'warning' || dms === 'triggered' || isGraceEndingSoon) {
       const timer1 = setTimeout(() => {
         syncDmsStateSilently()
       }, 300)
@@ -366,7 +373,7 @@ export default function DeadMansSwitchPage() {
         if (timer2) clearTimeout(timer2)
       }
     }
-  }, [dms, loading, hasDmsData, simulatedOffsetMs, syncDmsStateSilently])
+  }, [dms, isGraceEndingSoon, loading, hasDmsData, simulatedOffsetMs, syncDmsStateSilently])
 
   const dueText = dateLabel(due, isVi ? 'vi-VN' : 'en-US', true)
   const lastText = dateLabel(lastCheck, isVi ? 'vi-VN' : 'en-US', true)

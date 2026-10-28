@@ -588,29 +588,49 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
             </h2>
             {asset.attachmentUrl ? (
               <ul className="file-list file-list--compact">
-                <li className="file-list__item">
-                  <Icon name="fileText" size={18} />
-                  <span className="file-list__name">
-                    <a
-                      href={asset.attachmentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="link"
-                      style={{ textDecoration: 'underline', color: 'var(--color-primary)' }}
-                    >
-                      {asset.attachmentUrl.split('/').pop() || (language === 'vi' ? 'Tài liệu đính kèm' : 'Attached document')}
-                    </a>
-                  </span>
-                  <a
-                    href={asset.attachmentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '12px', padding: '3px 8px', textDecoration: 'none' }}
-                  >
-                    {language === 'vi' ? 'Xem / Tải tệp' : 'View / Download'}
-                  </a>
-                </li>
+                {asset.attachmentUrl
+                  .split(',')
+                  .map((u) => u.trim())
+                  .filter(Boolean)
+                  .map((fileUrl, idx) => {
+                    const resolvedUrl = fileUrl.startsWith('https://storage.legacyvault.com/docs/')
+                      ? `/api/v1/assets/documents/${fileUrl.slice('https://storage.legacyvault.com/docs/'.length)}`
+                      : fileUrl
+                    const rawFileName = decodeURIComponent(
+                      resolvedUrl.split('/').pop() ||
+                        (language === 'vi' ? 'Tài liệu đính kèm' : 'Attached document'),
+                    )
+                    const uIdx = rawFileName.indexOf('_')
+                    const cleanName =
+                      uIdx === 36 && rawFileName.length > 37
+                        ? rawFileName.slice(37)
+                        : rawFileName
+                    return (
+                      <li key={`${resolvedUrl}-${idx}`} className="file-list__item">
+                        <Icon name="fileText" size={18} />
+                        <span className="file-list__name">
+                          <a
+                            href={resolvedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="link"
+                            style={{ textDecoration: 'underline', color: 'var(--color-primary)' }}
+                          >
+                            {cleanName}
+                          </a>
+                        </span>
+                        <a
+                          href={resolvedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '12px', padding: '3px 8px', textDecoration: 'none' }}
+                        >
+                          {language === 'vi' ? 'Xem / Tải tệp' : 'View / Download'}
+                        </a>
+                      </li>
+                    )
+                  })}
               </ul>
             ) : asset.relatedDocuments && asset.relatedDocuments.length > 0 ? (
               <ul className="file-list file-list--compact">

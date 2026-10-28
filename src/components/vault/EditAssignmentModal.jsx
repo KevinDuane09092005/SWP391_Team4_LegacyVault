@@ -55,6 +55,14 @@ export default function EditAssignmentModal({
           if (isBoth) role = 'Both'
           else if (isExec) role = 'Executor'
 
+          const rawStatus = (c.status || 'pending').toLowerCase()
+          const status =
+            rawStatus === 'verified'
+              ? 'Verified'
+              : rawStatus === 'rejected' || rawStatus === 'declined'
+              ? 'Declined'
+              : 'Pending'
+
           return {
             id: contactId,
             contactId,
@@ -63,6 +71,7 @@ export default function EditAssignmentModal({
             email: c.email || '',
             relationship: c.relationship || '',
             role,
+            status,
           }
         })
 
@@ -82,7 +91,8 @@ export default function EditAssignmentModal({
             const foundExec = mapped.find((c) => c.name === currentAssignment.executorName)
             if (foundExec) initialExecId = foundExec.id
           }
-          setExecutorContactId(initialExecId)
+          const execObj = mapped.find((c) => c.id === initialExecId)
+          setExecutorContactId(execObj && execObj.status === 'Verified' ? initialExecId : '')
 
           // Beneficiaries
           let initialBeneIds = []
@@ -101,16 +111,24 @@ export default function EditAssignmentModal({
               })
               .filter(Boolean)
           }
-          setBeneficiaryContactIds(initialBeneIds)
+          const verifiedInitialBenes = initialBeneIds.filter((id) => {
+            const found = mapped.find((c) => c.id === id)
+            return found && found.status === 'Verified'
+          })
+          setBeneficiaryContactIds(verifiedInitialBenes)
 
           // Instructions
           setHandoverInstructions(currentAssignment.handoverInstructions || '')
         } else {
-          // Unassigned defaults
-          const defaultExec = mapped.find((c) => c.role === 'Executor' || c.role === 'Both')
-          if (defaultExec) setExecutorContactId(defaultExec.id)
+          // Unassigned defaults (only Verified contacts)
+          const defaultExec = mapped.find(
+            (c) => (c.role === 'Executor' || c.role === 'Both') && c.status === 'Verified',
+          )
+          setExecutorContactId(defaultExec ? defaultExec.id : '')
 
-          const defaultBenes = mapped.filter((c) => c.role === 'Beneficiary').map((c) => c.id)
+          const defaultBenes = mapped
+            .filter((c) => c.role === 'Beneficiary' && c.status === 'Verified')
+            .map((c) => c.id)
           setBeneficiaryContactIds(defaultBenes)
           setHandoverInstructions('')
         }
@@ -132,8 +150,27 @@ export default function EditAssignmentModal({
 
   if (!isOpen) return null
 
+  const getUnverifiedMessage = (contact) => {
+    if (!contact) return ''
+    if (contact.status === 'Declined') {
+      return isVi
+        ? `Không thể gán "${contact.name}" (Đã từ chối): Người liên hệ này đã từ chối lời mời. Vui lòng chờ người liên hệ đồng ý thì bạn mới được gán.`
+        : `Cannot assign "${contact.name}" (Declined): This contact declined the invitation. Please wait for the contact to accept before assigning.`
+    }
+    return isVi
+      ? `Không thể gán "${contact.name}" (Chờ xác nhận): Vui lòng chờ người liên hệ đồng ý xác nhận qua email thì bạn mới được gán.`
+      : `Cannot assign "${contact.name}" (Pending): Please wait for this contact to accept the invitation email before assigning.`
+  }
+
   const handleExecutorChange = (e) => {
     const newId = e.target.value
+    if (newId) {
+      const selected = contacts.find((c) => c.id === newId)
+      if (selected && selected.status !== 'Verified') {
+        setError(getUnverifiedMessage(selected))
+        return
+      }
+    }
     setExecutorContactId(newId)
     // Prevent executor from being in beneficiaries
     if (newId && beneficiaryContactIds.includes(newId)) {
@@ -144,6 +181,11 @@ export default function EditAssignmentModal({
 
   const toggleBeneficiary = (contactId) => {
     if (contactId === executorContactId) return
+    const target = contacts.find((c) => c.id === contactId)
+    if (target && target.status !== 'Verified') {
+      setError(getUnverifiedMessage(target))
+      return
+    }
     setBeneficiaryContactIds((prev) =>
       prev.includes(contactId) ? prev.filter((id) => id !== contactId) : [...prev, contactId],
     )
@@ -376,6 +418,9 @@ export default function EditAssignmentModal({
                     <option key={c.id} value={c.id}>
                       {c.name} {c.relationship ? `(${c.relationship})` : ''} — {c.email}
                       {c.role === 'Executor' ? ' [Executor]' : ''}
+                      {c.status !== 'Verified'
+                        ? ` (${isVi ? (c.status === 'Declined' ? 'Đã từ chối' : 'Chờ xác nhận') : c.status})`
+                        : ''}
                     </option>
                   ))}
                 </select>
@@ -438,6 +483,8 @@ export default function EditAssignmentModal({
                     {contacts.map((c) => {
                       const isSelected = beneficiaryContactIds.includes(c.id)
                       const isCurrentExec = c.id === executorContactId
+                      const isVerified = c.status === 'Verified'
+                      const isDeclined = c.status === 'Declined'
 
                       return (
                         <div
@@ -457,7 +504,7 @@ export default function EditAssignmentModal({
                               : isCurrentExec
                               ? 'transparent'
                               : 'var(--color-surface)',
-                            opacity: isCurrentExec ? 0.45 : 1,
+                            opacity: isCurrentExec ? 0.45 : isVerified ? 1 : 0.65,
                             cursor: isCurrentExec ? 'not-allowed' : 'pointer',
                             transition: 'all 0.15s ease',
                           }}
@@ -516,6 +563,15 @@ export default function EditAssignmentModal({
                               {c.email}
                             </small>
                           </div>
+                          <span className={`badge ${isVerified ? 'green' : isDeclined ? 'red' : 'amber'}`}>
+                            {isVi
+                              ? isVerified
+                                ? 'Đã xác thực'
+                                : isDeclined
+                                ? 'Đã từ chối'
+                                : 'Chờ xác nhận'
+                              : c.status}
+                          </span>
                         </div>
                       )
                     })}

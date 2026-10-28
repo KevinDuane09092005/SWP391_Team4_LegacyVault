@@ -17,7 +17,7 @@ export function computeDmsView({
   // - Nếu chu kỳ bình thường (ngày/tháng), cảnh báo khi còn 3 ngày hoặc 1/3 chu kỳ
   const soonThreshold =
     intervalMs < 180000
-      ? Math.min(10000, Math.max(1000, intervalMs / 3))
+      ? Math.min(20000, Math.max(1000, intervalMs / 3))
       : Math.min(3 * 86400000, intervalMs / 3)
 
   const status = backendStatus?.toLowerCase()
