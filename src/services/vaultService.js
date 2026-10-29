@@ -34,8 +34,8 @@ export async function listVaults(ownerId) {
   }
 
   const vaults = await mockListVaults(ownerId)
-  if (realAssets && realAssets.length > 0 && vaults.length > 0) {
-    vaults[0].assets = realAssets.map((a) => ({
+  if (token && vaults.length > 0) {
+    vaults[0].assets = (Array.isArray(realAssets) ? realAssets : []).map((a) => ({
       id: a.assetId,
       assetId: a.assetId,
       name: a.assetName,
@@ -47,6 +47,7 @@ export async function listVaults(ownerId) {
       relatedDocuments: a.attachmentUrl ? [{ id: 'doc-1', name: 'attachment', size: 1024 }] : [],
       createdAt: a.createdAt,
     }))
+    return [vaults[0]]
   }
   return vaults
 }
@@ -64,8 +65,8 @@ export async function getVault(ownerId, vaultId) {
   }
 
   const vault = await mockGetVault(ownerId, vaultId)
-  if (realAssets && realAssets.length > 0) {
-    vault.assets = realAssets.map((a) => ({
+  if (token) {
+    vault.assets = (Array.isArray(realAssets) ? realAssets : []).map((a) => ({
       id: a.assetId,
       assetId: a.assetId,
       name: a.assetName,
@@ -107,14 +108,22 @@ export async function getAsset(ownerId, vaultId, assetId) {
           status: realAsset.status || 'unassigned',
           details: {},
           relatedDocuments: realAsset.attachmentUrl
-            ? [
-              {
-                id: 'doc-1',
-                name: realAsset.attachmentUrl.split('/').pop() || 'attachment.pdf',
-                size: 1024,
-                url: realAsset.attachmentUrl,
-              },
-            ]
+            ? realAsset.attachmentUrl
+                .split(',')
+                .map((u) => u.trim())
+                .filter(Boolean)
+                .map((url, idx) => {
+                  const rawFile = decodeURIComponent(url.split('/').pop() || 'attachment.pdf')
+                  const uIdx = rawFile.indexOf('_')
+                  const cleanName =
+                    uIdx === 36 && rawFile.length > 37 ? rawFile.slice(37) : rawFile
+                  return {
+                    id: `doc-${idx + 1}`,
+                    name: cleanName,
+                    size: 1024,
+                    url,
+                  }
+                })
             : [],
           encryption: {
             status: 'ENCRYPTED',
@@ -392,8 +401,11 @@ export async function saveAsset(ownerId, vaultId, { values, files }, onProgress 
   }
 
   let attachmentUrl = (values.attachmentUrl || '').trim()
-  if (!attachmentUrl && files && files.length > 0) {
-    attachmentUrl = `https://storage.legacyvault.com/docs/${files[0].name}`
+  if (!attachmentUrl && relatedDocuments && relatedDocuments.length > 0) {
+    const uploadedUrls = relatedDocuments.map((d) => d.url).filter(Boolean)
+    if (uploadedUrls.length > 0) {
+      attachmentUrl = uploadedUrls.join(',')
+    }
   }
 
   const typeMapping = {

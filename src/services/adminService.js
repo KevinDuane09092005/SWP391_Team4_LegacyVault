@@ -165,12 +165,62 @@ export async function setUserRole(user, userId, role) {
     body: { role },
   })
 }
-export const getPermissions = (user) => mockAdminGetPermissions(user)
-export const setPermission = (user, role, permission, granted) =>
-  mockAdminSetPermission(user, role, permission, granted)
-export const getPolicies = (user) => mockAdminGetPolicies(user)
-export const savePolicies = (user, policies) => mockAdminSavePolicies(user, policies)
-export const listIntegrations = (user) => mockAdminListIntegrations(user)
-export const setIntegration = (user, id, enabled) =>
-  mockAdminSetIntegration(user, id, enabled)
+
+function normalizePermissionMatrix(matrix = {}) {
+  const adminPerms = matrix.ADMIN || matrix.SYSTEM_ADMIN || []
+  const executorPerms = matrix.EXECUTOR || matrix.DIGITAL_EXECUTOR || []
+  return {
+    ...matrix,
+    ADMIN: adminPerms,
+    SYSTEM_ADMIN: adminPerms,
+    EXECUTOR: executorPerms,
+    DIGITAL_EXECUTOR: executorPerms,
+  }
+}
+
+export async function getPermissions(user) {
+  if (IS_DEMO_MODE) return mockAdminGetPermissions(user)
+  const data = await apiFetch('/admin/permissions')
+  return {
+    ...data,
+    matrix: normalizePermissionMatrix(data?.matrix),
+    locked: normalizePermissionMatrix(data?.locked),
+  }
+}
+
+export async function setPermission(user, role, permission, granted) {
+  if (IS_DEMO_MODE) return mockAdminSetPermission(user, role, permission, granted)
+  const matrix = await apiFetch('/admin/permissions', {
+    method: 'PATCH',
+    body: { role, permission, granted },
+  })
+  return normalizePermissionMatrix(matrix)
+}
+
+export async function getPolicies(user) {
+  if (IS_DEMO_MODE) return mockAdminGetPolicies(user)
+  return apiFetch('/admin/policies')
+}
+
+export async function savePolicies(user, policies) {
+  if (IS_DEMO_MODE) return mockAdminSavePolicies(user, policies)
+  return apiFetch('/admin/policies', {
+    method: 'PUT',
+    body: policies,
+  })
+}
+
+export async function listIntegrations(user) {
+  if (IS_DEMO_MODE) return mockAdminListIntegrations(user)
+  return apiFetch('/admin/integrations')
+}
+
+export async function setIntegration(user, id, enabled) {
+  if (IS_DEMO_MODE) return mockAdminSetIntegration(user, id, enabled)
+  return apiFetch(`/admin/integrations/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: { enabled },
+  })
+}
+
 export const resetAllDemoData = (user) => mockAdminResetDemo(user)

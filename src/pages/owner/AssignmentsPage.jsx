@@ -33,18 +33,6 @@ import { formatDisplayDate } from '../../vault/format.js'
 import { ownerPaths } from '../../vault/paths.js'
 import EditAssignmentModal from '../../components/vault/EditAssignmentModal.jsx'
 
-const fallbackAssets = [
-  { id: 'a0b07225-b21d-4971-8049-f4787cd8881c', name: 'MetaMask Wallet (ETH)', desc: 'Crypto Wallet · MetaMask Primary', icon: Wallet },
-  { id: 'bank-vcb-01', name: 'Vietcombank Account', desc: 'Bank Account · Checking', icon: CreditCard },
-  { id: 'drive-backup-01', name: 'Google Drive Backup', desc: 'Secure Cloud Storage · Documents', icon: FileText },
-]
-
-const fallbackContacts = [
-  { id: '4a36b1aa-a0f8-4143-a281-7fefe6ebbf45', name: 'Tran Thi B', relationship: 'Spouse', email: 'tranthib@email.com', role: 'Beneficiary', status: 'Verified' },
-  { id: 'a3cdbfe6-cfd3-4676-9dc2-73d2bd0be4d2', name: 'Nguyen Van C', relationship: 'Friend', email: 'nguyenc@email.com', role: 'Beneficiary', status: 'Verified' },
-  { id: '173ff981-bc1b-4a70-a85a-9682d40ab73a', name: 'Le Van D', relationship: 'Attorney', email: 'levand@email.com', role: 'Executor', status: 'Verified' },
-]
-
 const defaultInstructions = ``
 
 const initials = (str) => {
@@ -76,14 +64,11 @@ export default function AssignmentsPage() {
 
   // Wizard States
   const [step, setStep] = useState(1)
-  const [availableAssets, setAvailableAssets] = useState(fallbackAssets)
-  const [selectedAssetIds, setSelectedAssetIds] = useState(['a0b07225-b21d-4971-8049-f4787cd8881c'])
-  const [contacts, setContacts] = useState(fallbackContacts)
-  const [beneficiaryIds, setBeneficiaryIds] = useState([
-    '4a36b1aa-a0f8-4143-a281-7fefe6ebbf45',
-    'a3cdbfe6-cfd3-4676-9dc2-73d2bd0be4d2',
-  ])
-  const [executorId, setExecutorId] = useState('173ff981-bc1b-4a70-a85a-9682d40ab73a')
+  const [availableAssets, setAvailableAssets] = useState([])
+  const [selectedAssetIds, setSelectedAssetIds] = useState([])
+  const [contacts, setContacts] = useState([])
+  const [beneficiaryIds, setBeneficiaryIds] = useState([])
+  const [executorId, setExecutorId] = useState('')
   const [handoverInstructions, setHandoverInstructions] = useState(defaultInstructions)
   const [validating, setValidating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -151,7 +136,7 @@ export default function AssignmentsPage() {
       // Load Assets
       try {
         const apiAssets = await getAssetsListApi()
-        if (Array.isArray(apiAssets) && apiAssets.length > 0) {
+        if (Array.isArray(apiAssets)) {
           const mapped = apiAssets.map((a) => ({
             id: a.assetId || a.id,
             name: a.assetName || a.name || 'Digital Asset',
@@ -159,16 +144,20 @@ export default function AssignmentsPage() {
             icon: a.assetType === 'crypto_wallet' || a.assetType === 'Crypto Wallet' || a.assetType === 'CRYPTO' ? Wallet : CreditCard,
           }))
           setAvailableAssets(mapped)
-          setSelectedAssetIds([mapped[0].id])
+          setSelectedAssetIds(mapped.length > 0 ? [mapped[0].id] : [])
+        } else {
+          setAvailableAssets([])
+          setSelectedAssetIds([])
         }
       } catch {
-        // Keep fallbackAssets
+        setAvailableAssets([])
+        setSelectedAssetIds([])
       }
 
       // Load Contacts
       try {
         const apiContacts = await getContactsApi()
-        if (Array.isArray(apiContacts) && apiContacts.length > 0) {
+        if (Array.isArray(apiContacts)) {
           const mapped = apiContacts.map((c) => {
             const isBoth = (c.isBeneficiary && c.isExecutor) || c.expectedRole === 'Both' || c.role === 'Both'
             const isExec = !isBoth && (c.isExecutor || c.expectedRole === 'Executor' || c.role === 'Executor')
@@ -176,29 +165,43 @@ export default function AssignmentsPage() {
             if (isBoth) role = 'Both'
             else if (isExec) role = 'Executor'
 
+            const rawStatus = (c.status || 'pending').toLowerCase()
+            const status =
+              rawStatus === 'verified'
+                ? 'Verified'
+                : rawStatus === 'rejected' || rawStatus === 'declined'
+                ? 'Declined'
+                : 'Pending'
+
             return {
               id: c.contactId || c.id,
               name: c.fullName || c.name || 'Contact',
               email: c.email || '',
               relationship: c.relationship || 'Friend',
               role,
-              status: c.status || 'Verified',
+              status,
             }
           })
           setContacts(mapped)
 
-          const beneficiaries = mapped.filter((c) => c.role === 'Beneficiary' || c.role === 'Both')
-          const executor = mapped.find((c) => c.role === 'Executor' || c.role === 'Both')
+          const beneficiaries = mapped.filter(
+            (c) => (c.role === 'Beneficiary' || c.role === 'Both') && c.status === 'Verified',
+          )
+          const executor = mapped.find(
+            (c) => (c.role === 'Executor' || c.role === 'Both') && c.status === 'Verified',
+          )
 
-          if (beneficiaries.length > 0) {
-            setBeneficiaryIds(beneficiaries.map((b) => b.id))
-          }
-          if (executor) {
-            setExecutorId(executor.id)
-          }
+          setBeneficiaryIds(beneficiaries.map((b) => b.id))
+          setExecutorId(executor ? executor.id : '')
+        } else {
+          setContacts([])
+          setBeneficiaryIds([])
+          setExecutorId('')
         }
       } catch {
-        // Keep fallbackContacts
+        setContacts([])
+        setBeneficiaryIds([])
+        setExecutorId('')
       }
     }
 
@@ -223,7 +226,24 @@ export default function AssignmentsPage() {
     setErrors([])
   }
 
+  const getUnverifiedContactMessage = (contact) => {
+    if (!contact) return ''
+    if (contact.status === 'Declined') {
+      return isVi
+        ? `Không thể gán "${contact.name}" (Đã từ chối): Người liên hệ này đã từ chối lời mời. Vui lòng chờ người liên hệ đồng ý thì bạn mới được gán.`
+        : `Cannot assign "${contact.name}" (Declined): This contact declined the invitation. Please wait for the contact to accept before assigning.`
+    }
+    return isVi
+      ? `Không thể gán "${contact.name}" (Chờ xác nhận): Vui lòng chờ người liên hệ đồng ý xác nhận qua email thì bạn mới được gán.`
+      : `Cannot assign "${contact.name}" (Pending): Please wait for this contact to accept the invitation email before assigning.`
+  }
+
   const toggleBeneficiary = (id) => {
+    const target = contacts.find((c) => c.id === id)
+    if (target && target.status !== 'Verified') {
+      setErrors([getUnverifiedContactMessage(target)])
+      return
+    }
     setBeneficiaryIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     )
@@ -723,10 +743,13 @@ export default function AssignmentsPage() {
                     .filter((c) => c.role === 'Beneficiary' || c.role === 'Both')
                     .map((c) => {
                       const isPicked = beneficiaryIds.includes(c.id)
+                      const isVerified = c.status === 'Verified'
+                      const isDeclined = c.status === 'Declined'
                       return (
                         <div
                           key={c.id}
                           className={`person-card ${isPicked ? 'picked' : ''}`}
+                          style={{ opacity: isVerified ? 1 : 0.65 }}
                           onClick={() => toggleBeneficiary(c.id)}
                         >
                           <span className="person-initial">{initials(c.name)}</span>
@@ -734,8 +757,14 @@ export default function AssignmentsPage() {
                             <b>{c.name}</b>
                             <small>{c.email} • {c.relationship}</small>
                           </div>
-                          <span className={`badge ${c.status === 'Pending' ? 'amber' : 'green'}`}>
-                            {c.status}
+                          <span className={`badge ${isVerified ? 'green' : isDeclined ? 'red' : 'amber'}`}>
+                            {isVi
+                              ? isVerified
+                                ? 'Đã xác thực'
+                                : isDeclined
+                                ? 'Đã từ chối'
+                                : 'Chờ xác nhận'
+                              : c.status}
                           </span>
                         </div>
                       )
@@ -755,11 +784,18 @@ export default function AssignmentsPage() {
                     .filter((c) => c.role === 'Executor' || c.role === 'Both')
                     .map((c) => {
                       const isPicked = executorId === c.id
+                      const isVerified = c.status === 'Verified'
+                      const isDeclined = c.status === 'Declined'
                       return (
                         <div
                           key={c.id}
                           className={`person-card ${isPicked ? 'picked' : ''}`}
+                          style={{ opacity: isVerified ? 1 : 0.65 }}
                           onClick={() => {
+                            if (!isVerified) {
+                              setErrors([getUnverifiedContactMessage(c)])
+                              return
+                            }
                             setExecutorId(c.id)
                             setErrors([])
                           }}
@@ -769,8 +805,14 @@ export default function AssignmentsPage() {
                             <b>{c.name}</b>
                             <small>{c.email} • {c.relationship}</small>
                           </div>
-                          <span className={`badge ${c.status === 'Pending' ? 'amber' : 'green'}`}>
-                            {c.status}
+                          <span className={`badge ${isVerified ? 'green' : isDeclined ? 'red' : 'amber'}`}>
+                            {isVi
+                              ? isVerified
+                                ? 'Đã xác thực'
+                                : isDeclined
+                                ? 'Đã từ chối'
+                                : 'Chờ xác nhận'
+                              : c.status}
                           </span>
                         </div>
                       )
@@ -875,7 +917,7 @@ export default function AssignmentsPage() {
                   placeholder={
                     isVi
                       ? 'Nhập hướng dẫn bàn giao, điều kiện kích hoạt và cách phân chia (tỷ lệ %) trực tiếp bằng văn bản...'
-                      : 'Transfer all crypto assets upon DMS trigger. Split allocation: Tran Thi B: 60%, Nguyen Van C: 40%...'
+                      : 'Enter handover instructions, trigger conditions, and allocation percentages...'
                   }
                   value={handoverInstructions}
                   onChange={(e) => {

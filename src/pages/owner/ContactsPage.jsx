@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { CheckCircle, Clock, Plus, Search, Users } from 'lucide-react'
+import { CheckCircle, Clock, Plus, Search, Users, XCircle } from 'lucide-react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
-import Icon from '../../components/Icon.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
 import { LoadingState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
@@ -31,14 +30,14 @@ export default function ContactsPage() {
   })
 
   // Hàm tải danh bạ từ backend API (hỗ trợ tìm kiếm theo keyword)
-  const fetchContacts = useCallback(async (keyword = '') => {
+  const fetchContacts = useCallback(async (keyword = '', silent = false) => {
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
       navigate('/login', { state: { from: location.pathname } })
       return
     }
 
-    setLoading(true)
+    if (!silent) setLoading(true)
     setError(null)
 
     try {
@@ -54,7 +53,9 @@ export default function ContactsPage() {
           else if (isExec) role = 'Executor'
 
           const rawStatus = (c.status || 'pending').toLowerCase()
-          const status = rawStatus === 'verified' ? 'verified' : 'pending'
+          let status = 'pending'
+          if (rawStatus === 'verified') status = 'verified'
+          else if (rawStatus === 'rejected' || rawStatus === 'declined') status = 'rejected'
 
           return {
             contactId: c.contactId || c.id || crypto.randomUUID(),
@@ -88,9 +89,8 @@ export default function ContactsPage() {
       }
 
       console.error('Lỗi tìm kiếm / lấy danh sách liên hệ:', err)
-      // Bắt khối catch, log lỗi và giữ nguyên trạng thái danh sách nếu gặp sự cố mạng
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [isVi, location.pathname, navigate])
 
@@ -100,6 +100,13 @@ export default function ContactsPage() {
       fetchContacts(search)
     }, 400)
     return () => clearTimeout(timer)
+  }, [fetchContacts, search])
+
+  // Tự động làm mới trạng thái khi người dùng quay lại tab sau khi bấm xác nhận trong Email
+  useEffect(() => {
+    const onFocus = () => fetchContacts(search, true)
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [fetchContacts, search])
 
   // Xử lý submit thêm người liên hệ mới
@@ -135,6 +142,17 @@ export default function ContactsPage() {
       setModalError(isVi ? 'Địa chỉ email không hợp lệ.' : 'Please enter a valid email address.')
       return
     }
+    const isDuplicateEmail = contacts.some(
+      (c) => (c.email || '').trim().toLowerCase() === email.toLowerCase(),
+    )
+    if (isDuplicateEmail) {
+      setModalError(
+        isVi
+          ? 'Email này đã tồn tại trong danh bạ của bạn. Các liên hệ không được trùng email với nhau.'
+          : 'This email already exists in your Contact Book. Contacts cannot share the same email address.',
+      )
+      return
+    }
 
     setSubmitting(true)
 
@@ -148,8 +166,12 @@ export default function ContactsPage() {
       })
 
       // 4. Success Flow:
-      setSuccessMessage(isVi ? 'Thêm người liên hệ thành công!' : 'Contact saved successfully!')
-      setTimeout(() => setSuccessMessage(null), 4000)
+      setSuccessMessage(
+        isVi
+          ? `Đã thêm "${fullName}" và gửi email xác nhận lời mời tới ${email}!`
+          : `Contact "${fullName}" added and confirmation email sent to ${email}!`,
+      )
+      setTimeout(() => setSuccessMessage(null), 5000)
 
       // Đóng modal & reset form
       setModalOpen(false)
@@ -282,6 +304,7 @@ export default function ContactsPage() {
                   const isBoth = (c.isBeneficiary && c.isExecutor) || c.role === 'Both'
                   const isExec = !isBoth && (c.isExecutor || c.role === 'Executor')
                   const isVerified = c.status === 'verified'
+                  const isRejected = c.status === 'rejected'
 
                   return (
                     <tr key={c.contactId || c.id}>
@@ -298,16 +321,21 @@ export default function ContactsPage() {
                         </span>
                       </td>
                       <td>
-                        <span className={`badge ${isVerified ? 'green' : 'amber'}`}>
+                        <span className={`badge ${isVerified ? 'green' : isRejected ? 'red' : 'amber'}`}>
                           {isVerified ? (
                             <>
                               <CheckCircle size={12} style={{ marginRight: 4 }} />
                               {isVi ? 'Đã xác thực' : 'Verified'}
                             </>
+                          ) : isRejected ? (
+                            <>
+                              <XCircle size={12} style={{ marginRight: 4 }} />
+                              {isVi ? 'Đã từ chối' : 'Declined'}
+                            </>
                           ) : (
                             <>
                               <Clock size={12} style={{ marginRight: 4 }} />
-                              {isVi ? 'Chờ kích hoạt' : 'Pending'}
+                              {isVi ? 'Chờ xác nhận' : 'Pending'}
                             </>
                           )}
                         </span>
@@ -410,4 +438,3 @@ export default function ContactsPage() {
     </OwnerLayout>
   )
 }
-

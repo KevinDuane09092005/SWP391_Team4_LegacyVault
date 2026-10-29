@@ -82,9 +82,12 @@
   display: flex;
   flex-direction: column;
   padding: 24px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.plan-card--featured {
+.plan-card:hover {
   border-color: var(--color-primary);
   box-shadow:
     0 0 0 1px var(--color-primary),

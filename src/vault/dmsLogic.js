@@ -7,40 +7,34 @@ export function computeDmsView({
   graceEndsAt,
   backendStatus,
   apiError = '',
-  intervalMs = 30 * 1000,
+  intervalMs = 60 * 1000,
 }) {
   if (apiError) return 'error'
   if (!configured) return 'config'
 
   // Ngưỡng 'sắp đến hạn' (due soon):
-  // - Nếu chu kỳ ngắn (< 3 phút như 30s/60s thử nghiệm), cảnh báo khi còn 10 giây hoặc 1/3 chu kỳ
+  // - Nếu chu kỳ ngắn (< 3 phút như 60s thử nghiệm), cảnh báo khi còn 10 giây hoặc 1/3 chu kỳ
   // - Nếu chu kỳ bình thường (ngày/tháng), cảnh báo khi còn 3 ngày hoặc 1/3 chu kỳ
   const soonThreshold =
     intervalMs < 180000
-      ? Math.min(10000, Math.max(1000, intervalMs / 3))
+      ? Math.min(20000, Math.max(1000, intervalMs / 3))
       : Math.min(3 * 86400000, intervalMs / 3)
 
   const status = backendStatus?.toLowerCase()
   if (status === 'triggered') return 'triggered'
-  if (status === 'grace_period' || status === 'warning') return 'warning'
-  if (status === 'due_soon') return 'soon'
-  if (status === 'active') {
-    if (nextCheckIn) {
-      const due = new Date(nextCheckIn).getTime()
-      if (Number.isFinite(due) && due - now <= soonThreshold && due > now) {
-        return 'soon'
-      }
-    }
-    return 'active'
-  }
 
-  // Fallback to time-based calculation if backendStatus is not set
   const due = new Date(nextCheckIn).getTime()
   const end = new Date(graceEndsAt).getTime()
-  if (!Number.isFinite(due) || !Number.isFinite(end)) return 'active'
-  if (now >= end) return 'triggered'
-  if (now >= due) return 'warning'
-  if (due - now <= soonThreshold) return 'soon'
+
+  // Ưu tiên kiểm tra mốc thời gian thực khi đồng hồ đếm ngược chạm 00:00:00
+  if (Number.isFinite(due) && Number.isFinite(end)) {
+    if (now >= end) return 'triggered'
+    if (now >= due) return 'warning'
+    if (due - now <= soonThreshold) return 'soon'
+  }
+
+  if (status === 'grace_period' || status === 'warning') return 'warning'
+  if (status === 'due_soon') return 'soon'
   return 'active'
 }
 

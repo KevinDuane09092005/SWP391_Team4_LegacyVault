@@ -18,7 +18,7 @@ const mockPlans = [
     recommended: false,
     currency: 'USD',
     price: { monthly: 0, yearly: 0 },
-    limits: { collections: 1, records: 10, trustedContacts: 1, attachmentsPerRecord: 2 },
+    limits: { collections: 1, records: 10, trustedContacts: 2, attachmentsPerRecord: 2 },
   },
   {
     id: 'essentials',
@@ -38,5 +38,12 @@ const mockPlans = [
 
 export async function fetchPlans() {
   if (IS_DEMO_MODE) return structuredClone(mockPlans)
-  return apiFetch('/plans')
+  const plans = await apiFetch('/plans')
+  return Array.isArray(plans)
+    ? plans.map((plan) =>
+        plan.id === 'free' && plan.limits?.trustedContacts === 1
+          ? { ...plan, limits: { ...plan.limits, trustedContacts: 2 } }
+          : plan,
+      )
+    : plans
 }
