@@ -10,10 +10,19 @@ function formatMoney(amount, currency) {
 }
 
 // One plan column. `plan` comes from the API, `content` is the translated text.
-export default function PlanCard({ plan, billing, content }) {
+export default function PlanCard({
+  plan,
+  billing,
+  content,
+  onSelect,
+  dividerSrc,
+  isCurrentPlan = false,
+  currentPlanLabel = 'Current plan',
+}) {
   const text = content.plans[plan.id]
   const amount = plan.price[billing]
   const isFree = plan.price.monthly === 0 && plan.price.yearly === 0
+  const isSelectable = typeof onSelect === 'function'
   const nameId = `plan-${plan.id}-name`
 
   let note = null
@@ -26,7 +35,7 @@ export default function PlanCard({ plan, billing, content }) {
 
   return (
     <article
-      className={`card plan-card${plan.recommended ? ' plan-card--featured' : ''}`}
+      className={`card plan-card${plan.recommended ? ' plan-card--featured' : ''}${isSelectable ? ' plan-card--selector' : ''}`}
       aria-labelledby={nameId}
     >
       <div className="plan-card__badges">
@@ -44,7 +53,7 @@ export default function PlanCard({ plan, billing, content }) {
         ) : (
           <>
             <span className="plan-card__amount">{formatMoney(amount, plan.currency)}</span>
-            <span className="plan-card__currency">{plan.currency}</span>
+            {!isSelectable && <span className="plan-card__currency">{plan.currency}</span>}
             <span className="plan-card__period">
               {billing === 'yearly' ? content.perYear : content.perMonth}
             </span>
@@ -52,20 +61,32 @@ export default function PlanCard({ plan, billing, content }) {
         )}
       </div>
       {note && <p className="plan-card__note">{note}</p>}
+      {isSelectable && dividerSrc && <img className="plan-card__divider" src={dividerSrc} alt="" />}
 
       <ul className="plan-card__features">
         {Object.entries(plan.limits).map(([key, value]) =>
-          content.features[key] ? <li key={key}>{content.features[key](value)}</li> : null,
+          content.features[key] ? (
+            <li key={key}>
+              {isSelectable && (
+                <span className="plan-card__feature-check" aria-hidden="true">
+                  <img src="/assets/figma-pricing/plan-check.svg" alt="" />
+                </span>
+              )}
+              <span>{content.features[key](value)}</span>
+            </li>
+          ) : null,
         )}
       </ul>
 
       <Button
-        to={`/register?plan=${plan.id}&billing=${billing}`}
+        {...(isSelectable
+          ? { type: 'button', onClick: () => onSelect(plan), disabled: isCurrentPlan }
+          : { to: `/register?plan=${plan.id}&billing=${billing}` })}
         variant={isFree ? 'secondary' : 'primary'}
         size="lg"
         className="plan-card__cta"
       >
-        {text.cta}
+        {isSelectable && isCurrentPlan ? currentPlanLabel : text.cta}
       </Button>
     </article>
   )

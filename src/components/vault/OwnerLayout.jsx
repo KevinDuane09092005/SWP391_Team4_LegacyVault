@@ -11,7 +11,7 @@ import '../../styles/flow3-4.css'
 
 // Frame for the Vault Owner pages: the Flow 1 dashboard top bar (user, role, Log out)
 // plus a side menu and the demo-data notice.
-export default function OwnerLayout({ children }) {
+export default function OwnerLayout({ children, showDemoBanner = true, showThemeToggle = true }) {
   const { language } = useLanguage()
   const t = vaultContent[language]
 
@@ -21,10 +21,11 @@ export default function OwnerLayout({ children }) {
     { to: ownerPaths.contacts, label: t.nav.contacts, icon: 'users' },
     { to: ownerPaths.assignments, label: t.nav.assignments, icon: 'layers' },
     { to: ownerPaths.dms, label: t.nav.dms, icon: 'shield' },
+    { to: ownerPaths.billing, label: language === 'vi' ? 'Gói & thanh toán' : 'Plan & billing', icon: 'creditCard' },
   ]
 
   return (
-    <DashboardLayout>
+    <DashboardLayout showThemeToggle={showThemeToggle}>
       <div className="owner-layout">
         <nav className="owner-nav" aria-label={t.nav.label}>
           {links.map((link) => (
@@ -36,7 +37,7 @@ export default function OwnerLayout({ children }) {
         </nav>
 
         <div className="owner-content">
-          {IS_DEMO_MODE && (
+          {showDemoBanner && IS_DEMO_MODE && (
             <p className="demo-banner">
               <Icon name="info" size={16} />
               <span>{t.demoNotice}</span>
