@@ -30,10 +30,6 @@ const getIsDemo = () => {
       if (import.meta.env.VITE_DEMO_MODE === 'false') return false
       if (import.meta.env.VITE_DEMO_MODE === 'true') return true
     }
-    if (typeof process !== 'undefined' && process.env) {
-      if (process.env.VITE_DEMO_MODE === 'false') return false
-      if (process.env.VITE_DEMO_MODE === 'true') return true
-    }
   } catch {
     // ignore
   }

@@ -7,54 +7,113 @@ import {
   mockVerifyOtp,
 } from '../mocks/mockAuth.js'
 import { readSession } from '../auth/session.js'
+import { AuthError } from '../auth/AuthError.js'
+import { apiFetch, IS_DEMO_MODE } from './apiClient.js'
 
-// The ONLY place pages call for authentication (Flow 1).
-//
-// Right now every function uses the demo mock in src/mocks/mockAuth.js.
-// When the backend is ready, replace each body with a request that follows the
-// backend's real API contract. Keep the same inputs and outputs below so the pages
-// do not need to change, and throw `new AuthError(code)` (src/auth/AuthError.js)
-// so the right translated message is shown.
+export { IS_DEMO_MODE }
 
-export { IS_DEMO_MODE } from './apiClient.js'
-
-// Input:  { fullName, identifier, password, plan, billing }  (identifier = email or phone)
-// Output: { identifier, verificationRequired: true }
-export function register(data) {
-  return mockRegister(data)
+function normalizeRole(role) {
+  return String(role || 'VAULT_OWNER').trim().toUpperCase().replace(/[ -]+/g, '_')
 }
 
-// Input:  { identifier, code }
-// Output: { verified: true }
-export function verifyOtp(data) {
-  return mockVerifyOtp(data)
+function authFailure(error, fallbackCode) {
+  if (error instanceof AuthError) return error
+  const message = String(error?.message || '')
+  const lower = message.toLowerCase()
+  let code = fallbackCode
+
+  if (error?.status === 0 || lower.includes('failed to fetch') || lower.includes('network')) {
+    code = 'NETWORK'
+  } else if (lower.includes('already exists') || lower.includes('already registered')) {
+    code = 'ACCOUNT_EXISTS'
+  } else if (lower.includes('not verified') || lower.includes('verify otp')) {
+    code = 'ACCOUNT_NOT_VERIFIED'
+  } else if (lower.includes('otp') && (lower.includes('invalid') || lower.includes('expired'))) {
+    code = 'INVALID_OTP'
+  } else if (lower.includes('credential') || lower.includes('password')) {
+    code = 'INVALID_CREDENTIALS'
+  }
+
+  return new AuthError(code, message || code)
 }
 
-// Input:  { identifier }
-// Output: { resent: true }
-export function resendOtp(data) {
-  return mockResendOtp(data)
+export async function register(data) {
+  if (IS_DEMO_MODE) return mockRegister(data)
+  try {
+    const response = await apiFetch('/auth/register', {
+      method: 'POST',
+      body: {
+        fullName: data.fullName,
+        email: data.identifier,
+        password: data.password,
+      },
+    })
+    return {
+      identifier: data.identifier,
+      fullName: data.fullName,
+      verificationRequired: true,
+      userId: response.userId,
+      testOtp: response.testOtp,
+    }
+  } catch (error) {
+    throw authFailure(error, 'REGISTRATION_FAILED')
+  }
 }
 
-// Input:  { identifier, password }
-// Output: { user: { id, fullName, identifier, role } }
-export function login(data) {
-  return mockLogin(data)
+export async function verifyOtp({ identifier, code }) {
+  if (IS_DEMO_MODE) return mockVerifyOtp({ identifier, code })
+  try {
+    await apiFetch('/auth/verify-otp', {
+      method: 'POST',
+      body: { email: identifier, otpCode: code },
+    })
+    return { verified: true }
+  } catch (error) {
+    throw authFailure(error, 'INVALID_OTP')
+  }
 }
 
-// Input:  { identifier }
-// Output: { requested: true }
-export function requestPasswordReset(data) {
-  return mockRequestPasswordReset(data)
+export async function resendOtp({ identifier }) {
+  if (IS_DEMO_MODE) return mockResendOtp({ identifier })
+  // The current Spring Boot API has no resend-OTP endpoint. Do not silently
+  // pretend the backend sent a code by falling back to a browser mock.
+  throw new AuthError('OTP_RESEND_UNAVAILABLE')
 }
 
-// Output: { id, fullName, identifier, role } or null.
-// Demo: reads the saved session. With a backend this should ask the server who is signed in.
+export async function login({ identifier, password }) {
+  if (IS_DEMO_MODE) return mockLogin({ identifier, password })
+  try {
+    const response = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: { email: identifier, password },
+    })
+    return {
+      user: {
+        id: response.userId,
+        fullName: response.fullName || identifier.split('@')[0],
+        identifier,
+        role: normalizeRole(response.role),
+        token: response.token,
+      },
+    }
+  } catch (error) {
+    throw authFailure(error, 'INVALID_CREDENTIALS')
+  }
+}
+
+export async function requestPasswordReset(data) {
+  if (IS_DEMO_MODE) return mockRequestPasswordReset(data)
+  throw new AuthError('PASSWORD_RESET_UNAVAILABLE')
+}
+
 export async function getCurrentUser() {
+  // There is no /auth/me endpoint yet, so use the public profile saved alongside
+  // the backend-issued JWT. Protected API calls remain authorized by the server.
   return readSession()?.user ?? null
 }
 
-// With a backend this should end the session on the server too.
-export function logout() {
-  return mockLogout()
+export async function logout() {
+  if (IS_DEMO_MODE) return mockLogout()
+  // The backend currently uses stateless JWTs and exposes no logout endpoint.
+  return null
 }

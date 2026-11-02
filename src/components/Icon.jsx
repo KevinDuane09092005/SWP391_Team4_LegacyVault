@@ -96,6 +96,13 @@ const icons = {
     </>
   ),
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  download: (
+    <>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </>
+  ),
   copy: (
     <>
       <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -129,6 +136,14 @@ const icons = {
       <path d="M7 15h3" />
     </>
   ),
+  circleHelp: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9a2.5 2.5 0 0 1 4.8 1c0 1.6-2.4 2.1-2.4 3.8" />
+      <path d="M12 17h.01" />
+    </>
+  ),
+  chevronDown: <path d="m6 9 6 6 6-6" />,
   wallet: (
     <>
       <path d="M19 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-3" />

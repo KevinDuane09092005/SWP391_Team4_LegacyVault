@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
-import { AdminLayout } from '../../components/admin/AdminParts.jsx'
+import { AdminLayout, PrototypeOnlyNotice } from '../../components/admin/AdminParts.jsx'
 import { ConfirmDialog } from '../../components/handover/HandoverParts.jsx'
 import { ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
+import { IS_DEMO_MODE } from '../../services/adminService.js'
 import { listIntegrations, setIntegration } from '../../services/adminService.js'
 
 // Flow 7 — Third-party integrations (demo: nothing is connected).
@@ -44,6 +45,7 @@ export default function AdminIntegrationsPage() {
           <p className="page-text">{g.text}</p>
         </div>
       </div>
+      <PrototypeOnlyNotice />
       {message && <FormAlert tone={message.tone}>{message.text}</FormAlert>}
       {status === 'loading' && <LoadingState label={t.loading} />}
       {status === 'error' && <ErrorState message={flow7ErrorText(t, error)} retryLabel={t.retry} onRetry={reload} />}
@@ -62,7 +64,7 @@ export default function AdminIntegrationsPage() {
                 </span>
               </div>
               <div>
-                <Button variant="secondary" size="sm" onClick={() => setPending(item)}>
+                <Button variant="secondary" size="sm" disabled={!IS_DEMO_MODE} onClick={() => setPending(item)}>
                   {item.enabled ? g.disable : g.enable}
                 </Button>
               </div>

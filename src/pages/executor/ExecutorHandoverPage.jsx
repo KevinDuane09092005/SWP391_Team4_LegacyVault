@@ -40,8 +40,8 @@ export default function ExecutorHandoverPage() {
         tone: 'success',
         text: accessCode
           ? (language === 'vi'
-              ? `Bàn giao đã phát hành thành công! Hãy gửi mã truy cập bên dưới cho người thụ hưởng.`
-              : `Handover released successfully! Provide the access code below to the beneficiary.`)
+            ? `Bàn giao đã phát hành thành công! Hãy gửi mã truy cập bên dưới cho người thụ hưởng.`
+            : `Handover released successfully! Provide the access code below to the beneficiary.`)
           : t.executor.started(handover.id),
         caseId: handover.id,
         accessCode,
@@ -78,10 +78,6 @@ export default function ExecutorHandoverPage() {
           <p className="page-text">{t.executor.text}</p>
         </div>
         <div className="page-head__actions">
-          <Button variant="primary" size="sm" to="/dashboard/executor/submit-documents">
-            <Icon name="upload" size={15} />
-            {t.executor.uploadDoc}
-          </Button>
           {IS_DEMO_MODE && (
             <Button variant="secondary" size="sm" onClick={resetDemo}>
               {t.executor.reset}
@@ -113,6 +109,7 @@ export default function ExecutorHandoverPage() {
                   key={handover.id}
                   handover={handover}
                   t={t}
+                  language={language}
                   busy={busyId === handover.id}
                   feedback={feedback?.caseId === handover.id ? feedback : null}
                   onStart={() => setConfirming(handover)}
@@ -125,7 +122,7 @@ export default function ExecutorHandoverPage() {
 
       {confirming && (
         <ConfirmDialog
-          title={t.executor.startConfirmTitle(confirming.id)}
+          title={language === 'vi' ? 'Xác nhận bàn giao' : 'Confirm Handover'}
           busy={Boolean(busyId)}
           onClose={() => setConfirming(null)}
           actions={
@@ -134,23 +131,60 @@ export default function ExecutorHandoverPage() {
                 {t.executor.cancel}
               </Button>
               <Button onClick={doStart} disabled={Boolean(busyId)}>
-                {busyId ? t.executor.starting : t.executor.confirm}
+                {busyId ? t.executor.starting : (language === 'vi' ? 'Đồng ý & Gửi mail' : 'Confirm & Send Mail')}
               </Button>
             </>
           }
         >
-          <p className="page-text">
-            {t.executor.startConfirmText(
-              `${confirming.beneficiary?.name || 'Beneficiary'} (${confirming.beneficiary?.email || ''})`
-            )}
+          <p className="page-text" style={{ marginBottom: '14px' }}>
+            {language === 'vi'
+              ? 'Sau khi xác nhận, hệ thống sẽ gửi email thông báo đến người thụ hưởng.'
+              : 'After confirming, an email will be sent to the beneficiary.'}
           </p>
+          <div style={{
+            background: 'var(--color-surface-hover, #f8fafc)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '8px',
+            padding: '14px 16px',
+            display: 'grid',
+            gap: '12px',
+          }}>
+            <div>
+              <small style={{ display: 'block', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>
+                {language === 'vi' ? 'Mã hồ sơ bàn giao' : 'Case Number'}
+              </small>
+              <code style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-primary, #2563eb)', wordBreak: 'break-all' }}>
+                {confirming.id}
+              </code>
+            </div>
+            <div>
+              <small style={{ display: 'block', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                {language === 'vi' ? 'Người thụ hưởng' : 'Beneficiary'}
+              </small>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {(confirming.beneficiaries && confirming.beneficiaries.length > 0
+                  ? confirming.beneficiaries
+                  : [confirming.beneficiary]
+                ).filter(Boolean).map((b, idx) => (
+                  <div key={b.email || b.name || idx}>
+                    <span style={{ fontWeight: 600 }}>{b.name}</span>
+                    {b.email && (
+                      <small style={{ display: 'block', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        {b.email}
+                      </small>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </ConfirmDialog>
       )}
     </HandoverLayout>
   )
 }
 
-function ExecutorCaseCard({ handover, t, busy, feedback, onStart }) {
+function ExecutorCaseCard({ handover, t, language, busy, feedback, onStart }) {
   const startable = canStartHandover(handover)
   const blockedText = t.executor?.blocked?.[handover.status]
   const started = hasReached(handover.status, HANDOVER_STATUS.HANDOVER_INITIATED)
@@ -164,15 +198,50 @@ function ExecutorCaseCard({ handover, t, busy, feedback, onStart }) {
           <span className="handover-card__id">{t.caseId}</span>
           <h2 id={`case-${handover.id}`} className="section-title">{handover.id}</h2>
         </div>
-        <HandoverStatusBadge status={handover.status} />
+        {handover.status === HANDOVER_STATUS.COMPLETED ? (
+          <HandoverStatusBadge status={handover.status} />
+        ) : (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onStart}
+            disabled={!startable || busy}
+            title={
+              !startable
+                ? (language === 'vi'
+                  ? 'Nút Bàn giao chỉ mở khi Xác minh pháp lý đã được duyệt (Approved)'
+                  : 'Handover is only enabled once Legal Verification is Approved')
+                : ''
+            }
+            style={{
+              minWidth: '128px',
+              gap: '6px',
+              opacity: !startable ? 0.55 : 1,
+              cursor: !startable ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <Icon name="arrowRight" size={15} />
+            {busy ? (t.executor?.starting || 'Starting...') : (t.executor?.handoverBtn || (language === 'vi' ? 'Bàn giao' : 'Handover'))}
+          </Button>
+        )}
       </header>
-
       <dl className="handover-facts">
         <div>
-          <dt>{t.beneficiaryLabel}</dt>
-          <dd>
-            {handover.beneficiary?.name || '—'}
-            <small>{handover.beneficiary?.email || ''}</small>
+          <dt>{t.beneficiaryLabel} {handover.beneficiaries?.length > 1 ? `(${handover.beneficiaries.length})` : ''}</dt>
+          <dd style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {handover.beneficiaries && handover.beneficiaries.length > 0 ? (
+              handover.beneficiaries.map((b, idx) => (
+                <div key={b.email || b.name || idx}>
+                  <div style={{ fontWeight: 600 }}>{b.name}</div>
+                  {b.email && <small style={{ color: 'var(--color-text-muted)', display: 'block' }}>{b.email}</small>}
+                </div>
+              ))
+            ) : (
+              <div>
+                <div style={{ fontWeight: 600 }}>{handover.beneficiary?.name || '—'}</div>
+                <small style={{ color: 'var(--color-text-muted)', display: 'block' }}>{handover.beneficiary?.email || ''}</small>
+              </div>
+            )}
           </dd>
         </div>
         <div>
@@ -186,12 +255,13 @@ function ExecutorCaseCard({ handover, t, busy, feedback, onStart }) {
           <dt>{t.legalCase}</dt>
           <dd>
             {handover.legalCaseId || handover.case_id || handover.id || '—'}
-            <small className={`handover-legal handover-legal--${handover.legalStatus || 'pending'}`}>
+            <small className={`handover-legal handover-legal--${handover.legalStatus || 'PENDING'}`}>
               {t.legal?.[handover.legalStatus] ?? handover.legalStatus ?? '—'}
             </small>
           </dd>
         </div>
       </dl>
+
 
       {assets.length > 0 && (
         <div>
@@ -248,25 +318,19 @@ function ExecutorCaseCard({ handover, t, busy, feedback, onStart }) {
       )}
 
       <footer className="handover-card__actions">
-        {startable && (
-          <Button onClick={onStart} disabled={busy}>
-            <Icon name="arrowRight" size={16} />
-            {busy ? t.executor.starting : t.executor.start}
-          </Button>
-        )}
         {handover.status === HANDOVER_STATUS.PENDING_LEGAL_APPROVAL && (
           <Button
-            variant="secondary"
+            variant="primary" size="sm"
             to={`/dashboard/executor/submit-documents?caseId=${encodeURIComponent(handover.legalCaseId || handover.case_id || handover.id)}`}
           >
-            <Icon name="upload" size={16} />
+            <Icon name="upload" size={15} />
             {t.executor.uploadDoc}
           </Button>
         )}
         {!startable && blockedText && (
           <p className="handover-note"><Icon name="lock" size={14} /> {blockedText}</p>
         )}
-        {started && handover.status !== HANDOVER_STATUS.COMPLETED && (
+        {!startable && started && handover.status !== HANDOVER_STATUS.COMPLETED && (
           <p className="handover-note"><Icon name="info" size={14} /> {t.executor.inProgress}</p>
         )}
         {handover.status === HANDOVER_STATUS.COMPLETED && (

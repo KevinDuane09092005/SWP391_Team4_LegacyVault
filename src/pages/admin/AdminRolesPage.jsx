@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
-import { AdminLayout } from '../../components/admin/AdminParts.jsx'
+import { AdminLayout, PrototypeOnlyNotice } from '../../components/admin/AdminParts.jsx'
 import { ConfirmDialog } from '../../components/handover/HandoverParts.jsx'
 import { ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
@@ -10,6 +10,7 @@ import { dashboardContent } from '../../data/dashboardContent.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
+import { IS_DEMO_MODE } from '../../services/adminService.js'
 import { getPermissions, setPermission } from '../../services/adminService.js'
 
 // Flow 7 — Role / permission matrix (demo record; real guards are unchanged).
@@ -49,6 +50,8 @@ export default function AdminRolesPage() {
         </div>
       </div>
 
+      <PrototypeOnlyNotice />
+
       {message && <FormAlert tone={message.tone}>{message.text}</FormAlert>}
       {status === 'loading' && <LoadingState label={t.loading} />}
       {status === 'error' && <ErrorState message={flow7ErrorText(t, error)} retryLabel={t.retry} onRetry={reload} />}
@@ -76,7 +79,7 @@ export default function AdminRolesPage() {
                         <input
                           type="checkbox"
                           checked={granted}
-                          disabled={locked || busy}
+                          disabled={locked || busy || !IS_DEMO_MODE}
                           title={locked ? r.locked : undefined}
                           aria-label={`${roleLabels[role].label}: ${r.labels[permission] ?? permission}`}
                           onChange={() => setPending({ role, permission, granted: !granted })}

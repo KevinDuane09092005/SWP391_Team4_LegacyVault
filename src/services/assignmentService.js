@@ -196,7 +196,7 @@ export async function updateAssignmentByAssetIdApi(
     : `/api/v1/assignments/asset/${assetId}`
 
   const response = await fetch(endpoint, {
-    method: 'POST',
+    method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,

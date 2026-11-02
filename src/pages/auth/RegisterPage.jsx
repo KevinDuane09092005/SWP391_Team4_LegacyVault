@@ -7,7 +7,7 @@ import PasswordRules from '../../components/auth/PasswordRules.jsx'
 import SubmitButton from '../../components/auth/SubmitButton.jsx'
 import Icon from '../../components/Icon.jsx'
 import { savePendingVerification } from '../../auth/session.js'
-import { normalizeIdentifier, validateRegister } from '../../auth/validation.js'
+import { validateRegister } from '../../auth/validation.js'
 import { authContent } from '../../data/authContent.js'
 import { pricingContent } from '../../data/pricingContent.js'
 import useForm from '../../hooks/useForm.js'
@@ -73,38 +73,13 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      // 2. Xác định URL Backend từ biến môi trường hoặc fallback
-      const baseUrl = (
-        import.meta.env.VITE_API_BASE_URL ||
-        import.meta.env.REACT_APP_API_BASE_URL ||
-        ''
-      ).replace(/\/$/, '')
-
-      const endpoint = baseUrl
-        ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/register` : `${baseUrl}/api/v1/auth/register`)
-        : '/api/v1/auth/register'
-
-      // 3. Gọi HTTP POST tới Backend API (Lưu ý: API chỉ nhận 3 trường fullName, email, password)
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fullName, email, password }),
+      const data = await register({
+        fullName,
+        identifier: email,
+        password,
+        plan: planId,
+        billing,
       })
-
-      const data = await response.json().catch(() => ({}))
-
-      // 4. Xử lý phản hồi thất bại (HTTP 400 Bad Request / 500...)
-      if (!response.ok) {
-        const errorMsg =
-          data?.error ||
-          data?.message ||
-          (language === 'vi'
-            ? 'Đăng ký không thành công. Vui lòng thử lại.'
-            : 'Registration failed. Please try again.')
-        throw new Error(errorMsg)
-      }
 
       // 5. Lưu tạm thông tin người dùng để phục vụ xác thực OTP
       savePendingVerification({
@@ -112,6 +87,8 @@ export default function RegisterPage() {
         fullName,
         userId: data.userId,
         testOtp: data.testOtp,
+        planId,
+        billing,
       })
 
       sessionStorage.setItem('pendingEmail', email)
@@ -123,6 +100,8 @@ export default function RegisterPage() {
           fullName,
           userId: data.userId,
           testOtp: data.testOtp,
+          planId,
+          billing,
           message:
             language === 'vi'
               ? 'Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực.'
@@ -132,7 +111,7 @@ export default function RegisterPage() {
     } catch (error) {
       // Bắt lỗi qua khối catch, trích xuất thông điệp từ trường error
       setServerError(
-        error.message ||
+        error.code || error.message ||
           (language === 'vi'
             ? 'Đã có lỗi xảy ra khi kết nối máy chủ.'
             : 'Connection error. Please try again.'),
@@ -160,6 +139,11 @@ export default function RegisterPage() {
           <Link to="/pricing" className="auth-link">
             {copy.changePlan}
           </Link>
+          <small>
+            {language === 'vi'
+              ? 'Bạn có thể hoàn tất thanh toán trong mục Gói & thanh toán sau khi xác minh và đăng nhập.'
+              : 'You can complete checkout from Plan & billing after verifying and signing in.'}
+          </small>
         </p>
       )}
 

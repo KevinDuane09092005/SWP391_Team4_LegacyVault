@@ -10,7 +10,14 @@ import { isSecurityAlert } from '../../audit/auditRules.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { IS_DEMO_MODE, listUsers, resetAllDemoData } from '../../services/adminService.js'
+import {
+  approveAccessRequestApi,
+  getAdminDashboardApi,
+  IS_DEMO_MODE,
+  listUsers,
+  rejectAccessRequestApi,
+  resetAllDemoData,
+} from '../../services/adminService.js'
 import { listAuditLog } from '../../services/auditService.js'
 
 const RECENT_ALERTS = 5
@@ -21,8 +28,12 @@ export default function AdminOverviewPage() {
   const { language } = useLanguage()
   const t = flow7Content[language]
   const o = t.admin.overview
-  const { status, data, error, reload } = useAsync(() => Promise.all([listUsers(user), listAuditLog(user)]), user.id)
+  const { status, data, error, reload } = useAsync(
+    () => Promise.all([getAdminDashboardApi(), listUsers(user), listAuditLog(user)]),
+    user.id,
+  )
   const [confirming, setConfirming] = useState(false)
+  const [pendingAccess, setPendingAccess] = useState(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
 
@@ -40,13 +51,36 @@ export default function AdminOverviewPage() {
     }
   }
 
-  const [users, entries] = data ?? [[], []]
+  const decideAccessRequest = async () => {
+    if (!pendingAccess) return
+    setBusy(true)
+    setMessage(null)
+    try {
+      if (pendingAccess.decision === 'approve') {
+        await approveAccessRequestApi(pendingAccess.request.request_id)
+        setMessage({ tone: 'success', text: o.requestApproved })
+      } else {
+        await rejectAccessRequestApi(pendingAccess.request.request_id)
+        setMessage({ tone: 'success', text: o.requestRejected })
+      }
+      reload()
+    } catch (err) {
+      setMessage({ tone: 'error', text: flow7ErrorText(t, err) })
+    } finally {
+      setBusy(false)
+      setPendingAccess(null)
+    }
+  }
+
+  const [dashboard, users, entries] = data ?? [null, [], []]
   const alerts = entries.filter(isSecurityAlert)
+  const requests = dashboard?.access_requests || []
   const stats = [
-    [o.users, users.length],
+    [o.users, dashboard?.metrics?.total_users ?? users.length],
+    [o.pendingRequests, dashboard?.metrics?.pending_requests ?? requests.length],
     [o.suspended, users.filter((item) => item.status === 'SUSPENDED').length],
     [o.alerts, alerts.length],
-    [o.events, entries.length],
+    [o.events, dashboard?.metrics?.audit_events ?? entries.length],
   ]
 
   return (
@@ -84,7 +118,54 @@ export default function AdminOverviewPage() {
             </div>
             {alerts.length ? <AuditTable entries={alerts.slice(0, RECENT_ALERTS)} /> : <p className="page-text">{o.noAlerts}</p>}
           </section>
+          <section className="card handover-panel admin-access-queue">
+            <div className="handover-card__head">
+              <h2 className="section-title">{o.requestsTitle}</h2>
+              <span className="badge">{requests.length}</span>
+            </div>
+            {requests.length === 0 ? <p className="page-text">{o.noRequests}</p> : (
+              <ul className="admin-access-queue__list">
+                {requests.map((request) => (
+                  <li key={request.request_id} className="admin-access-queue__item">
+                    <div className="admin-access-queue__details">
+                      <strong>{request.user_name}</strong>
+                      <span>{request.requested_role}</span>
+                      <small>{o.requestId}: {request.request_id}</small>
+                    </div>
+                    {!IS_DEMO_MODE && (
+                      <div className="admin-actions">
+                        <Button variant="secondary" size="sm" onClick={() => setPendingAccess({ request, decision: 'reject' })}>
+                          {o.reject}
+                        </Button>
+                        <Button size="sm" onClick={() => setPendingAccess({ request, decision: 'approve' })}>
+                          {o.approve}
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
+      )}
+
+      {pendingAccess && (
+        <ConfirmDialog
+          title={pendingAccess.decision === 'approve'
+            ? o.confirmApprove(pendingAccess.request.user_name)
+            : o.confirmReject(pendingAccess.request.user_name)}
+          busy={busy}
+          onClose={() => setPendingAccess(null)}
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => setPendingAccess(null)} disabled={busy}>{t.cancel}</Button>
+              <Button onClick={decideAccessRequest} disabled={busy}>{busy ? t.saving : t.confirm}</Button>
+            </>
+          }
+        >
+          <p className="page-text">{pendingAccess.request.requested_role}</p>
+        </ConfirmDialog>
       )}
 
       {confirming && (

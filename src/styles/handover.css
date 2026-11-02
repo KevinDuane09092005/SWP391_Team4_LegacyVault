@@ -92,11 +92,23 @@
 }
 
 .handover-legal--APPROVED {
-  color: var(--color-primary) !important;
+  color: #10b981 !important;
+  font-weight: 600;
+}
+
+.handover-legal--PENDING {
+  color: #d97706 !important;
+  font-weight: 600;
+}
+
+.handover-legal--UNDER_REVIEW {
+  color: #2563eb !important;
+  font-weight: 600;
 }
 
 .handover-legal--REJECTED {
-  color: var(--color-danger) !important;
+  color: var(--color-danger, #ef4444) !important;
+  font-weight: 600;
 }
 
 .handover-subtitle {
