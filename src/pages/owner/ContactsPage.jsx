@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { CheckCircle, Clock, Plus, Search, Users, XCircle } from 'lucide-react'
+import { CheckCircle, Clock, Plus, Search, Users, XCircle, RotateCcw, Trash2 } from 'lucide-react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
 import { LoadingState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { createContactApi, getContactsApi } from '../../services/contactService.js'
+import { 
+  createContactApi, 
+  getContactsApi, 
+  revokeContactInvitationApi, 
+  deleteContactApi 
+} from '../../services/contactService.js'
 
 export default function ContactsPage() {
   const { language } = useLanguage()
@@ -22,6 +27,10 @@ export default function ContactsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [modalError, setModalError] = useState(null)
   const [successMessage, setSuccessMessage] = useState(null)
+  // Quản lý hộp thoại xác nhận: { type: 'revoke' | 'delete', contact: object }
+  const [confirmAction, setConfirmAction] = useState(null)
+  const [actionLoading, setActionLoading] = useState(false)
+
   const [form, setForm] = useState({
     name: '',
     relationship: 'Spouse',
@@ -55,7 +64,7 @@ export default function ContactsPage() {
           const rawStatus = (c.status || 'pending').toLowerCase()
           let status = 'pending'
           if (rawStatus === 'verified') status = 'verified'
-          else if (rawStatus === 'rejected' || rawStatus === 'declined') status = 'rejected'
+          else if (rawStatus === 'rejected' || rawStatus === 'declined' || rawStatus === 'revoked') status = 'rejected'
 
           return {
             contactId: c.contactId || c.id || crypto.randomUUID(),
@@ -68,6 +77,7 @@ export default function ContactsPage() {
             isExecutor: isBoth || isExec,
             role,
             status,
+            rawStatus,
           }
         })
         setContacts(mapped)
@@ -108,6 +118,50 @@ export default function ContactsPage() {
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [fetchContacts, search])
+
+
+  // Xử lý xác nhận Thu hồi hoặc Xóa liên hệ
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return
+    setActionLoading(true)
+    setError(null)
+    setSuccessMessage(null)
+
+    const { type, contact } = confirmAction
+    const targetId = contact.contactId || contact.id
+
+    try {
+      if (type === 'revoke') {
+        // 1. Gọi API Backend thật để thu hồi lời mời
+        await revokeContactInvitationApi(targetId)
+        setSuccessMessage(
+          isVi 
+            ? `Đã thu hồi lời mời tới ${contact.name || contact.email}.` 
+            : `Successfully revoked invitation for ${contact.name || contact.email}.`
+        )
+        // Cập nhật trạng thái dòng đó thành 'rejected'/'revoked'
+        setContacts((prev) =>
+          prev.map((c) => ((c.contactId || c.id) === targetId ? { ...c, status: 'rejected', rawStatus: 'revoked' } : c))
+        )
+      } else if (type === 'delete') {
+        // 2. Gọi API Backend thật để xóa người liên hệ
+        await deleteContactApi(targetId)
+        setSuccessMessage(
+          isVi 
+            ? `Đã xóa người liên hệ ${contact.name || contact.email} thành công.` 
+            : `Successfully deleted contact ${contact.name || contact.email}.`
+        )
+        // Loại bỏ hẳn người này khỏi danh sách state
+        setContacts((prev) => prev.filter((c) => (c.contactId || c.id) !== targetId))
+      }
+      setConfirmAction(null)
+    } catch (err) {
+      setError(err.message || (isVi ? 'Thao tác thất bại. Vui lòng thử lại.' : 'Action failed. Please try again.'))
+      setConfirmAction(null)
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   // Xử lý submit thêm người liên hệ mới
   const handleAddContact = async (e) => {
@@ -297,6 +351,7 @@ export default function ContactsPage() {
                   <th>Email</th>
                   <th>{isVi ? 'Vai trò kỳ vọng' : 'Expected Role'}</th>
                   <th>{isVi ? 'Trạng thái' : 'Status'}</th>
+                  <th>{isVi ? 'Thao tác' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -330,7 +385,9 @@ export default function ContactsPage() {
                           ) : isRejected ? (
                             <>
                               <XCircle size={12} style={{ marginRight: 4 }} />
-                              {isVi ? 'Đã từ chối' : 'Declined'}
+                              {c.rawStatus === 'revoked'
+                                ? (isVi ? 'Đã thu hồi' : 'Revoked')
+                                : (isVi ? 'Đã từ chối' : 'Declined')}
                             </>
                           ) : (
                             <>
@@ -339,6 +396,61 @@ export default function ContactsPage() {
                             </>
                           )}
                         </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          {/* Nút Thu hồi khi đang Pending */}
+                          {c.status === 'pending' && (
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => setConfirmAction({ type: 'revoke', contact: c })}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                color: '#d97706',
+                                background: 'rgba(245, 158, 11, 0.1)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                              }}
+                              title={isVi ? 'Thu hồi lời mời này' : 'Revoke this invitation'}
+                            >
+                              <RotateCcw size={12} />
+                              {isVi ? 'Thu hồi' : 'Revoke'}
+                            </button>
+                          )}
+
+                          {/* Nút Xóa khi đã Verified hoặc Rejected */}
+                          {c.status !== 'pending' && (
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => setConfirmAction({ type: 'delete', contact: c })}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                color: '#ef4444',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                              }}
+                              title={isVi ? 'Xóa người liên hệ này' : 'Delete this contact'}
+                            >
+                              <Trash2 size={12} />
+                              {isVi ? 'Xóa' : 'Delete'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -433,6 +545,53 @@ export default function ContactsPage() {
               </Button>
             </div>
           </form>
+        </div>
+      )}
+      {confirmAction && (
+        <div className="flow-modal-overlay">
+          <div className="flow-modal" style={{ maxWidth: '440px' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '18px', color: confirmAction.type === 'delete' ? '#ef4444' : '#f59e0b' }}>
+              {confirmAction.type === 'delete'
+                ? (isVi ? 'Xác nhận xóa liên hệ' : 'Confirm Delete Contact')
+                : (isVi ? 'Xác nhận thu hồi lời mời' : 'Confirm Revoke Invitation')}
+            </h3>
+            <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: '1.6', margin: '0 0 24px' }}>
+              {confirmAction.type === 'delete'
+                ? (isVi 
+                    ? `CẢNH BÁO: Xóa "${confirmAction.contact.name || confirmAction.contact.email}" sẽ thu hồi toàn bộ quyền truy cập kho di sản và hủy các chỉ định thừa kế liên quan. Hành động này không thể hoàn tác!`
+                    : `WARNING: Deleting "${confirmAction.contact.name || confirmAction.contact.email}" will revoke all vault access and associated asset assignments. This cannot be undone!`)
+                : (isVi
+                    ? `Bạn có chắc chắn muốn thu hồi lời mời gửi tới "${confirmAction.contact.name || confirmAction.contact.email}"? Liên kết trong email đã gửi sẽ bị vô hiệu hóa ngay lập tức.`
+                    : `Are you sure you want to revoke the invitation sent to "${confirmAction.contact.name || confirmAction.contact.email}"? The link in the sent email will be invalidated immediately.`)}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <Button variant="secondary" disabled={actionLoading} onClick={() => setConfirmAction(null)}>
+                {isVi ? 'Hủy bỏ' : 'Cancel'}
+              </Button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={handleConfirmAction}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#fff',
+                  background: confirmAction.type === 'delete' ? '#ef4444' : '#d97706',
+                  border: 'none',
+                  cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  opacity: actionLoading ? 0.7 : 1
+                }}
+              >
+                {actionLoading 
+                  ? (isVi ? 'Đang xử lý…' : 'Processing…') 
+                  : confirmAction.type === 'delete' 
+                  ? (isVi ? 'Xóa liên hệ' : 'Delete') 
+                  : (isVi ? 'Thu hồi' : 'Revoke')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </OwnerLayout>
