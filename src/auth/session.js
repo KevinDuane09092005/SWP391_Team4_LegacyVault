@@ -25,6 +25,21 @@ function safely(action, fallback = null) {
   }
 }
 
+function syncLegacyTokenStorage(session) {
+  safely(() => {
+    if (session?.token) {
+      window.localStorage.setItem('token', session.token)
+      window.localStorage.setItem('legacyvault-access-token', session.token)
+      if (session.user?.role) {
+        window.localStorage.setItem('role', session.user.role)
+      }
+      if (session.user?.id) {
+        window.localStorage.setItem('userId', session.user.id)
+      }
+    }
+  })
+}
+
 export function saveSession(user, remember) {
   const session = {
     user: { id: user.id, fullName: user.fullName, identifier: user.identifier, role: user.role },
@@ -36,6 +51,7 @@ export function saveSession(user, remember) {
   clearSession()
   const storage = remember ? window.localStorage : window.sessionStorage
   safely(() => storage.setItem(SESSION_KEY, JSON.stringify(session)))
+  syncLegacyTokenStorage(session)
   return session
 }
 
@@ -44,9 +60,17 @@ export function readSession() {
   return safely(() => {
     const raw =
       window.sessionStorage.getItem(SESSION_KEY) ?? window.localStorage.getItem(SESSION_KEY)
-    if (!raw) return null
+    if (!raw) {
+      clearSession()
+      return null
+    }
     const session = JSON.parse(raw)
-    return session?.user?.id && isKnownRole(session.user.role) ? session : null
+    if (session?.user?.id && isKnownRole(session.user.role)) {
+      syncLegacyTokenStorage(session)
+      return session
+    }
+    clearSession()
+    return null
   })
 }
 

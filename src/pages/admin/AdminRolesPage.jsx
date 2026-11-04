@@ -10,10 +10,9 @@ import { dashboardContent } from '../../data/dashboardContent.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { IS_DEMO_MODE } from '../../services/adminService.js'
 import { getPermissions, setPermission } from '../../services/adminService.js'
 
-// Flow 7 — Role / permission matrix (demo record; real guards are unchanged).
+// Flow 7 — Role / permission matrix.
 export default function AdminRolesPage() {
   const { user } = useAuth()
   const { language } = useLanguage()
@@ -79,7 +78,7 @@ export default function AdminRolesPage() {
                         <input
                           type="checkbox"
                           checked={granted}
-                          disabled={locked || busy || !IS_DEMO_MODE}
+                          disabled={locked || busy}
                           title={locked ? r.locked : undefined}
                           aria-label={`${roleLabels[role].label}: ${r.labels[permission] ?? permission}`}
                           onChange={() => setPending({ role, permission, granted: !granted })}

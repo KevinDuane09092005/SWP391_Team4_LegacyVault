@@ -91,9 +91,9 @@ const en = {
     saving: 'Saving…',
     progress: {
       validate: 'Checking the asset information',
-      documents: 'Attaching documents (demo: not uploaded)',
-      encryption: 'Encryption step (demo: not encrypted)',
-      saving: 'Saving to the demo store',
+      documents: 'Uploading related documents to server',
+      encryption: 'Encrypting sensitive data (AES-256)',
+      saving: 'Saving asset to server',
     },
   },
 
@@ -103,11 +103,11 @@ const en = {
     choose: 'Choose files',
     rules: (size, count) => `PDF, JPG, PNG, DOCX or TXT · up to ${size} each · up to ${count} files`,
     demoNote:
-      'Demo mode: files are only listed in your browser. They are not uploaded to any server, and their contents are not read or stored. Only the name and size are kept.',
+      'Click "Choose files" below to select PDF, JPG, PNG, DOCX, or TXT files from your computer. Selected files will be uploaded to the server when you save this asset.',
     none: 'No documents selected.',
     remove: 'Remove',
     removeLabel: (name) => `Remove ${name}`,
-    ready: 'Ready · not uploaded',
+    ready: 'Ready to upload',
     rejectedTitle: 'These files were not added:',
     reasons: {
       type: 'file type not allowed',
@@ -317,9 +317,9 @@ const vi = {
     saving: 'Đang lưu…',
     progress: {
       validate: 'Kiểm tra thông tin tài sản',
-      documents: 'Đính kèm tài liệu (demo: không upload)',
-      encryption: 'Bước mã hóa (demo: không mã hóa)',
-      saving: 'Lưu vào kho dữ liệu demo',
+      documents: 'Đang tải tài liệu đính kèm lên máy chủ',
+      encryption: 'Đang mã hóa dữ liệu nhạy cảm (AES-256)',
+      saving: 'Đang lưu tài sản lên máy chủ',
     },
   },
 
@@ -329,11 +329,11 @@ const vi = {
     choose: 'Chọn tệp',
     rules: (size, count) => `PDF, JPG, PNG, DOCX hoặc TXT · tối đa ${size} mỗi tệp · tối đa ${count} tệp`,
     demoNote:
-      'Chế độ demo: tệp chỉ được liệt kê trong trình duyệt của bạn. Tệp không được upload lên máy chủ nào, nội dung không được đọc hay lưu. Chỉ giữ lại tên và dung lượng.',
+      'Nhấn nút "Chọn tệp" bên dưới để tải tệp PDF, JPG, PNG, DOCX hoặc TXT từ máy tính của bạn. Các tệp đã chọn sẽ được tải lên máy chủ khi lưu tài sản.',
     none: 'Chưa chọn tài liệu nào.',
     remove: 'Xóa',
     removeLabel: (name) => `Xóa ${name}`,
-    ready: 'Sẵn sàng · chưa upload',
+    ready: 'Sẵn sàng tải lên',
     rejectedTitle: 'Các tệp sau không được thêm:',
     reasons: {
       type: 'loại tệp không được phép',

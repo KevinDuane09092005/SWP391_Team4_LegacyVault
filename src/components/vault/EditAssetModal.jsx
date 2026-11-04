@@ -8,6 +8,7 @@ import { DOCUMENT_RULES, formatFileSize, checkNewFiles } from '../../vault/docum
 import { vaultContent } from '../../data/vaultContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { updateAssetApi } from '../../services/vaultService.js'
+import { uploadAssetDocumentApi } from '../../services/documentService.js'
 
 // Mapping giữa code hệ thống và tên loại tài sản backend API
 const RAW_TO_BACKEND = {
@@ -154,8 +155,6 @@ export default function EditAssetModal({ isOpen, onClose, asset, onSuccess }) {
     if (accepted.length > 0) {
       const updated = [...files, ...accepted]
       setFiles(updated)
-      const storageUrl = `https://storage.legacyvault.com/docs/${accepted[0].name}`
-      setFormValues((prev) => ({ ...prev, attachmentUrl: storageUrl }))
     }
     event.target.value = ''
   }
@@ -164,12 +163,8 @@ export default function EditAssetModal({ isOpen, onClose, asset, onSuccess }) {
     const remaining = files.filter((f) => f.id !== fileId)
     setFiles(remaining)
     setRejectedFiles([])
-    if (remaining.length === 0) {
-      setFormValues((prev) => ({ ...prev, attachmentUrl: '' }))
-    } else {
-      const nextUrl = remaining[0].name ? `https://storage.legacyvault.com/docs/${remaining[0].name}` : ''
-      setFormValues((prev) => ({ ...prev, attachmentUrl: nextUrl }))
-    }
+    const remainingUrls = remaining.map((f) => f.url).filter(Boolean)
+    setFormValues((prev) => ({ ...prev, attachmentUrl: remainingUrls.join(',') }))
   }
 
   const handleChange = (field, value) => {
@@ -234,12 +229,29 @@ export default function EditAssetModal({ isOpen, onClose, asset, onSuccess }) {
     const finalCredentials = parts.join(' | ')
     const backendAssetType = RAW_TO_BACKEND[trimmedType] || trimmedType
 
+    let finalAttachmentUrl = formValues.attachmentUrl.trim()
+    const newFilesToUpload = files.filter((f) => f.file instanceof File)
+    if (newFilesToUpload.length > 0) {
+      try {
+        const uploadedUrls = []
+        for (const item of newFilesToUpload) {
+          const uploaded = await uploadAssetDocumentApi(item.file)
+          if (uploaded?.url) uploadedUrls.push(uploaded.url)
+        }
+        if (uploadedUrls.length > 0) {
+          finalAttachmentUrl = uploadedUrls.join(',')
+        }
+      } catch (uploadErr) {
+        console.warn('Upload document during edit asset warning:', uploadErr)
+      }
+    }
+
     const payload = {
       assetType: backendAssetType,
       assetName: trimmedName,
       description: formValues.description.trim(),
       credentials: finalCredentials,
-      attachmentUrl: formValues.attachmentUrl.trim(),
+      attachmentUrl: finalAttachmentUrl,
       status: asset?.status || 'unassigned',
     }
 

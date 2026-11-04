@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CircleCheck, FileUp, Info, UploadCloud } from 'lucide-react'
+import { ArrowLeft, CircleCheck, Download, Eye, FileUp, Info, UploadCloud } from 'lucide-react'
 import Button from '../../components/Button.jsx'
 import { HandoverLayout } from '../../components/handover/HandoverParts.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
@@ -8,7 +8,13 @@ import { handoverContent } from '../../data/handoverContent.js'
 import { verifierContent } from '../../data/verifierContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { listExecutorCases } from '../../services/handoverService.js'
-import { DEMO_MODE, submitCase, uploadDocument } from '../../services/verificationService.js'
+import {
+  DEMO_MODE,
+  submitCase,
+  uploadDocument,
+  getDocumentDownloadUrl,
+} from '../../services/verificationService.js'
+import { DocumentPreviewModal } from '../../components/verifier/VerifierParts.jsx'
 import { formatBytes, validateUpload } from '../../vault/verificationRules.js'
 import '../../styles/verifier.css'
 
@@ -24,14 +30,15 @@ export default function ExecutorSubmissionPage() {
   const [caseId, setCaseId] = useState(initialCaseId)
   const [cases, setCases] = useState([])
   const [file, setFile] = useState(null)
-  const [documentNumber, setDocumentNumber] = useState('GCT-8899/2026')
-  const [issuedBy, setIssuedBy] = useState('UBND Quận 1')
-  const [issuedDate, setIssuedDate] = useState('2026-10-15')
+  const [documentNumber, setDocumentNumber] = useState('GCT-12345')
+  const [issuedBy, setIssuedBy] = useState('UBND Phường')
+  const [issuedDate, setIssuedDate] = useState('2026-10-25')
   const [notes, setNotes] = useState('Kính gửi Chuyên viên pháp lý thẩm định giấy tờ')
   const [autoSubmit, setAutoSubmit] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
+  const [previewDoc, setPreviewDoc] = useState(null)
 
   useEffect(() => {
     if (user) {
@@ -67,6 +74,10 @@ export default function ExecutorSubmissionPage() {
     setBusy(true)
     try {
       const response = await uploadDocument(caseId.trim(), file, {
+        document_type: 'DEATH_CERTIFICATE',
+        document_number: documentNumber,
+        issued_by: issuedBy,
+        issued_date: issuedDate,
         documentType: 'DEATH_CERTIFICATE',
         documentNumber,
         issuedBy,
@@ -246,28 +257,67 @@ export default function ExecutorSubmissionPage() {
               <div
                 className="inline-success"
                 role="status"
-                style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px', padding: '16px', borderRadius: '8px', border: '1px solid #86efac', background: '#f0fdf4' }}
               >
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <CircleCheck size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
+                  <CircleCheck size={22} style={{ color: '#16a34a', flexShrink: 0 }} />
                   <div>
-                    <strong>{ht.executor.uploadSuccessTitle || u.successTitle}</strong>
-                    <p style={{ margin: '4px 0 0' }}>
+                    <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>{ht.executor.uploadSuccessTitle || u.successTitle}</strong>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: '#166534' }}>
                       {success.file_name} · {success.submitted
                         ? (language === 'vi'
-                          ? 'Hồ sơ đã được gửi đi thẩm định thành công (Trạng thái: SUBMITTED).'
+                          ? 'Hồ sơ đã được nộp thẩm định thành công (Trạng thái: SUBMITTED).'
                           : 'Case submitted successfully for legal verification (Status: SUBMITTED).')
                         : (ht.executor.uploadSuccessMsg || u.successMessage)}
                     </p>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                  <Button variant="primary" size="sm" to="/dashboard/executor">
-                    {ht.executor.backToDashboard}
-                  </Button>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px', alignItems: 'center' }}>
                   <Button
                     variant="secondary"
                     size="sm"
+                    type="button"
+                    onClick={() => setPreviewDoc(success)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Eye size={15} />
+                    <span>{language === 'vi' ? 'Xem trước tài liệu' : 'Preview Document'}</span>
+                  </Button>
+
+                  {(success.document_id || success.id) && (
+                    <a
+                      href={getDocumentDownloadUrl(success)}
+                      className="btn btn-download"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={success.file_name || 'document'}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 14px',
+                        borderRadius: 'var(--radius-sm, 6px)',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        background: 'var(--color-primary, #2563eb)',
+                        color: '#ffffff',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <Download size={15} />
+                      <span>{language === 'vi' ? 'Tải về máy' : 'Download file'}</span>
+                    </a>
+                  )}
+
+                  <Button variant="primary" size="sm" to="/dashboard/executor">
+                    {ht.executor.backToDashboard}
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
                     onClick={() => {
                       setSuccess(null)
                       setFile(null)
@@ -279,15 +329,17 @@ export default function ExecutorSubmissionPage() {
               </div>
             )}
 
-            <Button
-              className="upload-submit"
-              variant="primary"
-              type="submit"
-              disabled={busy}
-              style={{ marginTop: '16px' }}
-            >
-              {busy ? (autoSubmit ? (language === 'vi' ? 'Đang tải lên & nộp...' : 'Uploading & Submitting...') : t.actions.uploading) : (autoSubmit ? (language === 'vi' ? 'Tải lên & Nộp thẩm định' : 'Upload & Submit for Review') : t.actions.upload)}
-            </Button>
+            {!success && (
+              <Button
+                className="upload-submit"
+                variant="primary"
+                type="submit"
+                disabled={busy}
+                style={{ marginTop: '16px' }}
+              >
+                {busy ? (autoSubmit ? (language === 'vi' ? 'Đang tải lên & nộp...' : 'Uploading & Submitting...') : t.actions.uploading) : (autoSubmit ? (language === 'vi' ? 'Tải lên & Nộp thẩm định' : 'Upload & Submit for Review') : t.actions.upload)}
+              </Button>
+            )}
           </form>
         </section>
 
@@ -296,10 +348,7 @@ export default function ExecutorSubmissionPage() {
             <Info size={22} />
           </span>
           <h3>{u.workflowTitle}</h3>
-          <p>{u.workflowEndpoint}:</p>
-          <code>{u.workflowEndpoint}</code>
-          <p style={{ marginTop: '14px', lineHeight: 1.6 }}>{u.workflowNote}</p>
-          <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '14px', fontSize: '0.8125rem' }}>
+          <div style={{ marginTop: '12px', fontSize: '0.8125rem' }}>
             <strong>{language === 'vi' ? 'Quy trình thẩm định:' : 'Verification Flow:'}</strong>
             <ol style={{ paddingLeft: '18px', margin: '8px 0 0', display: 'grid', gap: '6px' }}>
               <li>{language === 'vi' ? 'Executor nộp Giấy chứng tử (PDF/Ảnh).' : 'Executor uploads Death Certificate.'}</li>
@@ -309,6 +358,14 @@ export default function ExecutorSubmissionPage() {
           </div>
         </aside>
       </div>
+
+      {previewDoc && (
+        <DocumentPreviewModal
+          doc={previewDoc}
+          onClose={() => setPreviewDoc(null)}
+          t={t}
+        />
+      )}
     </HandoverLayout>
   )
 }

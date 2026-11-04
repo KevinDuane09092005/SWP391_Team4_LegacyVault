@@ -35,6 +35,9 @@ export const DEFAULT_POLICIES = {
   backupFrequency: 'DAILY',
   backupRetentionDays: 30,
   backupRegion: 'ap-southeast-1',
+  dmsDefaultIntervalDays: 30,
+  dmsDefaultGraceDays: 14,
+  dmsMaxReminders: 3,
 }
 
 export const POLICY_OPTIONS = {
@@ -50,6 +53,7 @@ export const DEFAULT_INTEGRATIONS = [
   { id: 'kyc', name: 'KYC / eKYC provider', category: 'IDENTITY', enabled: false },
   { id: 'storage', name: 'Cloud backup storage', category: 'BACKUP', enabled: false },
   { id: 'esign', name: 'Digital signature service', category: 'LEGAL', enabled: false },
+  { id: 'enotary', name: 'Electronic notary portal', category: 'LEGAL', enabled: false },
 ]
 
 export const USER_STATUS = { ACTIVE: 'ACTIVE', SUSPENDED: 'SUSPENDED' }
