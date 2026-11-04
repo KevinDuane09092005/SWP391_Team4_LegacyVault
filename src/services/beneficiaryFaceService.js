@@ -4,6 +4,13 @@ export function getBeneficiaryFaceEnrollmentApi() {
   return apiFetch('/handover/beneficiary/face/enrollment')
 }
 
+export function enrollBeneficiaryFaceApi(payload) {
+  return apiFetch('/handover/beneficiary/face/enrollment', {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
 export function createBeneficiaryFaceCheckApi(caseRef) {
   return apiFetch(`/handover/beneficiary/face/cases/${encodeURIComponent(caseRef)}/sessions`, {
     method: 'POST',

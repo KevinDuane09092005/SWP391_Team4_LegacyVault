@@ -6,11 +6,11 @@ import FormAlert from '../../components/auth/FormAlert.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
 import { LoadingState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { 
-  createContactApi, 
-  getContactsApi, 
-  revokeContactInvitationApi, 
-  deleteContactApi 
+import {
+  createContactApi,
+  getContactsApi,
+  revokeContactInvitationApi,
+  deleteContactApi
 } from '../../services/contactService.js'
 
 export default function ContactsPage() {
@@ -135,8 +135,8 @@ export default function ContactsPage() {
         // 1. Gọi API Backend thật để thu hồi lời mời
         await revokeContactInvitationApi(targetId)
         setSuccessMessage(
-          isVi 
-            ? `Đã thu hồi lời mời tới ${contact.name || contact.email}.` 
+          isVi
+            ? `Đã thu hồi lời mời tới ${contact.name || contact.email}.`
             : `Successfully revoked invitation for ${contact.name || contact.email}.`
         )
         // Cập nhật trạng thái dòng đó thành 'rejected'/'revoked'
@@ -147,8 +147,8 @@ export default function ContactsPage() {
         // 2. Gọi API Backend thật để xóa người liên hệ
         await deleteContactApi(targetId)
         setSuccessMessage(
-          isVi 
-            ? `Đã xóa người liên hệ ${contact.name || contact.email} thành công.` 
+          isVi
+            ? `Đã xóa người liên hệ ${contact.name || contact.email} thành công.`
             : `Successfully deleted contact ${contact.name || contact.email}.`
         )
         // Loại bỏ hẳn người này khỏi danh sách state
@@ -557,7 +557,7 @@ export default function ContactsPage() {
             </h3>
             <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: '1.6', margin: '0 0 24px' }}>
               {confirmAction.type === 'delete'
-                ? (isVi 
+                ? (isVi
                     ? `CẢNH BÁO: Xóa "${confirmAction.contact.name || confirmAction.contact.email}" sẽ thu hồi toàn bộ quyền truy cập kho di sản và hủy các chỉ định thừa kế liên quan. Hành động này không thể hoàn tác!`
                     : `WARNING: Deleting "${confirmAction.contact.name || confirmAction.contact.email}" will revoke all vault access and associated asset assignments. This cannot be undone!`)
                 : (isVi
@@ -584,10 +584,10 @@ export default function ContactsPage() {
                   opacity: actionLoading ? 0.7 : 1
                 }}
               >
-                {actionLoading 
-                  ? (isVi ? 'Đang xử lý…' : 'Processing…') 
-                  : confirmAction.type === 'delete' 
-                  ? (isVi ? 'Xóa liên hệ' : 'Delete') 
+                {actionLoading
+                  ? (isVi ? 'Đang xử lý…' : 'Processing…')
+                  : confirmAction.type === 'delete'
+                  ? (isVi ? 'Xóa liên hệ' : 'Delete')
                   : (isVi ? 'Thu hồi' : 'Revoke')}
               </button>
             </div>

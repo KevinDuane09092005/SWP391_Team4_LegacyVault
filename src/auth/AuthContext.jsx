@@ -43,9 +43,9 @@ export function AuthProvider({ children }) {
       recordSignIn({ identifier, success: false, reason: error?.code })
       throw error
     }
-    const { user } = result
+    const { user, token } = result
     recordSignIn({ user, identifier, success: true })
-    setSession(saveSession(user, remember))
+    setSession(saveSession(user, remember, token))
     setJustLoggedOut(false)
     return user
   }
@@ -65,8 +65,8 @@ export function AuthProvider({ children }) {
   // Called by the sign-in page once it has shown "You have been signed out".
   const markLogoutSeen = () => setJustLoggedOut(false)
 
-  const setSessionUser = (user, remember) => {
-    const newSession = saveSession(user, remember)
+  const setSessionUser = (user, remember, token) => {
+    const newSession = saveSession(user, remember, token)
     setSession(newSession)
     setJustLoggedOut(false)
     return newSession

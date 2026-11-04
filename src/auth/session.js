@@ -15,6 +15,7 @@ import { isKnownRole } from './roles.js'
 
 const SESSION_KEY = 'legacyvault.session'
 const PENDING_KEY = 'legacyvault.pendingVerification'
+const AUTH_KEYS = ['legacyvault-access-token', 'token', 'role', 'userId']
 
 function safely(action, fallback = null) {
   try {
@@ -40,12 +41,13 @@ function syncLegacyTokenStorage(session) {
   })
 }
 
-export function saveSession(user, remember) {
+export function saveSession(user, remember, token) {
+  const authToken = token || user.token || null
   const session = {
     user: { id: user.id, fullName: user.fullName, identifier: user.identifier, role: user.role },
-    token: user.token || null,
+    token: authToken,
     remember: Boolean(remember),
-    mode: user.token ? 'backend' : 'demo',
+    mode: authToken ? 'backend' : 'demo',
     signedInAt: new Date().toISOString(),
   }
   clearSession()
@@ -76,11 +78,9 @@ export function readSession() {
 
 export function clearSession() {
   safely(() => {
-    window.sessionStorage.removeItem(SESSION_KEY)
-    window.localStorage.removeItem(SESSION_KEY)
-    for (const key of ['token', 'legacyvault-access-token', 'role', 'userId']) {
-      window.sessionStorage.removeItem(key)
-      window.localStorage.removeItem(key)
+    for (const storage of [window.sessionStorage, window.localStorage]) {
+      storage.removeItem(SESSION_KEY)
+      AUTH_KEYS.forEach((key) => storage.removeItem(key))
     }
   })
 }
