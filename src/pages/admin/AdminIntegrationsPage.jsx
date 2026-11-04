@@ -8,10 +8,9 @@ import { useAuth } from '../../auth/AuthContext.jsx'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { IS_DEMO_MODE } from '../../services/adminService.js'
 import { listIntegrations, setIntegration } from '../../services/adminService.js'
 
-// Flow 7 — Third-party integrations (demo: nothing is connected).
+// Flow 7 — Third-party integrations.
 export default function AdminIntegrationsPage() {
   const { user } = useAuth()
   const { language } = useLanguage()
@@ -64,7 +63,7 @@ export default function AdminIntegrationsPage() {
                 </span>
               </div>
               <div>
-                <Button variant="secondary" size="sm" disabled={!IS_DEMO_MODE} onClick={() => setPending(item)}>
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => setPending(item)}>
                   {item.enabled ? g.disable : g.enable}
                 </Button>
               </div>

@@ -38,6 +38,83 @@ async function request(method, path, body) {
   })
 }
 
+export function getDocumentViewUrl(doc) {
+  if (!doc) return ''
+  const fileUrl = typeof doc === 'string' ? doc : (doc.file_url || doc.fileUrl)
+  if (fileUrl) {
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://') || fileUrl.startsWith('blob:') || fileUrl.startsWith('data:')) {
+      return fileUrl
+    }
+    const base = (
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+      (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
+      'http://localhost:8080'
+    ).replace(/\/$/, '').replace(/\/api\/v1$/, '')
+    const path = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`
+    return `${base || 'http://localhost:8080'}${path}`
+  }
+  const id = typeof doc === 'object' ? (doc.document_id || doc.documentId || doc.id) : null
+  if (id) {
+    const base = (
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+      (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
+      'http://localhost:8080'
+    ).replace(/\/$/, '').replace(/\/api\/v1$/, '')
+    return `${base || 'http://localhost:8080'}/api/v1/legal-verification/documents/${id}/view`
+  }
+  return ''
+}
+
+export function getDocumentDownloadUrl(doc) {
+  if (!doc) return '#'
+  const id = typeof doc === 'object' ? (doc.document_id || doc.documentId || doc.id) : doc
+  if (!id) return '#'
+  const base = (
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+    (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
+    'http://localhost:8080'
+  ).replace(/\/$/, '').replace(/\/api\/v1$/, '')
+  return `${base || 'http://localhost:8080'}/api/v1/legal-verification/documents/${id}/download`
+}
+
+export function adaptVerifierDocument(doc) {
+  if (!doc) return doc
+  const docId = doc.document_id || doc.documentId || doc.id
+  const fileName = doc.file_name || doc.fileName || 'document.pdf'
+  const fileUrl = doc.file_url || doc.fileUrl || (docId && !DEMO_MODE ? `/api/v1/legal-verification/documents/${docId}/view` : (doc.file_url || null))
+  return {
+    ...doc,
+    document_id: docId,
+    documentId: docId,
+    document_type: doc.document_type || doc.documentType || 'DEATH_CERTIFICATE',
+    documentType: doc.document_type || doc.documentType || 'DEATH_CERTIFICATE',
+    document_number: doc.document_number || doc.documentNumber || '',
+    documentNumber: doc.document_number || doc.documentNumber || '',
+    issued_by: doc.issued_by || doc.issuedBy || '',
+    issuedBy: doc.issued_by || doc.issuedBy || '',
+    issued_date: doc.issued_date || doc.issuedDate || '',
+    issuedDate: doc.issued_date || doc.issuedDate || '',
+    file_name: fileName,
+    fileName: fileName,
+    file_size_formatted:
+      doc.file_size_formatted ||
+      doc.fileSizeFormatted ||
+      (doc.file_size || doc.fileSize
+        ? `${((doc.file_size || doc.fileSize) / 1024 / 1024).toFixed(1)} MB`
+        : '—'),
+    fileSizeFormatted:
+      doc.file_size_formatted ||
+      doc.fileSizeFormatted ||
+      (doc.file_size || doc.fileSize
+        ? `${((doc.file_size || doc.fileSize) / 1024 / 1024).toFixed(1)} MB`
+        : '—'),
+    uploaded_by: doc.uploaded_by || doc.uploadedBy || 'Executor',
+    uploadedBy: doc.uploaded_by || doc.uploadedBy || 'Executor',
+    file_url: fileUrl,
+    fileUrl: fileUrl,
+  }
+}
+
 export function adaptVerifierCase(r) {
   if (!r) return r
   const cid = r.caseId || r.case_id || r.id
@@ -74,7 +151,7 @@ export function adaptVerifierCase(r) {
     status_label: r.statusLabel || r.status_label || STATUS_LABELS[rawStatus] || rawStatus,
     statusLabel: r.statusLabel || r.status_label || STATUS_LABELS[rawStatus] || rawStatus,
     documents_count: r.documentsCount ?? r.documents_count ?? (Array.isArray(r.documents) ? r.documents.length : 0),
-    documents: Array.isArray(r.documents) ? r.documents : [],
+    documents: Array.isArray(r.documents) ? r.documents.map(adaptVerifierDocument) : [],
     rejection_reason: r.rejectionReason || r.rejection_reason || null,
     review_guideline: r.reviewGuideline || r.review_guideline || null,
   }
@@ -280,23 +357,25 @@ export async function rejectCase(caseId, reason, currentUser = null) {
 }
 
 export async function uploadDocument(caseId, file, meta = {}) {
+  const docType = meta.document_type || meta.documentType || 'DEATH_CERTIFICATE'
+  const docNumber = meta.document_number || meta.documentNumber || 'GCT-12345'
+  const issuer = meta.issued_by || meta.issuedBy || 'UBND Phường'
+  const issueDate = meta.issued_date || meta.issuedDate || '2026-10-25'
+
   if (!DEMO_MODE) {
-    const data = new FormData()
-    data.append('file', file)
-    data.append('document_type', meta.documentType || meta.document_type || 'DEATH_CERTIFICATE')
-    data.append('document_number', meta.documentNumber || meta.document_number || 'GCT-8899/2026')
-    data.append('issued_by', meta.issuedBy || meta.issued_by || 'UBND Quận 1')
-    data.append('issued_date', meta.issuedDate || meta.issued_date || '2026-10-15')
-    data.append('documentType', meta.documentType || 'DEATH_CERTIFICATE')
-    data.append('documentNumber', meta.documentNumber || 'GCT-8899/2026')
-    data.append('issuedBy', meta.issuedBy || 'UBND Quận 1')
-    data.append('issuedDate', meta.issuedDate || '2026-10-15')
-    return request(
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('document_type', docType)
+    formData.append('document_number', docNumber)
+    formData.append('issued_by', issuer)
+    formData.append('issued_date', issueDate)
+
+    const res = await request(
       'POST',
       `/legal-verification/cases/${encodeURIComponent(caseId)}/documents`,
-      data,
-      true
+      formData
     )
+    return adaptVerifierDocument(res)
   }
 
   await delay()
@@ -304,13 +383,31 @@ export async function uploadDocument(caseId, file, meta = {}) {
   const record = data.find((r) => r.case_id === caseId || r.case_number === caseId)
   if (!record) throw new Error('Case not found.')
 
+  let localUrl = null
+  if (typeof window !== 'undefined' && window.URL && typeof Blob !== 'undefined' && file instanceof Blob) {
+    try {
+      localUrl = window.URL.createObjectURL(file)
+    } catch {
+      // ignore
+    }
+  }
+
+  const docId = `demo-${Date.now()}`
   const newDoc = {
-    document_id: `demo-${Date.now()}`,
-    document_type: 'DEATH_CERTIFICATE',
+    document_id: docId,
+    documentId: docId,
+    document_type: docType,
+    documentType: docType,
+    document_number: docNumber,
+    documentNumber: docNumber,
+    issued_by: issuer,
+    issuedBy: issuer,
+    issued_date: issueDate,
+    issuedDate: issueDate,
     file_name: file.name,
-    file_size_formatted: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+    file_size_formatted: file.size ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : '1.0 MB',
     uploaded_by: 'Executor',
-    file_url: null,
+    file_url: localUrl,
   }
 
   record.documents = [...(record.documents || []), newDoc]

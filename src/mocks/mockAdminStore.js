@@ -146,7 +146,7 @@ export async function mockAdminSetPermission(user, role, permission, granted) {
   return state.permissions
 }
 
-// ---------------- Encryption / backup policies ----------------
+// ---------------- Encryption / backup / DMS policies ----------------
 
 export async function mockAdminGetPolicies(user) {
   await delay(150)
@@ -165,6 +165,9 @@ export async function mockAdminSavePolicies(user, policies) {
     POLICY_OPTIONS.backupRegion.includes(next.backupRegion) &&
     days(next.keyRotationDays, 7, 365) &&
     days(next.backupRetentionDays, 1, 3650) &&
+    days(next.dmsDefaultIntervalDays, 7, 365) &&
+    days(next.dmsDefaultGraceDays, 1, 90) &&
+    days(next.dmsMaxReminders, 1, 10) &&
     typeof next.requireClientSideEncryption === 'boolean'
   if (!valid) throw new AdminError('INVALID_INPUT')
 
