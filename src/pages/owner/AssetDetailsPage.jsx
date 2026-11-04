@@ -8,8 +8,8 @@ import { Breadcrumbs, ErrorState, LoadingState } from '../../components/vault/Pa
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { vaultContent } from '../../data/vaultContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { getAsset } from '../../services/vaultService.js'
-import { getAssignmentByAssetIdApi } from '../../services/assignmentService.js'
+import { deleteAssetApi, getAsset } from '../../services/vaultService.js'
+import { deleteAssignmentByAssetIdApi, getAssignmentByAssetIdApi } from '../../services/assignmentService.js'
 import { getTypeFields } from '../../vault/assetTypes.js'
 import { formatFileSize } from '../../vault/documentRules.js'
 import { formatDisplayDate, formatDisplayDateTime, formatFieldValue } from '../../vault/format.js'
@@ -24,7 +24,7 @@ const initials = (str) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-// Flow 2 — Asset Details: Displays asset information, decrypted credentials,
+// Flow 3 — Asset Details: Displays asset information, decrypted credentials,
 // attachment documents, security status, and handover configuration fetched from
 // GET /api/v1/assets/{assetId} and GET /api/v1/assignments/asset/{assetId}
 export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModal = false }) {
@@ -34,6 +34,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
 
   const { user } = useAuth()
   const { language } = useLanguage()
+  const isVi = language === 'vi'
   const t = vaultContent[language]
   const copy = t.assetDetails
   const location = useLocation()
@@ -52,6 +53,9 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
   const [isEditAssetModalOpen, setIsEditAssetModalOpen] = useState(false)
   const [isEditAssignmentModalOpen, setIsEditAssignmentModalOpen] = useState(false)
   const [updateSuccessMessage, setUpdateSuccessMessage] = useState(null)
+  const [actionErrorMessage, setActionErrorMessage] = useState(null)
+  const [isDeletingAsset, setIsDeletingAsset] = useState(false)
+  const [isDeletingAssignment, setIsDeletingAssignment] = useState(false)
 
   // Fetch asset details by assetId and token from localStorage
   const fetchAssetDetail = useCallback(async () => {
@@ -79,7 +83,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
           state: {
             from: location.pathname,
             message:
-              language === 'vi'
+              isVi
                 ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
                 : 'Session expired. Please log in again.',
           },
@@ -90,14 +94,14 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
       console.error('Lỗi lấy chi tiết tài sản:', err)
       setError(
         err.message ||
-          (language === 'vi'
+          (isVi
             ? 'Không tìm thấy tài sản hoặc quyền truy cập bị từ chối.'
             : 'Asset not found or access denied.'),
       )
     } finally {
       setLoading(false)
     }
-  }, [assetId, language, location.pathname, navigate, user?.id, vaultId])
+  }, [assetId, isVi, location.pathname, navigate, user?.id, vaultId])
 
   // Fetch assignment configuration by assetId: GET /api/v1/assignments/asset/{assetId}
   const fetchAssignmentDetail = useCallback(async () => {
@@ -126,7 +130,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
           state: {
             from: location.pathname,
             message:
-              language === 'vi'
+              isVi
                 ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
                 : 'Session expired. Please log in again.',
           },
@@ -135,7 +139,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
     } finally {
       setLoadingAssignment(false)
     }
-  }, [assetId, language, location.pathname, navigate])
+  }, [assetId, isVi, location.pathname, navigate])
 
   // Lắng nghe theo assetId để gọi API khi mở trang hoặc mở modal
   useEffect(() => {
@@ -159,6 +163,62 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleDeleteAsset = async () => {
+    if (!assetId) return
+    const confirmMsg = isVi
+      ? 'Bạn có chắc chắn muốn xóa tài sản này khỏi kho lưu trữ không? Hành động này không thể hoàn tác.'
+      : 'Are you sure you want to delete this asset from your vault? This action cannot be undone.'
+    if (!window.confirm(confirmMsg)) return
+
+    setIsDeletingAsset(true)
+    setActionErrorMessage(null)
+    try {
+      await deleteAssetApi(assetId)
+      if (onClose) {
+        onClose()
+      } else {
+        navigate(ownerPaths.assets)
+      }
+    } catch (err) {
+      setActionErrorMessage(
+        err.data?.error ||
+          err.message ||
+          (isVi ? 'Không thể xóa tài sản này.' : 'Failed to delete asset.'),
+      )
+    } finally {
+      setIsDeletingAsset(false)
+    }
+  }
+
+  const handleRemoveAssignment = async () => {
+    if (!assetId) return
+    const confirmMsg = isVi
+      ? 'Bạn có chắc chắn muốn hủy cấu hình bàn giao của tài sản này? Tài sản sẽ chuyển về trạng thái Chưa phân bổ.'
+      : 'Are you sure you want to remove the handover assignment for this asset? The asset will return to Unassigned status.'
+    if (!window.confirm(confirmMsg)) return
+
+    setIsDeletingAssignment(true)
+    setActionErrorMessage(null)
+    try {
+      const res = await deleteAssignmentByAssetIdApi(assetId)
+      setAssignment(null)
+      setUpdateSuccessMessage(
+        res?.message ||
+          (isVi ? 'Đã hủy cấu hình bàn giao tài sản thành công.' : 'Assignment removed successfully.'),
+      )
+      fetchAssetDetail()
+      setTimeout(() => setUpdateSuccessMessage(null), 5000)
+    } catch (err) {
+      setActionErrorMessage(
+        err.data?.error ||
+          err.message ||
+          (isVi ? 'Không thể hủy cấu hình bàn giao.' : 'Failed to remove assignment.'),
+      )
+    } finally {
+      setIsDeletingAssignment(false)
+    }
+  }
+
   // Trạng thái Loading
   if (loading) {
     const loadingView = <LoadingState label={t.loading} />
@@ -177,11 +237,11 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
       <ErrorState message={error || t.errors.generic} retryLabel={t.retry} onRetry={fetchAssetDetail}>
         {onClose ? (
           <Button onClick={onClose} variant="secondary">
-            {language === 'vi' ? 'Đóng' : 'Close'}
+            {isVi ? 'Đóng' : 'Close'}
           </Button>
         ) : (
           <Button to={ownerPaths.assets} variant="secondary">
-            {language === 'vi' ? 'Quay lại danh sách tài sản' : 'Back to Assets'}
+            {isVi ? 'Quay lại danh sách tài sản' : 'Back to Assets'}
           </Button>
         )}
       </ErrorState>
@@ -210,7 +270,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
         <Breadcrumbs
           label={t.breadcrumbsLabel}
           items={[
-            { label: language === 'vi' ? 'Tài sản của tôi' : 'My Assets', to: ownerPaths.assets },
+            { label: isVi ? 'Tài sản của tôi' : 'My Assets', to: ownerPaths.assets },
             { label: assetName },
           ]}
         />
@@ -218,6 +278,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
 
       {location.state?.saved && <FormAlert tone="success">{location.state?.message || copy.saved}</FormAlert>}
       {updateSuccessMessage && <FormAlert tone="success">{updateSuccessMessage}</FormAlert>}
+      {actionErrorMessage && <FormAlert tone="error">{actionErrorMessage}</FormAlert>}
 
       <div className="page-head page-head--spaced">
         <div>
@@ -225,59 +286,59 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
             <span className="badge">{t.assetTypes[assetType] || assetType}</span>
             <span className={`badge ${isAssigned ? 'green' : 'amber'}`}>
               {isAssigned
-                ? (language === 'vi' ? 'Đã phân bổ' : 'Assigned')
-                : (language === 'vi' ? 'Chưa phân bổ' : 'Unassigned')}
+                ? (isVi ? 'Đã phân bổ' : 'Assigned')
+                : (isVi ? 'Chưa phân bổ' : 'Unassigned')}
             </span>
           </div>
           <h1 className="page-title">{assetName}</h1>
           <p className="page-meta">
             {copy.created} {formatDisplayDateTime(asset.createdAt)}
             {asset.updatedAt && asset.updatedAt !== asset.createdAt && (
-              <> · {language === 'vi' ? 'Cập nhật' : 'Updated'} {formatDisplayDateTime(asset.updatedAt)}</>
+              <> · {isVi ? 'Cập nhật' : 'Updated'} {formatDisplayDateTime(asset.updatedAt)}</>
             )}
           </p>
         </div>
-        <div className="page-head__actions">
-          {onClose ? (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <Button
-                onClick={() => !isAssigned && setIsEditAssetModalOpen(true)}
-                disabled={isAssigned}
-                title={
-                  isAssigned
-                    ? (language === 'vi'
-                        ? 'Tài sản đã được phân bổ bàn giao nên không thể chỉnh sửa thông tin.'
-                        : 'Asset has already been assigned and cannot be edited.')
-                    : ''
-                }
-              >
-                <Icon name="pencil" size={15} />
-                {language === 'vi' ? 'Chỉnh sửa tài sản' : 'Edit Asset'}
-              </Button>
-              <Button onClick={onClose} variant="secondary">
-                {language === 'vi' ? 'Đóng' : 'Close'}
-              </Button>
-            </div>
-          ) : (
-            <>
-              <Button to={ownerPaths.assets} variant="secondary">
-                {language === 'vi' ? 'Quay lại danh sách tài sản' : 'Back to Assets'}
-              </Button>
-              <Button
-                onClick={() => !isAssigned && setIsEditAssetModalOpen(true)}
-                disabled={isAssigned}
-                title={
-                  isAssigned
-                    ? (language === 'vi'
-                        ? 'Tài sản đã được phân bổ bàn giao nên không thể chỉnh sửa thông tin.'
-                        : 'Asset has already been assigned and cannot be edited.')
-                    : ''
-                }
-              >
-                <Icon name="pencil" size={15} />
-                {language === 'vi' ? 'Chỉnh sửa tài sản' : 'Edit Asset'}
-              </Button>
-            </>
+        <div className="page-head__actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {!onClose && (
+            <Button to={ownerPaths.assets} variant="secondary">
+              {isVi ? 'Quay lại danh sách tài sản' : 'Back to Assets'}
+            </Button>
+          )}
+          <Button
+            onClick={() => !isAssigned && setIsEditAssetModalOpen(true)}
+            disabled={isAssigned}
+            title={
+              isAssigned
+                ? (isVi
+                    ? 'Tài sản đã được phân bổ bàn giao nên không thể chỉnh sửa thông tin.'
+                    : 'Asset has already been assigned and cannot be edited.')
+                : ''
+            }
+          >
+            <Icon name="pencil" size={15} />
+            {isVi ? 'Chỉnh sửa tài sản' : 'Edit Asset'}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleDeleteAsset}
+            disabled={isAssigned || isDeletingAsset}
+            title={
+              isAssigned
+                ? (isVi
+                    ? 'Không thể xóa tài sản đang có cấu hình bàn giao. Vui lòng hủy phân bổ trước.'
+                    : 'Cannot delete an assigned asset. Please remove the assignment first.')
+                : ''
+            }
+            style={{ color: isAssigned ? undefined : 'var(--color-danger, #DC2626)' }}
+          >
+            {isDeletingAsset
+              ? (isVi ? 'Đang xóa…' : 'Deleting…')
+              : (isVi ? 'Xóa tài sản' : 'Delete Asset')}
+          </Button>
+          {onClose && (
+            <Button onClick={onClose} variant="secondary">
+              {isVi ? 'Đóng' : 'Close'}
+            </Button>
           )}
         </div>
       </div>
@@ -293,12 +354,12 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
               <dd>{t.assetTypes[assetType] || assetType}</dd>
             </div>
             <div>
-              <dt>{language === 'vi' ? 'Trạng thái' : 'Status'}</dt>
+              <dt>{isVi ? 'Trạng thái' : 'Status'}</dt>
               <dd>
                 <span className={`badge ${isAssigned ? 'green' : 'amber'}`}>
                   {isAssigned
-                    ? (language === 'vi' ? 'Đã phân bổ' : 'Assigned')
-                    : (language === 'vi' ? 'Chưa phân bổ' : 'Unassigned')}
+                    ? (isVi ? 'Đã phân bổ' : 'Assigned')
+                    : (isVi ? 'Chưa phân bổ' : 'Unassigned')}
                 </span>
               </dd>
             </div>
@@ -320,7 +381,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
             )}
             {asset.decryptedCredentials && (
               <div>
-                <dt>{language === 'vi' ? 'Thông tin bảo mật' : 'Credentials'}</dt>
+                <dt>{isVi ? 'Thông tin bảo mật' : 'Credentials'}</dt>
                 <dd>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span
@@ -340,8 +401,8 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                       type="button"
                       className="field__reveal"
                       onClick={() => setShowCredentials((v) => !v)}
-                      title={showCredentials ? (language === 'vi' ? 'Ẩn' : 'Hide') : (language === 'vi' ? 'Hiện' : 'Show')}
-                      aria-label={showCredentials ? (language === 'vi' ? 'Ẩn' : 'Hide') : (language === 'vi' ? 'Hiện' : 'Show')}
+                      title={showCredentials ? (isVi ? 'Ẩn' : 'Hide') : (isVi ? 'Hiện' : 'Show')}
+                      aria-label={showCredentials ? (isVi ? 'Ẩn' : 'Hide') : (isVi ? 'Hiện' : 'Show')}
                       style={{
                         border: 'none',
                         background: 'transparent',
@@ -359,13 +420,13 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                       onClick={() => handleCopyCredentials(asset.decryptedCredentials)}
                       className="btn btn-secondary btn-sm"
                       style={{ padding: '3px 8px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                      title={language === 'vi' ? 'Sao chép mật khẩu' : 'Copy credentials'}
+                      title={isVi ? 'Sao chép mật khẩu' : 'Copy credentials'}
                     >
                       <Icon name={copied ? 'check' : 'copy'} size={14} />
                       <span>
                         {copied
-                          ? (language === 'vi' ? 'Đã sao chép' : 'Copied')
-                          : (language === 'vi' ? 'Sao chép' : 'Copy')}
+                          ? (isVi ? 'Đã sao chép' : 'Copied')
+                          : (isVi ? 'Sao chép' : 'Copy')}
                       </span>
                     </button>
                   </div>
@@ -378,7 +439,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
             </div>
             {asset.updatedAt && (
               <div>
-                <dt>{language === 'vi' ? 'Cập nhật lần cuối' : 'Last updated'}</dt>
+                <dt>{isVi ? 'Cập nhật lần cuối' : 'Last updated'}</dt>
                 <dd>{formatDisplayDateTime(asset.updatedAt)}</dd>
               </div>
             )}
@@ -390,20 +451,33 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
           <section className="card detail-card" aria-labelledby="handover-title">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
               <h2 id="handover-title" className="section-title" style={{ margin: 0 }}>
-                {language === 'vi' ? 'Cấu hình bàn giao di sản' : 'Handover Configuration'}
+                {isVi ? 'Cấu hình bàn giao di sản' : 'Handover Configuration'}
               </h2>
               {assignment && (
-                <Button size="sm" variant="secondary" onClick={() => setIsEditAssignmentModalOpen(true)}>
-                  <Icon name="pencil" size={13} />
-                  {language === 'vi' ? 'Chỉnh sửa phân bổ' : 'Edit Assignment'}
-                </Button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <Button size="sm" variant="secondary" onClick={() => setIsEditAssignmentModalOpen(true)}>
+                    <Icon name="pencil" size={13} />
+                    {isVi ? 'Chỉnh sửa phân bổ' : 'Edit Assignment'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleRemoveAssignment}
+                    disabled={isDeletingAssignment}
+                    style={{ color: 'var(--color-danger, #DC2626)' }}
+                  >
+                    {isDeletingAssignment
+                      ? (isVi ? 'Đang hủy…' : 'Removing…')
+                      : (isVi ? 'Hủy phân bổ' : 'Unassign')}
+                  </Button>
+                </div>
               )}
             </div>
 
             {loadingAssignment ? (
               <div style={{ padding: '20px 0', textAlign: 'center' }}>
                 <LoadingState
-                  label={language === 'vi' ? 'Đang tải cấu hình bàn giao…' : 'Loading handover details…'}
+                  label={isVi ? 'Đang tải cấu hình bàn giao…' : 'Loading handover details…'}
                 />
               </div>
             ) : !assignment || assignmentError?.status === 404 || asset.status === 'unassigned' ? (
@@ -425,21 +499,30 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                   <Icon name="layers" size={22} />
                 </div>
                 <p style={{ margin: '0 0 6px', fontWeight: 600, color: 'var(--color-heading)', fontSize: '0.9375rem' }}>
-                  {language === 'vi' ? 'Tài sản này chưa được thiết lập bàn giao' : 'Asset Not Assigned Yet'}
+                  {isVi ? 'Tài sản này chưa được thiết lập bàn giao' : 'Asset Not Assigned Yet'}
                 </p>
                 <p style={{ margin: '0 0 16px', color: 'var(--color-muted)', fontSize: '0.8125rem', lineHeight: 1.5 }}>
-                  {language === 'vi'
+                  {isVi
                     ? 'Chỉ định người thụ hưởng và người thi hành để bảo vệ và kích hoạt quy trình bàn giao tài sản khi cần thiết.'
                     : 'Assign designated beneficiaries and an executor to protect and handover this asset.'}
                 </p>
                 <Button onClick={() => setIsEditAssignmentModalOpen(true)} size="sm">
                   <Icon name="pencil" size={14} />
-                  {language === 'vi' ? 'Thiết lập bàn giao' : 'Assign Asset'}
+                  {isVi ? 'Thiết lập bàn giao' : 'Assign Asset'}
                 </Button>
               </div>
             ) : (
               // Trạng thái tài sản ĐÃ có cấu hình bàn giao (200 OK)
               <div>
+                {/* Giao thức bàn giao (Handover Protocol) */}
+                <div style={{ marginBottom: '14px' }}>
+                  <span className="badge green">
+                    {assignment.handoverProtocol === 'automatic_release'
+                      ? (isVi ? 'Giải phóng tự động (Automatic Release)' : 'Automatic Release')
+                      : (isVi ? 'Xác minh pháp lý (Legal Verification)' : 'Legal Verification')}
+                  </span>
+                </div>
+
                 {/* 1. Người thi hành (Executor) */}
                 <div style={{ marginBottom: '16px' }}>
                   <div
@@ -452,7 +535,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                       marginBottom: '8px',
                     }}
                   >
-                    {language === 'vi' ? 'Người thi hành (Executor)' : 'Executor'}
+                    {isVi ? 'Người thi hành (Executor)' : 'Executor'}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span className="person-initial" style={{ width: '34px', height: '34px', fontSize: '0.75rem' }}>
@@ -481,7 +564,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                       marginBottom: '8px',
                     }}
                   >
-                    {language === 'vi' ? 'Người thụ hưởng (Beneficiaries)' : 'Beneficiaries'}
+                    {isVi ? 'Người thụ hưởng (Beneficiaries)' : 'Beneficiaries'}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {assignment.beneficiaries?.map((b) => (
@@ -543,7 +626,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                         marginBottom: '6px',
                       }}
                     >
-                      {language === 'vi' ? 'Chỉ dẫn bàn giao (Instructions)' : 'Handover Instructions'}
+                      {isVi ? 'Chỉ dẫn bàn giao (Instructions)' : 'Handover Instructions'}
                     </div>
                     <div
                       style={{
@@ -574,7 +657,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                     color: 'var(--color-muted)',
                   }}
                 >
-                  <span>{language === 'vi' ? 'Ngày thiết lập hồ sơ:' : 'Configured on:'}</span>
+                  <span>{isVi ? 'Ngày thiết lập hồ sơ:' : 'Configured on:'}</span>
                   <b style={{ color: 'var(--color-heading)' }}>{formatDisplayDate(assignment.createdAt)}</b>
                 </div>
               </div>
@@ -598,7 +681,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                       : fileUrl
                     const rawFileName = decodeURIComponent(
                       resolvedUrl.split('/').pop() ||
-                        (language === 'vi' ? 'Tài liệu đính kèm' : 'Attached document'),
+                        (isVi ? 'Tài liệu đính kèm' : 'Attached document'),
                     )
                     const uIdx = rawFileName.indexOf('_')
                     const cleanName =
@@ -626,7 +709,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
                           className="btn btn-secondary btn-sm"
                           style={{ fontSize: '12px', padding: '3px 8px', textDecoration: 'none' }}
                         >
-                          {language === 'vi' ? 'Xem / Tải tệp' : 'View / Download'}
+                          {isVi ? 'Xem / Tải tệp' : 'View / Download'}
                         </a>
                       </li>
                     )
@@ -659,7 +742,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
               <Icon name={asset.decryptedCredentials ? 'shieldCheck' : 'alertCircle'} size={16} />
               <span>
                 {asset.decryptedCredentials
-                  ? (language === 'vi'
+                  ? (isVi
                       ? 'Dữ liệu bảo mật đã được mã hóa AES-256 an toàn và giải mã tự động cho chủ sở hữu.'
                       : 'Secured with AES-256 encryption and decrypted safely for vault owner.')
                   : copy.notEncrypted}
@@ -668,12 +751,12 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
             {asset.decryptedCredentials && (
               <>
                 <p className="detail-note">
-                  {language === 'vi' ? 'Trường bảo mật được mã hóa:' : 'Encrypted sensitive fields:'}
+                  {isVi ? 'Trường bảo mật được mã hóa:' : 'Encrypted sensitive fields:'}
                 </p>
                 <ul className="sensitive-list">
                   <li>
                     <Icon name="lock" size={14} />
-                    {language === 'vi' ? 'Mật khẩu / Khóa khôi phục' : 'Password / Recovery keys'}
+                    {isVi ? 'Mật khẩu / Khóa khôi phục' : 'Password / Recovery keys'}
                   </li>
                 </ul>
               </>
@@ -688,7 +771,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
         asset={asset}
         onSuccess={() => {
           setUpdateSuccessMessage(
-            language === 'vi'
+            isVi
               ? 'Cập nhật thông tin tài sản thành công!'
               : 'Asset updated successfully!',
           )
@@ -705,7 +788,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
         onSuccess={(result) => {
           setUpdateSuccessMessage(
             result?.message ||
-              (language === 'vi'
+              (isVi
                 ? 'Cập nhật cấu hình phân bổ tài sản thành công!'
                 : 'Asset assignment updated successfully!'),
           )

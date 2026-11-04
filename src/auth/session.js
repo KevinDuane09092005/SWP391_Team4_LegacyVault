@@ -1,4 +1,4 @@
-import { isKnownRole } from './roles.js'
+import { isKnownRole, normalizeRole } from './roles.js'
 
 // Remembers who is signed in, so a page refresh keeps the user signed in.
 //
@@ -42,9 +42,17 @@ function syncLegacyTokenStorage(session) {
 }
 
 export function saveSession(user, remember, token) {
-  const authToken = token || user.token || null
+  const authToken = token || user?.token || null
+  const normalizedRole = normalizeRole(user?.role)
   const session = {
-    user: { id: user.id, fullName: user.fullName, identifier: user.identifier, role: user.role },
+    user: {
+      id: user.id,
+      fullName: user.fullName,
+      identifier: user.identifier,
+      role: normalizedRole,
+      availableContexts: Array.isArray(user.availableContexts) ? user.availableContexts : [],
+      activeContext: user.activeContext || null,
+    },
     token: authToken,
     remember: Boolean(remember),
     mode: authToken ? 'backend' : 'demo',
@@ -68,6 +76,7 @@ export function readSession() {
     }
     const session = JSON.parse(raw)
     if (session?.user?.id && isKnownRole(session.user.role)) {
+      session.user.role = normalizeRole(session.user.role)
       syncLegacyTokenStorage(session)
       return session
     }

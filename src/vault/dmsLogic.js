@@ -22,6 +22,8 @@ export function computeDmsView({
 
   const status = backendStatus?.toLowerCase()
   if (status === 'triggered') return 'triggered'
+  // Nếu trong DB có bản ghi ở trạng thái 'paused', giữ hiển thị an toàn ở 'active' (không kích hoạt nhầm theo đồng hồ)
+  if (status === 'paused') return 'active'
 
   const due = new Date(nextCheckIn).getTime()
   const end = new Date(graceEndsAt).getTime()

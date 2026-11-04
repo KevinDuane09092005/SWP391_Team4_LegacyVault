@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import * as authService from '../services/authService.js'
 import { recordSignIn, recordSignOut } from '../services/auditService.js'
+import { normalizeRole } from './roles.js'
 import { clearSession, isSessionKey, readSession, saveSession } from './session.js'
 
 // Holds "who is signed in" for the whole app.
@@ -24,6 +25,30 @@ export function AuthProvider({ children }) {
       cancelled = true
     }
   }, [])
+
+  // Refresh dynamic role contexts from GET /api/v1/auth/contexts when signed in with backend token.
+  useEffect(() => {
+    let cancelled = false
+    if (!session?.token || !session?.user) return undefined
+    authService.getAuthContexts().then((contexts) => {
+      if (cancelled || !Array.isArray(contexts) || contexts.length === 0) return
+      setSession((prev) => {
+        if (!prev?.user) return prev
+        const updatedUser = {
+          ...prev.user,
+          availableContexts: contexts,
+          activeContext:
+            prev.user.activeContext ||
+            contexts.find((c) => c.role === prev.user.role) ||
+            contexts[0],
+        }
+        return saveSession(updatedUser, prev.remember, prev.token)
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [session?.token, session?.user?.id])
 
   // Signing in or out in another tab updates this tab too.
   useEffect(() => {
@@ -72,7 +97,32 @@ export function AuthProvider({ children }) {
     return newSession
   }
 
-  const value = { user: session?.user ?? null, session, justLoggedOut, login, logout, markLogoutSeen, setSessionUser }
+  const switchRoleContext = (contextItem) => {
+    if (!session?.user || !contextItem) return null
+    const nextRole = normalizeRole(contextItem.role || contextItem.roleCode)
+    const updatedUser = {
+      ...session.user,
+      role: nextRole,
+      activeContext: {
+        ...contextItem,
+        role: nextRole,
+      },
+    }
+    const newSession = saveSession(updatedUser, session.remember, session.token)
+    setSession(newSession)
+    return newSession
+  }
+
+  const value = {
+    user: session?.user ?? null,
+    session,
+    justLoggedOut,
+    login,
+    logout,
+    markLogoutSeen,
+    setSessionUser,
+    switchRoleContext,
+  }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

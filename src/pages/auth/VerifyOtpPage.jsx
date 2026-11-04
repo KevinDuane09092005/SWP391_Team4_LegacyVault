@@ -39,7 +39,6 @@ export default function VerifyOtpPage() {
         identifier: emailParam,
         fullName: location.state?.fullName || '',
         userId: location.state?.userId,
-        testOtp: location.state?.testOtp,
         planId: location.state?.planId,
         billing: location.state?.billing,
       }
@@ -123,9 +122,8 @@ export default function VerifyOtpPage() {
         },
       })
     } catch (error) {
-      // Bắt lỗi qua catch, hiển thị thông điệp từ trường error lên giao diện
       setServerError(
-        error.message ||
+        error.code || error.message ||
           (language === 'vi'
             ? 'Đã có lỗi xảy ra khi xác thực OTP.'
             : 'Error verifying OTP. Please try again.'),
@@ -170,18 +168,16 @@ export default function VerifyOtpPage() {
       </h1>
       <p className="auth-card__subtitle">{copy.subtitle(pending.identifier)}</p>
 
-      {location.state?.message && !serverError && (
+      {location.state?.message && !serverError && !resent && (
         <FormAlert tone="success">{location.state.message}</FormAlert>
       )}
-      {pending?.testOtp && !serverError && (
-        <FormAlert tone="info">
-          {language === 'vi' ? 'Mã OTP thử nghiệm: ' : 'Test OTP Code: '}
-          <strong>{pending.testOtp}</strong>
+      {IS_DEMO_MODE && <FormAlert tone="info">{copy.demoNote(DEMO_OTP_CODE)}</FormAlert>}
+      {serverError && <FormAlert>{t.errors?.[serverError] ?? serverError ?? t.errors?.generic}</FormAlert>}
+      {resent && (
+        <FormAlert tone="success">
+          {IS_DEMO_MODE ? copy.resent(DEMO_OTP_CODE) : copy.resentReal}
         </FormAlert>
       )}
-      {IS_DEMO_MODE && !pending?.testOtp && <FormAlert tone="info">{copy.demoNote(DEMO_OTP_CODE)}</FormAlert>}
-      {serverError && <FormAlert>{t.errors?.[serverError] ?? serverError ?? t.errors?.generic}</FormAlert>}
-      {resent && <FormAlert tone="success">{copy.resent(DEMO_OTP_CODE)}</FormAlert>}
 
       <form className="auth-form" noValidate onSubmit={handleSubmit}>
         <div className="otp-field">

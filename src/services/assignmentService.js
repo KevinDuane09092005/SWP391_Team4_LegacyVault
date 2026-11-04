@@ -1,7 +1,13 @@
 // Assignment Service: Integrates with Backend Assignment API endpoints
 
 // 1. Thẩm định cấu hình bàn giao: POST /api/v1/assignments/validate
-export async function validateAssignmentApi({ assetId, executorContactId, handoverInstructions, beneficiaryContactIds }) {
+export async function validateAssignmentApi({
+  assetId,
+  executorContactId,
+  handoverProtocol,
+  handoverInstructions,
+  beneficiaryContactIds,
+}) {
   const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
   if (!token) {
     const error = new Error('No authentication token found')
@@ -28,6 +34,7 @@ export async function validateAssignmentApi({ assetId, executorContactId, handov
     body: JSON.stringify({
       assetId,
       executorContactId,
+      handoverProtocol: handoverProtocol || 'legal_verification',
       handoverInstructions,
       beneficiaryContactIds,
     }),
@@ -46,7 +53,13 @@ export async function validateAssignmentApi({ assetId, executorContactId, handov
 }
 
 // 2. Tạo hồ sơ bàn giao chính thức: POST /api/v1/assignments
-export async function createAssignmentApi({ assetId, executorContactId, handoverInstructions, beneficiaryContactIds }) {
+export async function createAssignmentApi({
+  assetId,
+  executorContactId,
+  handoverProtocol,
+  handoverInstructions,
+  beneficiaryContactIds,
+}) {
   const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
   if (!token) {
     const error = new Error('No authentication token found')
@@ -73,6 +86,7 @@ export async function createAssignmentApi({ assetId, executorContactId, handover
     body: JSON.stringify({
       assetId,
       executorContactId,
+      handoverProtocol: handoverProtocol || 'legal_verification',
       handoverInstructions,
       beneficiaryContactIds,
     }),
@@ -176,7 +190,7 @@ export async function getAssignmentByAssetIdApi(assetId) {
 // 5. Cập nhật cấu hình bàn giao theo ID tài sản: PUT /api/v1/assignments/asset/{assetId}
 export async function updateAssignmentByAssetIdApi(
   assetId,
-  { executorContactId, handoverInstructions, beneficiaryContactIds },
+  { executorContactId, handoverProtocol, handoverInstructions, beneficiaryContactIds },
 ) {
   const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
   if (!token) {
@@ -203,6 +217,7 @@ export async function updateAssignmentByAssetIdApi(
     },
     body: JSON.stringify({
       executorContactId,
+      handoverProtocol: handoverProtocol || 'legal_verification',
       handoverInstructions,
       beneficiaryContactIds,
     }),
@@ -212,6 +227,44 @@ export async function updateAssignmentByAssetIdApi(
 
   if (!response.ok) {
     const error = new Error(data?.error || data?.message || 'Failed to update assignment')
+    error.status = response.status
+    error.data = data
+    throw error
+  }
+
+  return data
+}
+
+// 6. Hủy bỏ cấu hình bàn giao theo ID tài sản: DELETE /api/v1/assignments/asset/{assetId}
+export async function deleteAssignmentByAssetIdApi(assetId) {
+  const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
+  if (!token) {
+    const error = new Error('No authentication token found')
+    error.status = 401
+    throw error
+  }
+
+  const baseUrl = (
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.REACT_APP_API_BASE_URL ||
+    ''
+  ).replace(/\/$/, '')
+
+  const endpoint = baseUrl
+    ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/assignments/asset/${encodeURIComponent(assetId)}` : `${baseUrl}/api/v1/assignments/asset/${encodeURIComponent(assetId)}`)
+    : `/api/v1/assignments/asset/${encodeURIComponent(assetId)}`
+
+  const response = await fetch(endpoint, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    const error = new Error(data?.error || data?.message || 'Failed to delete assignment')
     error.status = response.status
     error.data = data
     throw error
