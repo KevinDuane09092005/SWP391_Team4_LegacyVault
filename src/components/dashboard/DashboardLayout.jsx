@@ -56,76 +56,19 @@ export default function DashboardLayout({ children, showThemeToggle = true }) {
     }
   }, [dropdownOpen])
 
-  // Build the list of role contexts for the "Switch role" dropdown
-  // (merges dynamic contexts from Backend GET /api/v1/auth/contexts with the 3 standard vault roles).
+  // Build the list of role contexts for the "Switch role" dropdown.
+  // Only displays roles/contexts that the user actually possesses.
   const roleOptions = useMemo(() => {
     const rawList = Array.isArray(user?.availableContexts) ? user.availableContexts : []
-    const executorCtx = rawList.find((c) => normalizeRole(c.role || c.roleCode) === ROLES.EXECUTOR)
-    const beneficiaryCtx = rawList.find((c) => normalizeRole(c.role || c.roleCode) === ROLES.BENEFICIARY)
+    const items = []
+    const currentPrimaryRole = normalizeRole(user?.role)
 
-    const items = [
-      {
-        key: 'VAULT_OWNER',
-        role: ROLES.VAULT_OWNER,
-        roleCode: ROLES.VAULT_OWNER,
-        title: 'Vault Owner',
-        subtitle: null,
-        icon: 'shieldCheck',
-        ownerId: user?.id || null,
-        ownerFullName: user?.fullName || null,
-      },
-      {
-        key: executorCtx?.contactId ? `EXECUTOR_${executorCtx.contactId}` : 'EXECUTOR',
-        role: ROLES.EXECUTOR,
-        roleCode: ROLES.EXECUTOR,
-        title: 'Executor Dashboard',
-        subtitle: executorCtx?.ownerFullName
-          ? `Executor for ${executorCtx.ownerFullName}`
-          : 'Executor for John Doe',
-        icon: 'clipboardCheck',
-        ownerId: executorCtx?.ownerId || null,
-        ownerFullName: executorCtx?.ownerFullName || 'John Doe',
-        contactId: executorCtx?.contactId || null,
-      },
-      {
-        key: beneficiaryCtx?.contactId ? `BENEFICIARY_${beneficiaryCtx.contactId}` : 'BENEFICIARY',
-        role: ROLES.BENEFICIARY,
-        roleCode: ROLES.BENEFICIARY,
-        title: 'Beneficiary Dashboard',
-        subtitle: beneficiaryCtx?.ownerFullName
-          ? `Beneficiary for ${beneficiaryCtx.ownerFullName}`
-          : null,
-        icon: 'gift',
-        ownerId: beneficiaryCtx?.ownerId || null,
-        ownerFullName: beneficiaryCtx?.ownerFullName || null,
-        contactId: beneficiaryCtx?.contactId || null,
-      },
-    ]
-
-    // Include additional dynamic executor/beneficiary contexts if a user is invited to multiple vaults
-    rawList.forEach((ctx, idx) => {
-      const r = normalizeRole(ctx.role || ctx.roleCode)
-      if (
-        r === ROLES.EXECUTOR &&
-        ctx.contactId &&
-        ctx.contactId !== executorCtx?.contactId
-      ) {
-        items.push({
-          key: `EXECUTOR_${ctx.contactId}_${idx}`,
-          role: ROLES.EXECUTOR,
-          roleCode: ROLES.EXECUTOR,
-          title: 'Executor Dashboard',
-          subtitle: ctx.ownerFullName ? `Executor for ${ctx.ownerFullName}` : null,
-          icon: 'clipboardCheck',
-          ownerId: ctx.ownerId,
-          ownerFullName: ctx.ownerFullName,
-          contactId: ctx.contactId,
-        })
-      }
-    })
-
-    if (user?.role === ROLES.ADMIN || rawList.some((c) => normalizeRole(c.role || c.roleCode) === ROLES.ADMIN)) {
-      items.unshift({
+    // 1. System Admin (if user has ADMIN role)
+    if (
+      currentPrimaryRole === ROLES.ADMIN ||
+      rawList.some((c) => normalizeRole(c.role || c.roleCode) === ROLES.ADMIN)
+    ) {
+      items.push({
         key: 'ADMIN',
         role: ROLES.ADMIN,
         roleCode: ROLES.ADMIN,
@@ -135,11 +78,12 @@ export default function DashboardLayout({ children, showThemeToggle = true }) {
       })
     }
 
+    // 2. Legal Verifier (if user has LEGAL_VERIFIER role)
     if (
-      user?.role === ROLES.LEGAL_VERIFIER ||
+      currentPrimaryRole === ROLES.LEGAL_VERIFIER ||
       rawList.some((c) => normalizeRole(c.role || c.roleCode) === ROLES.LEGAL_VERIFIER)
     ) {
-      items.unshift({
+      items.push({
         key: 'LEGAL_VERIFIER',
         role: ROLES.LEGAL_VERIFIER,
         roleCode: ROLES.LEGAL_VERIFIER,
@@ -149,7 +93,103 @@ export default function DashboardLayout({ children, showThemeToggle = true }) {
       })
     }
 
-    return items
+    // 3. Vault Owner (if user has VAULT_OWNER role or is a regular user owning a vault)
+    const hasOwnerContext =
+      currentPrimaryRole === ROLES.VAULT_OWNER ||
+      rawList.some((c) => normalizeRole(c.role || c.roleCode) === ROLES.VAULT_OWNER) ||
+      (currentPrimaryRole !== ROLES.ADMIN && currentPrimaryRole !== ROLES.LEGAL_VERIFIER)
+
+    if (hasOwnerContext) {
+      const ownerCtx = rawList.find(
+        (c) => normalizeRole(c.role || c.roleCode) === ROLES.VAULT_OWNER
+      )
+      items.push({
+        key: 'VAULT_OWNER',
+        role: ROLES.VAULT_OWNER,
+        roleCode: ROLES.VAULT_OWNER,
+        title: 'Vault Owner',
+        subtitle: null,
+        icon: 'shieldCheck',
+        ownerId: ownerCtx?.ownerId || user?.id || null,
+        ownerFullName: ownerCtx?.ownerFullName || user?.fullName || null,
+      })
+    }
+
+    // 4. Executor contexts (ONLY if user is actually assigned as an executor for someone)
+    const executorContexts = rawList.filter(
+      (c) => normalizeRole(c.role || c.roleCode) === ROLES.EXECUTOR
+    )
+    executorContexts.forEach((ctx, idx) => {
+      const ownerName = ctx.ownerFullName || ctx.vaultOwnerName
+      items.push({
+        key: ctx.contactId ? `EXECUTOR_${ctx.contactId}` : `EXECUTOR_${ctx.ownerId || idx}`,
+        role: ROLES.EXECUTOR,
+        roleCode: ROLES.EXECUTOR,
+        title: 'Executor Dashboard',
+        subtitle: ctx.subtitle || (ownerName ? `Executor for ${ownerName}` : null),
+        icon: 'clipboardCheck',
+        ownerId: ctx.ownerId || ctx.vaultOwnerId || null,
+        ownerFullName: ownerName || null,
+        contactId: ctx.contactId || null,
+      })
+    })
+
+    // If current active role is EXECUTOR but rawList didn't provide executor context, keep current session context
+    if (currentPrimaryRole === ROLES.EXECUTOR && executorContexts.length === 0) {
+      items.push({
+        key: 'EXECUTOR',
+        role: ROLES.EXECUTOR,
+        roleCode: ROLES.EXECUTOR,
+        title: 'Executor Dashboard',
+        subtitle: user?.activeContext?.subtitle || null,
+        icon: 'clipboardCheck',
+        ownerId: user?.activeContext?.ownerId || null,
+        ownerFullName: user?.activeContext?.ownerFullName || null,
+        contactId: user?.activeContext?.contactId || null,
+      })
+    }
+
+    // 5. Beneficiary contexts (ONLY if user is actually assigned as a beneficiary for someone)
+    const beneficiaryContexts = rawList.filter(
+      (c) => normalizeRole(c.role || c.roleCode) === ROLES.BENEFICIARY
+    )
+    beneficiaryContexts.forEach((ctx, idx) => {
+      const ownerName = ctx.ownerFullName || ctx.vaultOwnerName
+      items.push({
+        key: ctx.contactId ? `BENEFICIARY_${ctx.contactId}` : `BENEFICIARY_${ctx.ownerId || idx}`,
+        role: ROLES.BENEFICIARY,
+        roleCode: ROLES.BENEFICIARY,
+        title: 'Beneficiary Dashboard',
+        subtitle: ctx.subtitle || (ownerName ? `Beneficiary for ${ownerName}` : null),
+        icon: 'gift',
+        ownerId: ctx.ownerId || ctx.vaultOwnerId || null,
+        ownerFullName: ownerName || null,
+        contactId: ctx.contactId || null,
+      })
+    })
+
+    // If current active role is BENEFICIARY but rawList didn't provide beneficiary context, keep current session context
+    if (currentPrimaryRole === ROLES.BENEFICIARY && beneficiaryContexts.length === 0) {
+      items.push({
+        key: 'BENEFICIARY',
+        role: ROLES.BENEFICIARY,
+        roleCode: ROLES.BENEFICIARY,
+        title: 'Beneficiary Dashboard',
+        subtitle: user?.activeContext?.subtitle || null,
+        icon: 'gift',
+        ownerId: user?.activeContext?.ownerId || null,
+        ownerFullName: user?.activeContext?.ownerFullName || null,
+        contactId: user?.activeContext?.contactId || null,
+      })
+    }
+
+    // Deduplicate items by key
+    const seen = new Set()
+    return items.filter((item) => {
+      if (seen.has(item.key)) return false
+      seen.add(item.key)
+      return true
+    })
   }, [user, t])
 
   const handleSelectRole = (item) => {
@@ -194,7 +234,7 @@ export default function DashboardLayout({ children, showThemeToggle = true }) {
                 {dropdownOpen && (
                   <div className="role-switcher__menu" role="listbox" aria-label="Switch role">
                     <div className="role-switcher__header">
-                      {language === 'vi' ? 'Switch role' : 'Switch role'}
+                      {language === 'vi' ? 'Chuyển vai trò' : 'Switch role'}
                     </div>
                     {roleOptions.map((item) => {
                       const isActive = currentRole === item.role

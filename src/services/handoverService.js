@@ -179,6 +179,7 @@ export async function beneficiaryLoginWithCodeApi({ email, accessCode, access_co
 export async function verifyBeneficiaryOtpApi(payload) {
   const otp = typeof payload === 'object' ? (payload.otpCode || payload.otp_code) : payload
   const sessionToken = typeof payload === 'object' ? (payload.sessionToken || payload.session_token) : null
+  const caseRef = typeof payload === 'object' ? (payload.caseRef || payload.case_ref || payload.caseId || payload.case_id) : null
 
   if (isDemoMode()) {
     return {
@@ -192,12 +193,18 @@ export async function verifyBeneficiaryOtpApi(payload) {
     ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
   }
 
-  return apiFetch('/handover/beneficiary/verify-otp', {
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+
+  return apiFetch(`/handover/beneficiary/verify-otp${query ? `?${query}` : ''}`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
       otp_code: otp,
       otpCode: otp,
+      case_ref: caseRef,
+      caseRef,
       sessionToken,
       session_token: sessionToken,
     }),
@@ -249,7 +256,7 @@ export async function dispatchSecureHandoverApi(caseId) {
 }
 
 // 10. GET /handover/beneficiary/authorized-assets
-export async function getAuthorizedInheritanceAssetsApi() {
+export async function getAuthorizedInheritanceAssetsApi(caseRef) {
   if (isDemoMode()) {
     return {
       welcome_beneficiary_name: 'Linh Pham',
@@ -270,11 +277,14 @@ export async function getAuthorizedInheritanceAssetsApi() {
       probate_restricted: [],
     }
   }
-  return apiFetch('/handover/beneficiary/authorized-assets')
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/authorized-assets${query ? `?${query}` : ''}`)
 }
 
 // 11. GET /handover/beneficiary/assets/{assetId}/detail or /decrypted
-export async function getDecryptedAssetDetailApi(assetId) {
+export async function getDecryptedAssetDetailApi(assetId, caseRef) {
   if (isDemoMode()) {
     return {
       asset_id: assetId,
@@ -284,36 +294,46 @@ export async function getDecryptedAssetDetailApi(assetId) {
       cryptographic_log: { integrity: 'SHA-256 Validated' },
     }
   }
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  const suffix = query ? `?${query}` : ''
   try {
-    return await apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/detail`)
+    return await apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/detail${suffix}`)
   } catch {
-    return apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/decrypted`)
+    return apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/decrypted${suffix}`)
   }
 }
 
 // 12. POST /handover/beneficiary/assets/{assetId}/acknowledge
-export async function acknowledgeIndividualAssetApi(assetId) {
+export async function acknowledgeIndividualAssetApi(assetId, caseRef) {
   if (isDemoMode()) {
     return { asset_id: assetId, acknowledged: true }
   }
-  return apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/acknowledge`, {
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/acknowledge${query ? `?${query}` : ''}`, {
     method: 'POST',
   })
 }
 
 // 13. GET /handover/beneficiary/acknowledgement-summary
-export async function getAcknowledgementSummaryApi() {
+export async function getAcknowledgementSummaryApi(caseRef) {
   if (isDemoMode()) {
     return {
       custody_trans_hash: 'SHA-256: 0a7f4e8b3c2d1e9f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d72bd',
       can_confirm: true,
     }
   }
-  return apiFetch('/handover/beneficiary/acknowledgement-summary')
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/acknowledgement-summary${query ? `?${query}` : ''}`)
 }
 
 // 14. POST /handover/beneficiary/confirm-received
-export async function confirmReceivedAndCloseCaseApi(payload = {}) {
+export async function confirmReceivedAndCloseCaseApi(payload = {}, caseRef) {
   if (isDemoMode()) {
     return {
       status: 'COMPLETED',
@@ -321,13 +341,20 @@ export async function confirmReceivedAndCloseCaseApi(payload = {}) {
       transaction_receipt: 'REC-LV-1042-2026',
     }
   }
+  const effectiveCaseRef = caseRef || payload.case_ref || payload.caseRef
+  const note = payload.feedback_notes || payload.feedbackNotes || payload.signatureNote || payload.signature_note || 'Tôi xác nhận đã nhận bàn giao đầy đủ tài sản di sản số an toàn.'
   const body = {
     accept_digital_estate_custody: true,
-    signatureNote: payload.signatureNote || payload.signature_note || 'Tôi xác nhận đã nhận bàn giao đầy đủ tài sản di sản số an toàn.',
+    feedback_notes: note,
+    feedbackNotes: note,
+    signatureNote: note,
     digitalSignaturePayload: payload.digitalSignaturePayload || 'BENEFICIARY_SIGNATURE_SHA256_CONFIRMED',
     ...payload,
   }
-  return apiFetch('/handover/beneficiary/confirm-received', {
+  const params = new URLSearchParams()
+  if (effectiveCaseRef) params.set('case_ref', effectiveCaseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/confirm-received${query ? `?${query}` : ''}`, {
     method: 'POST',
     body: JSON.stringify(body),
   })
@@ -426,24 +453,29 @@ export const listBeneficiaryCases = async (user) => {
   }
 
   // Fallback if no handover dashboard cases found
-  const data = await getAuthorizedInheritanceAssetsApi()
-  const rows = [...(data?.ready_for_handover || []), ...(data?.probate_restricted || [])]
-  return rows.map((item) => ({
-    id: item.asset_id,
-    name: item.asset_name,
-    status: item.status || 'READY_FOR_HANDOVER',
-    vault: {
-      name: item.collection_name || 'Inheritance Estate',
-      ownerName: data?.estate_owner || 'Vault Owner',
-    },
-    beneficiary: {
-      userId: user?.id,
-    },
-    assets: (item.assets || [item]).map((a) => ({
-      ...a,
-      authorizedBeneficiaryIds: [user?.id].filter(Boolean),
-    })),
-  }))
+  try {
+    const data = await getAuthorizedInheritanceAssetsApi()
+    const rows = [...(data?.ready_for_handover || []), ...(data?.probate_restricted || [])]
+    return rows.map((item) => ({
+      id: item.asset_id,
+      name: item.asset_name,
+      status: item.status || 'READY_FOR_HANDOVER',
+      vault: {
+        name: item.collection_name || 'Inheritance Estate',
+        ownerName: data?.estate_owner || 'Vault Owner',
+      },
+      beneficiary: {
+        userId: user?.id,
+      },
+      assets: (item.assets || [item]).map((a) => ({
+        ...a,
+        authorizedBeneficiaryIds: [user?.id].filter(Boolean),
+      })),
+    }))
+  } catch (err) {
+    console.warn('No active inheritance assets or handover released yet for beneficiary:', err)
+    return []
+  }
 }
 
 export const getBeneficiaryCase = async (user, caseId) => {
@@ -471,7 +503,7 @@ export const getBeneficiaryCase = async (user, caseId) => {
 
       if (isAccessReady && !decryptedContent) {
         try {
-          const detail = await getDecryptedAssetDetailApi(assetId)
+          const detail = await getDecryptedAssetDetailApi(assetId, caseId)
           decryptedContent = detail?.decrypted_credential_data?.passphrase ||
             detail?.decrypted_credential_data?.credential_data ||
             detail?.decrypted_credential_data ||
@@ -532,7 +564,10 @@ export const getBeneficiaryCase = async (user, caseId) => {
 
 export const verifyIdentity = async (user, caseId, form) => {
   if (isDemoMode()) return mockVerifyIdentity(user, caseId, form)
-  await verifyBeneficiaryOtpApi(form?.otp || form?.otp_code)
+  await verifyBeneficiaryOtpApi({
+    otpCode: form?.otp || form?.otp_code,
+    caseRef: caseId,
+  })
   const current = await getBeneficiaryCase(user, caseId)
   return {
     ...current,
@@ -572,7 +607,7 @@ export const openAsset = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockOpenAsset(user, caseId, assetId)
   let content = ''
   try {
-    const detail = await getDecryptedAssetDetailApi(assetId)
+    const detail = await getDecryptedAssetDetailApi(assetId, caseId)
     content = detail?.decrypted_credential_data?.passphrase ||
       detail?.decrypted_credential_data?.credential_data ||
       detail?.decrypted_credential_data ||
@@ -586,7 +621,7 @@ export const openAsset = async (user, caseId, assetId) => {
   if (!content || content.includes('autumn · harbor · classic')) {
     if (assetId !== '1e7eda85-861b-4ccc-ab31-f407241c5059') {
       try {
-        const detail = await getDecryptedAssetDetailApi('1e7eda85-861b-4ccc-ab31-f407241c5059')
+        const detail = await getDecryptedAssetDetailApi('1e7eda85-861b-4ccc-ab31-f407241c5059', caseId)
         const pass = detail?.decrypted_credential_data?.passphrase || detail?.decrypted_credential_data?.credential_data
         if (pass && !pass.includes('autumn · harbor · classic')) {
           content = pass
@@ -624,7 +659,7 @@ export const openAsset = async (user, caseId, assetId) => {
 export const recordAssetDownload = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockRecordAssetDownload(user, caseId, assetId)
   try {
-    await acknowledgeIndividualAssetApi(assetId)
+    await acknowledgeIndividualAssetApi(assetId, caseId)
   } catch {
     // non-fatal
   }
@@ -633,7 +668,10 @@ export const recordAssetDownload = async (user, caseId, assetId) => {
 export const confirmReceipt = async (user, caseId) => {
   if (isDemoMode()) return mockConfirmReceipt(user, caseId)
   try {
-    await confirmReceivedAndCloseCaseApi({ accept_digital_estate_custody: true })
+    await confirmReceivedAndCloseCaseApi({
+      accept_digital_estate_custody: true,
+      case_ref: caseId,
+    }, caseId)
   } catch (e) {
     console.warn('Confirm received API error:', e)
   }

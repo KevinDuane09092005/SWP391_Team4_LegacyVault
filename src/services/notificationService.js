@@ -8,6 +8,12 @@ import { IS_DEMO_MODE, apiFetch } from './apiClient.js'
 
 export { IS_DEMO_MODE, NOTIFICATIONS_CHANGED }
 
+export function extractCaseId(text) {
+  if (!text || typeof text !== 'string') return null
+  const match = text.match(/(?:case|Case)\s*(?:#|:\s*#?|\s+)\s*([A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)/)
+  return match ? match[1] : null
+}
+
 // 1. GET /notifications
 export async function getNotificationsApi({ page = 0, size = 10 } = {}) {
   if (IS_DEMO_MODE) {
@@ -22,6 +28,8 @@ export async function getNotificationsApi({ page = 0, size = 10 } = {}) {
         timestamp_formatted: n.createdAt || new Date().toISOString(),
         badge_label: n.type?.includes('APPROVED') ? 'Approved' : 'Info',
         is_read: Boolean(n.read),
+        case_id: n.caseId || null,
+        deep_link: n.caseId ? `/handover/${encodeURIComponent(n.caseId)}` : null,
       })),
       unread_count: items.filter((n) => !n.read).length,
     }
@@ -30,7 +38,17 @@ export async function getNotificationsApi({ page = 0, size = 10 } = {}) {
   return apiFetch(`/notifications?${params}`)
 }
 
-// 2. POST /notifications/mark-all-read
+// 2. PATCH or POST /notifications/{notificationId}/read
+export async function markNotificationReadApi(notificationId) {
+  if (IS_DEMO_MODE) {
+    return mockMarkNotificationRead(null, notificationId)
+  }
+  return apiFetch(`/notifications/${encodeURIComponent(notificationId)}/read`, {
+    method: 'PATCH',
+  })
+}
+
+// 3. POST /notifications/mark-all-read
 export async function markAllNotificationsReadApi() {
   if (IS_DEMO_MODE) {
     return mockMarkAllNotificationsRead()
@@ -40,7 +58,7 @@ export async function markAllNotificationsReadApi() {
   })
 }
 
-// 3. GET /notifications/{notificationId}
+// 4. GET /notifications/{notificationId}
 export async function getNotificationDetailApi(notificationId) {
   if (IS_DEMO_MODE) {
     const list = await mockListMyNotifications()
@@ -75,23 +93,41 @@ export async function getNotificationDetailApi(notificationId) {
 export const listMyNotifications = async (user) => {
   if (IS_DEMO_MODE) return mockListMyNotifications(user)
   const data = await getNotificationsApi()
-  return (data?.notifications || []).map((n) => ({
-    id: n.notification_id,
-    type: n.badge_label || 'INFO',
-    title: n.title,
-    text: n.subtext,
-    createdAt: n.timestamp_formatted,
-    read: Boolean(n.is_read ?? n.read),
-  }))
+  return (data?.notifications || []).map((n) => {
+    const caseId =
+      n.case_id ||
+      n.caseId ||
+      extractCaseId(n.deep_link) ||
+      extractCaseId(n.deepLink) ||
+      extractCaseId(n.title) ||
+      extractCaseId(n.subtext)
+    return {
+      id: n.notification_id || n.id,
+      type: n.badge_label || 'INFO',
+      title: n.title,
+      text: n.subtext || n.content,
+      createdAt: n.timestamp_formatted || n.timestampFormatted || n.created_at,
+      read: Boolean(n.is_read ?? n.isRead ?? n.read),
+      caseId: caseId || undefined,
+      deepLink: n.deep_link || n.deepLink || (caseId ? `/handover/${encodeURIComponent(caseId)}` : undefined),
+    }
+  })
 }
 
 export const markNotificationRead = async (user, id) => {
   if (IS_DEMO_MODE) return mockMarkNotificationRead(user, id)
-  // Backend marks as read on detail view or specific action
-  return { success: true }
+  const res = await markNotificationReadApi(id)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED))
+  }
+  return res
 }
 
 export const markAllNotificationsRead = async (user) => {
   if (IS_DEMO_MODE) return mockMarkAllNotificationsRead(user)
-  return markAllNotificationsReadApi()
+  const res = await markAllNotificationsReadApi()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED))
+  }
+  return res
 }

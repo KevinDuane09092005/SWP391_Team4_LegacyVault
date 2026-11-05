@@ -22,7 +22,7 @@ function getTokenOrThrow() {
   return token
 }
 
-export async function createContactApi({ fullName, relationship, email, phoneNumber, expectedRole }) {
+export async function createContactApi({ fullName, relationship, email, expectedRole }) {
   const token = getTokenOrThrow()
   const endpoint = getContactsBaseEndpoint()
 
@@ -36,7 +36,6 @@ export async function createContactApi({ fullName, relationship, email, phoneNum
       fullName,
       relationship,
       email,
-      ...(phoneNumber ? { phoneNumber } : {}),
       expectedRole: expectedRole || 'Beneficiary',
     }),
   })
@@ -96,7 +95,7 @@ export async function getContactsApi(keywordOrFilters = '') {
 // Cập nhật thông tin & vai trò của người liên hệ: PUT /api/v1/contacts/{contactId}
 export async function updateContactApi(
   contactId,
-  { fullName, relationship, email, phoneNumber, expectedRole },
+  { fullName, relationship, email, expectedRole },
 ) {
   const token = getTokenOrThrow()
   const basePath = getContactsBaseEndpoint()
@@ -111,7 +110,6 @@ export async function updateContactApi(
       fullName,
       relationship,
       email,
-      phoneNumber: phoneNumber || null,
       expectedRole: expectedRole || 'Beneficiary',
     }),
   })

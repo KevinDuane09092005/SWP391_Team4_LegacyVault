@@ -19,12 +19,13 @@ function normalizeContextItem(ctx) {
   return {
     role,
     roleCode: ctx.roleCode || role,
-    roleName: ctx.roleName || '',
-    scope: ctx.scope || (role === ROLES.ADMIN || role === ROLES.LEGAL_VERIFIER ? 'SYSTEM' : 'VAULT'),
-    ownerId: ctx.ownerId || null,
-    ownerFullName: ctx.ownerFullName || null,
+    roleName: ctx.roleName || ctx.label || '',
+    scope: ctx.scope || ctx.roleScope || (role === ROLES.ADMIN || role === ROLES.LEGAL_VERIFIER ? 'SYSTEM' : 'VAULT'),
+    ownerId: ctx.ownerId || ctx.vaultOwnerId || null,
+    ownerFullName: ctx.ownerFullName || ctx.vaultOwnerName || null,
     ownerEmail: ctx.ownerEmail || null,
     contactId: ctx.contactId || null,
+    subtitle: ctx.subtitle || null,
   }
 }
 

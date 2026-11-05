@@ -10,13 +10,18 @@ export async function getAuditLogsApi({
   search = '',
   role = 'ALL',
   action = 'ALL',
+  status = 'ALL',
   from_date = '',
   to_date = '',
   page = 0,
   size = 6,
 } = {}) {
   if (IS_DEMO_MODE) {
-    const filters = { actor: search, action: action === 'ALL' ? undefined : action }
+    const filters = {
+      actor: search,
+      action: action === 'ALL' ? undefined : action,
+      outcome: status === 'ALL' ? undefined : status,
+    }
     const list = await mockListAudit(null, filters)
     const start = page * size
     const paged = list.slice(start, start + size)
@@ -42,6 +47,7 @@ export async function getAuditLogsApi({
     ...(search ? { search } : {}),
     ...(role && role !== 'ALL' ? { role } : {}),
     ...(action && action !== 'ALL' ? { action } : {}),
+    ...(status && status !== 'ALL' ? { status } : {}),
     ...(from_date ? { from_date } : {}),
     ...(to_date ? { to_date } : {}),
     page: String(page),
@@ -86,6 +92,7 @@ export const listAuditLog = async (user, filters) => {
     search: filters?.actor,
     role: filters?.role,
     action: filters?.action,
+    status: filters?.outcome,
     from_date: filters?.from,
     to_date: filters?.to,
     size: 100,
@@ -94,18 +101,18 @@ export const listAuditLog = async (user, filters) => {
     const actor = typeof l.user === 'string' ? l.user : l.user?.name || 'System'
     const outcome = String(l.status || 'SUCCESS').toUpperCase()
     return {
-    id: l.log_id || `log-${idx + 1}`,
-    at: l.timestamp_formatted || l.time_formatted || new Date().toISOString(),
-    actor: {
-      name: actor,
-      role: (typeof l.user === 'object' ? l.user?.role : l.role) || 'SYSTEM',
-    },
-    action: l.action,
-    entity: { id: l.target || 'System', type: 'RECORD' },
-    outcome,
-    severity: outcome === 'SUCCESS' ? 'INFO' : 'WARNING',
-    ip_address: l.ip_address,
-    details: {},
+      id: l.log_id || `log-${idx + 1}`,
+      at: l.timestamp_formatted || l.time_formatted || new Date().toISOString(),
+      actor: {
+        name: actor,
+        role: (typeof l.user === 'object' ? l.user?.role : l.role) || 'SYSTEM',
+      },
+      action: l.action,
+      entity: { id: l.target || 'System', type: 'RECORD' },
+      outcome,
+      severity: outcome === 'SUCCESS' ? 'INFO' : 'WARNING',
+      ip_address: l.ip_address,
+      details: {},
     }
   })
 
