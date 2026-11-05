@@ -152,28 +152,32 @@ export async function getBeneficiaryPortalContextApi(caseRef) {
   return apiFetch(`/handover/beneficiary/portal-context?${params}`)
 }
 
-// 5. POST /handover/beneficiary/login-with-code
-export async function beneficiaryLoginWithCodeApi({ email, accessCode, access_code }) {
+// 5. POST /handover/beneficiary/request-access-otp (or /login-with-code)
+export async function requestHandoverOtpApi({ email, accessCode, access_code, caseRef, case_ref }) {
   if (isDemoMode()) {
     return {
       claim_session_token: 'demo-claim-session',
       access_token: 'demo-beneficiary-token',
-      case_number: 'LV-1042',
-      beneficiary_name: 'Linh Pham',
+      case_number: caseRef || 'LV-1042',
+      beneficiary_name: 'Beneficiary',
       kyc_required: true,
       otp_sent_to: email,
     }
   }
   const code = accessCode || access_code
-  return apiFetch('/handover/beneficiary/login-with-code', {
+  return apiFetch('/handover/beneficiary/request-access-otp', {
     method: 'POST',
     body: JSON.stringify({
       email,
       access_code: code,
       accessCode: code,
+      case_ref: caseRef || case_ref,
+      caseRef: caseRef || case_ref,
     }),
   })
 }
+
+export const beneficiaryLoginWithCodeApi = requestHandoverOtpApi
 
 // 6. POST /handover/beneficiary/verify-otp
 export async function verifyBeneficiaryOtpApi(payload) {
