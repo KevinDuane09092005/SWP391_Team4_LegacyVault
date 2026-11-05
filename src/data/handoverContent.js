@@ -250,6 +250,7 @@ const en = {
     ACCESS_DENIED: 'Access denied.',
     ALREADY_COMPLETED: 'This handover is already completed.',
     INVALID_STATE: 'This step is not available at the current status. Reload the page.',
+    ASSET_CONTENT_UNAVAILABLE: 'The server returned no content for this asset. Nothing was unlocked; contact the executor.',
     generic: 'Something went wrong. Please try again.',
   },
   validation: {
@@ -509,6 +510,7 @@ const vi = {
     ACCESS_DENIED: 'Từ chối truy cập.',
     ALREADY_COMPLETED: 'Bàn giao này đã hoàn tất.',
     INVALID_STATE: 'Bước này không khả dụng ở trạng thái hiện tại. Hãy tải lại trang.',
+    ASSET_CONTENT_UNAVAILABLE: 'Máy chủ không trả về nội dung của tài sản này. Chưa có gì được mở khóa; hãy liên hệ người thực thi.',
     generic: 'Đã xảy ra lỗi. Vui lòng thử lại.',
   },
   validation: {

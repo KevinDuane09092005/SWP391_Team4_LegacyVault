@@ -52,9 +52,9 @@ export async function getAuditLogsApi({
 }
 
 // 2. GET /admin/audit-logs/export-csv
-export async function exportAuditLogsCsvApi({ from_date = '', to_date = '' } = {}) {
+export async function exportAuditLogsCsvApi({ user, from_date = '', to_date = '' } = {}) {
   if (IS_DEMO_MODE) {
-    const list = await mockListAudit()
+    const list = await mockListAudit(user)
     const header = 'log_id,timestamp,user,role,action,target,status,ip_address\n'
     const rows = list
       .map(
