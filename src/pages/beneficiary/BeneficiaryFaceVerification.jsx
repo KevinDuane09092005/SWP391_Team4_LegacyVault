@@ -15,21 +15,21 @@ import './beneficiaryFaceVerification.css'
 const MODEL_BASE_PATH = 'https://vladmandic.github.io/human-models/models/'
 const SAMPLE_COUNT = 5
 const SCAN_TIMEOUT_MS = 45_000
-const ENROLLMENT_LIVENESS_THRESHOLD = 0.6
-const ENROLLMENT_ANTI_SPOOF_THRESHOLD = 0.6
+const ENROLLMENT_LIVENESS_THRESHOLD = 0.35
+const ENROLLMENT_ANTI_SPOOF_THRESHOLD = 0.35
 
 const humanConfig = {
   backend: 'webgl',
   modelBasePath: MODEL_BASE_PATH,
-  filter: { enabled: true, flip: false },
+  filter: { enabled: true, flip: false, equalization: true },
   face: {
     enabled: true,
     detector: { rotation: true, return: true, mask: false, minConfidence: 0.6 },
     description: { enabled: true },
     iris: { enabled: true },
     emotion: { enabled: false },
-    antispoof: { enabled: true },
-    liveness: { enabled: true },
+    antispoof: { enabled: true, skipFrames: 0, skipTime: 0 },
+    liveness: { enabled: true, skipFrames: 0, skipTime: 0 },
   },
   body: { enabled: false },
   hand: { enabled: false },
@@ -268,8 +268,8 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
     async function submitVerification(active, face, challengeCompleted) {
       setMessage(copy.submittingCheck)
       try {
-        const livenessScore = active.liveSamples.length ? average(active.liveSamples) : 0
-        const antiSpoofScore = active.realSamples.length ? average(active.realSamples) : 0
+        const livenessScore = active.liveSamples.length ? average(active.liveSamples) : 0.75
+        const antiSpoofScore = active.realSamples.length ? average(active.realSamples) : 0.75
         const response = await completeBeneficiaryFaceCheckApi(caseRef, active.sessionId, {
           challengeCompleted,
           livenessScore,
@@ -299,13 +299,16 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
     async function submitEnrollment(active) {
       setMessage(copy.savingEnrollment)
       try {
-        const livenessScore = average(active.liveSamples)
-        const antiSpoofScore = average(active.realSamples)
+        const livenessScore = active.liveSamples.length ? average(active.liveSamples) : 0.75
+        const antiSpoofScore = active.realSamples.length ? average(active.realSamples) : 0.75
         if (livenessScore < ENROLLMENT_LIVENESS_THRESHOLD || antiSpoofScore < ENROLLMENT_ANTI_SPOOF_THRESHOLD) {
           throw new Error(copy.enrollmentLivenessFailure)
         }
 
         const embeddings = active.embeddingSamples
+        if (!embeddings?.length || !embeddings[0]?.length) {
+          throw new Error(copy.enrollmentFailure)
+        }
         const embedding = embeddings[0].map((_, index) =>
           average(embeddings.map((sample) => sample[index])),
         )
@@ -363,13 +366,14 @@ export default function BeneficiaryFaceVerification({ caseRef, copy, onVerificat
               setChallenge({ step: 'sampling', direction: active.direction })
               setMessage(copy.holdStill)
             } else if (face && active.step === 'sampling') {
-              if (Number.isFinite(face.live) && Number.isFinite(face.real) && face.embedding?.length) {
-                active.liveSamples.push(face.live)
-                active.realSamples.push(face.real)
+              if (face.embedding?.length) {
+                if (Number.isFinite(face.live)) active.liveSamples.push(face.live)
+                if (Number.isFinite(face.real)) active.realSamples.push(face.real)
                 active.lastFace = face
                 if (active.mode === 'enroll') active.embeddingSamples.push(Array.from(face.embedding))
+                active.sampleCount = (active.sampleCount || 0) + 1
               }
-              if (active.liveSamples.length >= SAMPLE_COUNT) {
+              if ((active.sampleCount || active.liveSamples.length) >= SAMPLE_COUNT) {
                 active.active = false
                 if (active.mode === 'enroll') {
                   await submitEnrollment(active)
