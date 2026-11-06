@@ -42,9 +42,6 @@ export default function AdminAuditPage() {
           </Button>
         </div>
       </div>
-      <p className="handover-note handover-note--danger admin-warning">
-        <Icon name="alertCircle" size={15} /> {t.admin.auditPage.warning}
-      </p>
 
       <form className="card admin-filters" onSubmit={(e) => e.preventDefault()} aria-label="Audit filters">
         <label className="admin-filter">

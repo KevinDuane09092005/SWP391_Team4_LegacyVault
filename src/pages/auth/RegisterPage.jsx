@@ -81,12 +81,11 @@ export default function RegisterPage() {
         billing,
       })
 
-      // 5. Lưu tạm thông tin người dùng để phục vụ xác thực OTP
+      // 5. Lưu tạm thông tin người dùng để phục vụ xác thực OTP (không lưu OTP ra sessionStorage)
       savePendingVerification({
         identifier: email,
         fullName,
         userId: data.userId,
-        testOtp: data.testOtp,
         planId,
         billing,
       })
@@ -99,7 +98,6 @@ export default function RegisterPage() {
           email,
           fullName,
           userId: data.userId,
-          testOtp: data.testOtp,
           planId,
           billing,
           message:

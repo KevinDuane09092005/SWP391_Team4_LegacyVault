@@ -48,7 +48,7 @@ export function checkAssetAccess(user, handover, assetId) {
   const reasons = []
   if (handover.legalStatus !== LEGAL_STATUS.APPROVED) reasons.push(DENY.LEGAL_NOT_APPROVED)
   if (handover.status === HANDOVER_STATUS.REJECTED) reasons.push(DENY.HANDOVER_REJECTED)
-  if (handover.status === HANDOVER_STATUS.COMPLETED) reasons.push(DENY.HANDOVER_COMPLETED)
+  // When handover is completed, beneficiary officially owns the assets, so access remains permanently open.
   if (!handover.verification?.verifiedAt) reasons.push(DENY.IDENTITY_NOT_VERIFIED)
   if (!handover.authorizationCheckedAt) reasons.push(DENY.AUTHORIZATION_NOT_CHECKED)
 

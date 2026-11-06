@@ -59,7 +59,7 @@ export default function DeadMansSwitchPage() {
     }
   }, [successToast])
 
-  // Map API audit logs to UI format (100% from backend, no fake fallback)
+  // Map API audit logs to UI format (100% from backend, supporting all SQL check_in_type values)
   const mapAuditLogs = useCallback((apiLogs) => {
     if (!Array.isArray(apiLogs) || apiLogs.length === 0) {
       return []
@@ -68,7 +68,7 @@ export default function DeadMansSwitchPage() {
       let title = isVi ? 'Xác thực nhịp tim' : 'Owner Heartbeat Confirmed'
       let via = isVi ? 'Hệ thống tự động' : 'System Heartbeat'
 
-      if (log.checkInType === 'MANUAL_DASHBOARD') {
+      if (log.checkInType === 'MANUAL_DASHBOARD' || log.checkInType === 'manual_web') {
         title = isVi ? 'Điểm danh thủ công trên bảng điều khiển' : 'Manual Dashboard Check-in'
         via = isVi ? 'Bảng điều khiển web' : 'Manual Dashboard'
       } else if (log.checkInType === 'EMERGENCY_RESTORE') {
@@ -77,6 +77,9 @@ export default function DeadMansSwitchPage() {
       } else if (log.checkInType === 'WEB_APP_LOGIN') {
         title = isVi ? 'Xác thực đăng nhập chủ tài khoản' : 'Owner Heartbeat Confirmed'
         via = isVi ? 'Đăng nhập ứng dụng web' : 'Web App Login'
+      } else if (log.checkInType === 'email_heartbeat') {
+        title = isVi ? 'Xác thực nhịp tim qua liên kết Email' : 'Email Heartbeat Confirmed'
+        via = isVi ? 'Email xác nhận' : 'Email Heartbeat'
       }
 
       return {
@@ -104,10 +107,10 @@ export default function DeadMansSwitchPage() {
       // 1. GET /api/v1/dms/status
       const statusData = await getDmsStatusApi()
       setDmsData(statusData)
-      const rawIntervalSec = statusData?.checkInIntervalSeconds ?? statusData?.checkInIntervalDays ?? 60
-      const rawGraceSec = statusData?.gracePeriodSeconds ?? statusData?.gracePeriodDays ?? 120
-      setFormInterval(rawIntervalSec < 3600 ? 60 : rawIntervalSec)
-      setFormGrace(rawGraceSec < 3600 ? 120 : rawGraceSec)
+      const rawIntervalSec = Number(statusData?.checkInIntervalSeconds ?? statusData?.checkInIntervalDays ?? 60)
+      const rawGraceSec = Number(statusData?.gracePeriodSeconds ?? statusData?.gracePeriodDays ?? 120)
+      setFormInterval(rawIntervalSec > 0 ? rawIntervalSec : 60)
+      setFormGrace(rawGraceSec >= 0 ? rawGraceSec : 120)
 
       // 2. GET /api/v1/dms/audit-logs
       try {
@@ -166,24 +169,17 @@ export default function DeadMansSwitchPage() {
     }
   }, [])
 
-  // 2. POST /api/v1/dms/config: Save DMS configuration to backend and simultaneously reset countdown timer
+  // 2. POST /api/v1/dms/config: Save DMS configuration to backend (Backend resets timer from now)
   const saveConfig = async () => {
     setSyncing(true)
     setApiError('')
     setSuccessToast('')
 
     try {
-      await saveDmsConfigApi({
+      const res = await saveDmsConfigApi({
         checkInIntervalSeconds: Number(formInterval),
         gracePeriodSeconds: Number(formGrace),
       })
-
-      // Đồng thời đặt lại bộ đếm thời gian (check-in reset timer)
-      try {
-        await checkInDmsApi()
-      } catch (checkInErr) {
-        console.warn('Auto check-in reset after save config warning:', checkInErr)
-      }
 
       setSimulatedOffsetMs(0)
       setIsEditingConfig(false)
@@ -193,28 +189,15 @@ export default function DeadMansSwitchPage() {
           : "Dead Man's Switch configuration saved and countdown timer has been reset successfully!",
       )
 
-      // Refresh status and audit logs from backend
-      try {
-        const [updatedStatus, updatedLogs] = await Promise.all([
-          getDmsStatusApi(),
-          getDmsAuditLogsApi().catch(() => []),
-        ])
+      if (res?.config) {
+        setDmsData(res.config)
+        const nextInterval = Number(res.config.checkInIntervalSeconds ?? res.config.checkInIntervalDays ?? formInterval)
+        const nextGrace = Number(res.config.gracePeriodSeconds ?? res.config.gracePeriodDays ?? formGrace)
+        setFormInterval(nextInterval > 0 ? nextInterval : 60)
+        setFormGrace(nextGrace >= 0 ? nextGrace : 120)
+      } else {
+        const updatedStatus = await getDmsStatusApi()
         setDmsData(updatedStatus)
-        setLogs(mapAuditLogs(updatedLogs))
-        const nextInterval = updatedStatus?.checkInIntervalSeconds ?? updatedStatus?.checkInIntervalDays ?? formInterval
-        const nextGrace = updatedStatus?.gracePeriodSeconds ?? updatedStatus?.gracePeriodDays ?? formGrace
-        setFormInterval(nextInterval < 3600 ? 60 : nextInterval)
-        setFormGrace(nextGrace < 3600 ? 120 : nextGrace)
-      } catch {
-        const nowIso = new Date().toISOString()
-        setDmsData((prev) => ({
-          ...prev,
-          lastCheckInAt: nowIso,
-          nextCheckInAt: new Date(Date.now() + Number(formInterval) * 1000).toISOString(),
-          checkInIntervalSeconds: Number(formInterval),
-          gracePeriodSeconds: Number(formGrace),
-          status: 'ACTIVE',
-        }))
       }
     } catch (err) {
       if (err.status === 401 || err.status === 403) {
@@ -517,8 +500,8 @@ export default function DeadMansSwitchPage() {
                   {dmsData?.executorName
                     ? `${dmsData.executorName} (Executor) — ${dmsData.executorEmail || 'No email'}`
                     : isVi
-                    ? 'Chưa chỉ định người thi hành (Vui lòng gán trong mục Danh bạ)'
-                    : 'No executor assigned (Please assign in Contacts)'}
+                    ? 'Chưa chỉ định người thi hành đã xác thực (Vui lòng gán trong mục Danh bạ)'
+                    : 'No verified executor assigned (Please assign in Contacts)'}
                 </div>
                 <p>
                   {isVi

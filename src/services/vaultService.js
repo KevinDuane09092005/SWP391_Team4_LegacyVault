@@ -182,8 +182,8 @@ export async function getAssetDetailApi(assetId) {
 }
 
 
-// Call Real Backend API: GET /api/v1/assets
-export async function getAssetsListApi() {
+// Call Real Backend API: GET /api/v1/assets (optional filters: { status, assetType })
+export async function getAssetsListApi(filters = {}) {
   const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
   if (!token) {
     const error = new Error('No authentication token found')
@@ -197,9 +197,21 @@ export async function getAssetsListApi() {
     ''
   ).replace(/\/$/, '')
 
-  const endpoint = baseUrl
+  const baseEndpoint = baseUrl
     ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/assets` : `${baseUrl}/api/v1/assets`)
     : '/api/v1/assets'
+
+  const params = new URLSearchParams()
+  if (filters && typeof filters === 'object') {
+    if (filters.status && filters.status !== 'ALL') {
+      params.set('status', filters.status)
+    }
+    if (filters.assetType && filters.assetType !== 'ALL') {
+      params.set('assetType', filters.assetType)
+    }
+  }
+  const queryString = params.toString()
+  const endpoint = queryString ? `${baseEndpoint}?${queryString}` : baseEndpoint
 
   const response = await fetch(endpoint, {
     method: 'GET',
@@ -347,6 +359,44 @@ export async function updateAssetApi(
     }
 
     const error = new Error(data?.error || data?.message || `Failed to update asset (${response.status})`)
+    error.status = response.status
+    error.data = data
+    throw error
+  }
+
+  return data
+}
+
+// Call Real Backend API: DELETE /api/v1/assets/{assetId}
+export async function deleteAssetApi(assetId) {
+  const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
+  if (!token) {
+    const error = new Error('No authentication token found')
+    error.status = 401
+    throw error
+  }
+
+  const baseUrl = (
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.REACT_APP_API_BASE_URL ||
+    ''
+  ).replace(/\/$/, '')
+
+  const endpoint = baseUrl
+    ? (baseUrl.endsWith('/api/v1') ? `${baseUrl}/assets/${encodeURIComponent(assetId)}` : `${baseUrl}/api/v1/assets/${encodeURIComponent(assetId)}`)
+    : `/api/v1/assets/${encodeURIComponent(assetId)}`
+
+  const response = await fetch(endpoint, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    const error = new Error(data?.error || data?.message || 'Failed to delete asset')
     error.status = response.status
     error.data = data
     throw error

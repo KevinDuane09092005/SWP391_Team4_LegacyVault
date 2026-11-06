@@ -82,6 +82,8 @@ export function adaptVerifierDocument(doc) {
   const docId = doc.document_id || doc.documentId || doc.id
   const fileName = doc.file_name || doc.fileName || 'document.pdf'
   const fileUrl = doc.file_url || doc.fileUrl || (docId && !DEMO_MODE ? `/api/v1/legal-verification/documents/${docId}/view` : (doc.file_url || null))
+  const fileSizeBytes = doc.file_size_bytes ?? doc.fileSizeBytes ?? doc.file_size ?? doc.fileSize ?? 0
+  const fileHashSha256 = doc.file_hash_sha256 || doc.fileHashSha256 || ''
   return {
     ...doc,
     document_id: docId,
@@ -96,17 +98,21 @@ export function adaptVerifierDocument(doc) {
     issuedDate: doc.issued_date || doc.issuedDate || '',
     file_name: fileName,
     fileName: fileName,
+    file_size_bytes: fileSizeBytes,
+    fileSizeBytes: fileSizeBytes,
+    file_hash_sha256: fileHashSha256,
+    fileHashSha256: fileHashSha256,
     file_size_formatted:
       doc.file_size_formatted ||
       doc.fileSizeFormatted ||
-      (doc.file_size || doc.fileSize
-        ? `${((doc.file_size || doc.fileSize) / 1024 / 1024).toFixed(1)} MB`
+      (fileSizeBytes
+        ? `${(fileSizeBytes / 1024 / 1024).toFixed(1)} MB`
         : '—'),
     fileSizeFormatted:
       doc.file_size_formatted ||
       doc.fileSizeFormatted ||
-      (doc.file_size || doc.fileSize
-        ? `${((doc.file_size || doc.fileSize) / 1024 / 1024).toFixed(1)} MB`
+      (fileSizeBytes
+        ? `${(fileSizeBytes / 1024 / 1024).toFixed(1)} MB`
         : '—'),
     uploaded_by: doc.uploaded_by || doc.uploadedBy || 'Executor',
     uploadedBy: doc.uploaded_by || doc.uploadedBy || 'Executor',
@@ -304,9 +310,22 @@ export async function approveCase(caseId, { signature_note = '', signatureNote =
   }
 }
 
-export async function rejectCase(caseId, reason, currentUser = null) {
+export async function rejectCase(caseId, reasonOrPayload, currentUser = null) {
+  const reason =
+    typeof reasonOrPayload === 'object' && reasonOrPayload !== null
+      ? (reasonOrPayload.reason || reasonOrPayload.detailedExplanation || '')
+      : reasonOrPayload
+  const reasonCode =
+    typeof reasonOrPayload === 'object' && reasonOrPayload !== null
+      ? (reasonOrPayload.reasonCode || reasonOrPayload.reason_code || 'INVALID_DOCUMENT')
+      : 'INVALID_DOCUMENT'
+
   if (!DEMO_MODE) {
-    return request('POST', `/legal-verification/cases/${encodeURIComponent(caseId)}/reject`, { reason })
+    return request('POST', `/legal-verification/cases/${encodeURIComponent(caseId)}/reject`, {
+      reason,
+      reasonCode,
+      reason_code: reasonCode,
+    })
   }
 
   await delay()
@@ -332,7 +351,7 @@ export async function rejectCase(caseId, reason, currentUser = null) {
       outcome: OUTCOME.SUCCESS,
       entity: { type: 'LEGAL_CASE', id: record.case_number },
       caseId: record.case_number,
-      details: { legalStatus: 'REJECTED', reason },
+      details: { legalStatus: 'REJECTED', reason, reasonCode },
     })
 
     const executor = mockUsers.find((u) => u.role === 'EXECUTOR')

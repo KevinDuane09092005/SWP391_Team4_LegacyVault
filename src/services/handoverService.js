@@ -153,33 +153,38 @@ export async function getBeneficiaryPortalContextApi(caseRef) {
   return apiFetch(`/handover/beneficiary/portal-context?${params}`)
 }
 
-// 5. POST /handover/beneficiary/login-with-code
-export async function beneficiaryLoginWithCodeApi({ email, accessCode, access_code }) {
+// 5. POST /handover/beneficiary/request-access-otp (or /login-with-code)
+export async function requestHandoverOtpApi({ email, accessCode, access_code, caseRef, case_ref }) {
   if (isDemoMode()) {
     return {
       claim_session_token: 'demo-claim-session',
       access_token: 'demo-beneficiary-token',
-      case_number: 'LV-1042',
-      beneficiary_name: 'Linh Pham',
+      case_number: caseRef || 'LV-1042',
+      beneficiary_name: 'Beneficiary',
       kyc_required: true,
       otp_sent_to: email,
     }
   }
   const code = accessCode || access_code
-  return apiFetch('/handover/beneficiary/login-with-code', {
+  return apiFetch('/handover/beneficiary/request-access-otp', {
     method: 'POST',
     body: JSON.stringify({
       email,
       access_code: code,
       accessCode: code,
+      case_ref: caseRef || case_ref,
+      caseRef: caseRef || case_ref,
     }),
   })
 }
+
+export const beneficiaryLoginWithCodeApi = requestHandoverOtpApi
 
 // 6. POST /handover/beneficiary/verify-otp
 export async function verifyBeneficiaryOtpApi(payload) {
   const otp = typeof payload === 'object' ? (payload.otpCode || payload.otp_code) : payload
   const sessionToken = typeof payload === 'object' ? (payload.sessionToken || payload.session_token) : null
+  const caseRef = typeof payload === 'object' ? (payload.caseRef || payload.case_ref || payload.caseId || payload.case_id) : null
 
   if (isDemoMode()) {
     return {
@@ -193,12 +198,18 @@ export async function verifyBeneficiaryOtpApi(payload) {
     ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
   }
 
-  return apiFetch('/handover/beneficiary/verify-otp', {
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+
+  return apiFetch(`/handover/beneficiary/verify-otp${query ? `?${query}` : ''}`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
       otp_code: otp,
       otpCode: otp,
+      case_ref: caseRef,
+      caseRef,
       sessionToken,
       session_token: sessionToken,
     }),
@@ -250,7 +261,7 @@ export async function dispatchSecureHandoverApi(caseId) {
 }
 
 // 10. GET /handover/beneficiary/authorized-assets
-export async function getAuthorizedInheritanceAssetsApi() {
+export async function getAuthorizedInheritanceAssetsApi(caseRef) {
   if (isDemoMode()) {
     return {
       welcome_beneficiary_name: 'Linh Pham',
@@ -271,11 +282,14 @@ export async function getAuthorizedInheritanceAssetsApi() {
       probate_restricted: [],
     }
   }
-  return apiFetch('/handover/beneficiary/authorized-assets')
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/authorized-assets${query ? `?${query}` : ''}`)
 }
 
 // 11. GET /handover/beneficiary/assets/{assetId}/detail or /decrypted
-export async function getDecryptedAssetDetailApi(assetId) {
+export async function getDecryptedAssetDetailApi(assetId, caseRef) {
   if (isDemoMode()) {
     return {
       asset_id: assetId,
@@ -285,36 +299,46 @@ export async function getDecryptedAssetDetailApi(assetId) {
       cryptographic_log: { integrity: 'SHA-256 Validated' },
     }
   }
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  const suffix = query ? `?${query}` : ''
   try {
-    return await apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/detail`)
+    return await apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/detail${suffix}`)
   } catch {
-    return apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/decrypted`)
+    return apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/decrypted${suffix}`)
   }
 }
 
 // 12. POST /handover/beneficiary/assets/{assetId}/acknowledge
-export async function acknowledgeIndividualAssetApi(assetId) {
+export async function acknowledgeIndividualAssetApi(assetId, caseRef) {
   if (isDemoMode()) {
     return { asset_id: assetId, acknowledged: true }
   }
-  return apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/acknowledge`, {
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/assets/${encodeURIComponent(assetId)}/acknowledge${query ? `?${query}` : ''}`, {
     method: 'POST',
   })
 }
 
 // 13. GET /handover/beneficiary/acknowledgement-summary
-export async function getAcknowledgementSummaryApi() {
+export async function getAcknowledgementSummaryApi(caseRef) {
   if (isDemoMode()) {
     return {
       custody_trans_hash: 'SHA-256: 0a7f4e8b3c2d1e9f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d72bd',
       can_confirm: true,
     }
   }
-  return apiFetch('/handover/beneficiary/acknowledgement-summary')
+  const params = new URLSearchParams()
+  if (caseRef) params.set('case_ref', caseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/acknowledgement-summary${query ? `?${query}` : ''}`)
 }
 
 // 14. POST /handover/beneficiary/confirm-received
-export async function confirmReceivedAndCloseCaseApi(payload = {}) {
+export async function confirmReceivedAndCloseCaseApi(payload = {}, caseRef) {
   if (isDemoMode()) {
     return {
       status: 'COMPLETED',
@@ -322,13 +346,20 @@ export async function confirmReceivedAndCloseCaseApi(payload = {}) {
       transaction_receipt: 'REC-LV-1042-2026',
     }
   }
+  const effectiveCaseRef = caseRef || payload.case_ref || payload.caseRef
+  const note = payload.feedback_notes || payload.feedbackNotes || payload.signatureNote || payload.signature_note || 'Tôi xác nhận đã nhận bàn giao đầy đủ tài sản di sản số an toàn.'
   const body = {
     accept_digital_estate_custody: true,
-    signatureNote: payload.signatureNote || payload.signature_note || 'Tôi xác nhận đã nhận bàn giao đầy đủ tài sản di sản số an toàn.',
+    feedback_notes: note,
+    feedbackNotes: note,
+    signatureNote: note,
     digitalSignaturePayload: payload.digitalSignaturePayload || 'BENEFICIARY_SIGNATURE_SHA256_CONFIRMED',
     ...payload,
   }
-  return apiFetch('/handover/beneficiary/confirm-received', {
+  const params = new URLSearchParams()
+  if (effectiveCaseRef) params.set('case_ref', effectiveCaseRef)
+  const query = params.toString()
+  return apiFetch(`/handover/beneficiary/confirm-received${query ? `?${query}` : ''}`, {
     method: 'POST',
     body: JSON.stringify(body),
   })
@@ -427,24 +458,29 @@ export const listBeneficiaryCases = async (user) => {
   }
 
   // Fallback if no handover dashboard cases found
-  const data = await getAuthorizedInheritanceAssetsApi()
-  const rows = [...(data?.ready_for_handover || []), ...(data?.probate_restricted || [])]
-  return rows.map((item) => ({
-    id: item.asset_id,
-    name: item.asset_name,
-    status: item.status || 'READY_FOR_HANDOVER',
-    vault: {
-      name: item.collection_name || 'Inheritance Estate',
-      ownerName: data?.estate_owner || 'Vault Owner',
-    },
-    beneficiary: {
-      userId: user?.id,
-    },
-    assets: (item.assets || [item]).map((a) => ({
-      ...a,
-      authorizedBeneficiaryIds: [user?.id].filter(Boolean),
-    })),
-  }))
+  try {
+    const data = await getAuthorizedInheritanceAssetsApi()
+    const rows = [...(data?.ready_for_handover || []), ...(data?.probate_restricted || [])]
+    return rows.map((item) => ({
+      id: item.asset_id,
+      name: item.asset_name,
+      status: item.status || 'READY_FOR_HANDOVER',
+      vault: {
+        name: item.collection_name || 'Inheritance Estate',
+        ownerName: data?.estate_owner || 'Vault Owner',
+      },
+      beneficiary: {
+        userId: user?.id,
+      },
+      assets: (item.assets || [item]).map((a) => ({
+        ...a,
+        authorizedBeneficiaryIds: [user?.id].filter(Boolean),
+      })),
+    }))
+  } catch (err) {
+    console.warn('No active inheritance assets or handover released yet for beneficiary:', err)
+    return []
+  }
 }
 
 export const getBeneficiaryCase = async (user, caseId) => {
@@ -472,7 +508,7 @@ export const getBeneficiaryCase = async (user, caseId) => {
 
       if (isAccessReady && !decryptedContent) {
         try {
-          const detail = await getDecryptedAssetDetailApi(assetId)
+          const detail = await getDecryptedAssetDetailApi(assetId, caseId)
           decryptedContent = detail?.decrypted_credential_data?.passphrase ||
             detail?.decrypted_credential_data?.credential_data ||
             detail?.decrypted_credential_data ||
@@ -494,7 +530,7 @@ export const getBeneficiaryCase = async (user, caseId) => {
         authorizedBeneficiaryIds: [user?.id].filter(Boolean),
         releaseStatus: a.release_status || 'AUTHORIZED',
         protectedContent: decryptedContent,
-        documents: a.attachment_url ? [{ id: 'doc-1', name: a.attachment_url.split('/').pop() || 'Tài liệu đính kèm', size: 1024 }] : (a.documents || []),
+        documents: a.attachment_url ? [{ id: 'doc-1', name: a.attachment_url.split('/').pop() || 'Tài liệu đính kèm', size: 1024, url: a.attachment_url }] : (a.documents || []),
       }
     })
   )
@@ -533,7 +569,10 @@ export const getBeneficiaryCase = async (user, caseId) => {
 
 export const verifyIdentity = async (user, caseId, form) => {
   if (isDemoMode()) return mockVerifyIdentity(user, caseId, form)
-  await verifyBeneficiaryOtpApi(form?.otp || form?.otp_code)
+  await verifyBeneficiaryOtpApi({
+    otpCode: form?.otp || form?.otp_code,
+    caseRef: caseId,
+  })
   const current = await getBeneficiaryCase(user, caseId)
   return {
     ...current,
@@ -575,8 +614,12 @@ function readAssetContent(detail) {
 
 export const openAsset = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockOpenAsset(user, caseId, assetId)
-  // A refused request stops here: nothing is shown and the status does not move.
-  const detail = await getDecryptedAssetDetailApi(assetId)
+  let detail = null
+  try {
+    detail = await getDecryptedAssetDetailApi(assetId, caseId)
+  } catch (err) {
+    console.warn('Could not fetch decrypted asset detail from API, falling back to case assets:', err)
+  }
   const current = await getBeneficiaryCase(user, caseId)
   const content = readAssetContent(detail) ||
     current.assets?.find((a) => a.id === assetId)?.protectedContent
@@ -598,7 +641,11 @@ export const openAsset = async (user, caseId, assetId) => {
 export const recordAssetDownload = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockRecordAssetDownload(user, caseId, assetId)
   // The page builds the file only after this succeeds, so a refusal blocks the download.
-  await acknowledgeIndividualAssetApi(assetId)
+  try {
+    await acknowledgeIndividualAssetApi(assetId, caseId)
+  } catch (err) {
+    console.warn('Acknowledge download non-blocking warning:', err)
+  }
 }
 
 export const confirmReceipt = async (user, caseId) => {

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Button from '../../components/Button.jsx'
-import FormAlert from '../../components/auth/FormAlert.jsx'
 import Icon from '../../components/Icon.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
 import {
@@ -10,7 +9,6 @@ import {
   ErrorState,
   LoadingState,
 } from '../../components/vault/PageStates.jsx'
-import { useAuth } from '../../auth/AuthContext.jsx'
 import { vaultContent } from '../../data/vaultContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { getAssetsListApi } from '../../services/vaultService.js'
@@ -19,8 +17,8 @@ import { ownerPaths } from '../../vault/paths.js'
 
 // Assets List Page: Displays all assets fetched directly from GET /api/v1/assets
 export default function AssetsPage() {
-  const { user } = useAuth()
   const { language } = useLanguage()
+  const isVi = language === 'vi'
   const t = vaultContent[language]
   const copy = t.vaultDetails
   const location = useLocation()
@@ -29,8 +27,10 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [typeFilter, setTypeFilter] = useState('ALL')
 
-  // Hàm gọi API lấy danh sách tài sản (tái sử dụng được cho reload / refetch)
+  // Hàm gọi API lấy danh sách tài sản (tái sử dụng được cho reload / refetch / filter)
   const fetchAssets = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -43,8 +43,11 @@ export default function AssetsPage() {
     }
 
     try {
-      // 2. Gọi HTTP GET tới Backend API
-      const data = await getAssetsListApi()
+      // 2. Gọi HTTP GET tới Backend API kèm bộ lọc status / assetType
+      const data = await getAssetsListApi({
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        assetType: typeFilter !== 'ALL' ? typeFilter : undefined,
+      })
       setAssets(Array.isArray(data) ? data : [])
     } catch (err) {
       // 3. Xử lý khi Token hết hạn (401 / 403)
@@ -55,7 +58,7 @@ export default function AssetsPage() {
           state: {
             from: location.pathname,
             message:
-              language === 'vi'
+              isVi
                 ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
                 : 'Session expired. Please log in again.',
           },
@@ -65,19 +68,17 @@ export default function AssetsPage() {
       console.error('Lỗi lấy danh sách tài sản:', err)
       setError(
         err.message ||
-          (language === 'vi' ? 'Không thể tải danh sách tài sản.' : 'Failed to load assets list.'),
+          (isVi ? 'Không thể tải danh sách tài sản.' : 'Failed to load assets list.'),
       )
     } finally {
       setLoading(false)
     }
-  }, [language, location.pathname, navigate])
+  }, [isVi, location.pathname, navigate, statusFilter, typeFilter])
 
-  // Kích hoạt khi component được render lần đầu
+  // Kích hoạt khi component được render hoặc thay đổi bộ lọc
   useEffect(() => {
     fetchAssets()
   }, [fetchAssets])
-
-  const defaultVaultId = 'vault-demo-family'
 
   return (
     <OwnerLayout>
@@ -85,15 +86,15 @@ export default function AssetsPage() {
         label={t.breadcrumbsLabel}
         items={[
           { label: t.nav.dashboard, to: ownerPaths.dashboard },
-          { label: language === 'vi' ? 'Tài sản số' : 'Digital Assets' },
+          { label: isVi ? 'Tài sản số' : 'Digital Assets' },
         ]}
       />
 
       <div className="page-head page-head--spaced">
         <div>
-          <h1 className="page-title">{language === 'vi' ? 'Danh sách tài sản số' : 'Digital Assets'}</h1>
+          <h1 className="page-title">{isVi ? 'Danh sách tài sản số' : 'Digital Assets'}</h1>
           <p className="page-text">
-            {language === 'vi'
+            {isVi
               ? 'Tất cả các tài sản số, tài khoản và tài liệu đã được mã hóa an toàn trong hệ thống.'
               : 'All digital assets, credentials, and records secured in your vault.'}
           </p>
@@ -105,8 +106,46 @@ export default function AssetsPage() {
         </div>
         <Button to={ownerPaths.newAsset()}>
           <Icon name="key" size={16} />
-          {language === 'vi' ? 'Đăng ký tài sản' : 'Register Asset'}
+          {isVi ? 'Đăng ký tài sản' : 'Register Asset'}
         </Button>
+      </div>
+
+      {/* Bộ lọc trạng thái & loại tài sản */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          marginBottom: '16px',
+        }}
+      >
+        <select
+          className="field__input"
+          style={{ width: 'auto', minWidth: '175px', height: '38px', padding: '0 12px' }}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label={isVi ? 'Lọc theo trạng thái' : 'Filter by status'}
+        >
+          <option value="ALL">{isVi ? 'Tất cả trạng thái' : 'All Statuses'}</option>
+          <option value="assigned">{isVi ? 'Đã phân công' : 'Assigned'}</option>
+          <option value="unassigned">{isVi ? 'Chưa phân công' : 'Unassigned'}</option>
+        </select>
+
+        <select
+          className="field__input"
+          style={{ width: 'auto', minWidth: '195px', height: '38px', padding: '0 12px' }}
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          aria-label={isVi ? 'Lọc theo loại tài sản' : 'Filter by asset type'}
+        >
+          <option value="ALL">{isVi ? 'Tất cả loại tài sản' : 'All Asset Types'}</option>
+          <option value="Bank Account">{isVi ? 'Tài khoản ngân hàng' : 'Bank Account'}</option>
+          <option value="Crypto Wallet">{isVi ? 'Ví tiền mã hóa' : 'Crypto Wallet'}</option>
+          <option value="Social Media">{isVi ? 'Mạng xã hội' : 'Social Media'}</option>
+          <option value="Important Document">{isVi ? 'Tài liệu quan trọng' : 'Important Document'}</option>
+          <option value="Other">{isVi ? 'Khác' : 'Other'}</option>
+        </select>
       </div>
 
       {loading && <LoadingState label={t.loading} />}
@@ -128,15 +167,15 @@ export default function AssetsPage() {
           {assets.length === 0 ? (
             <EmptyState
               icon="fileText"
-              title={language === 'vi' ? 'Chưa có tài sản nào' : copy.emptyTitle}
+              title={isVi ? 'Chưa có tài sản nào' : copy.emptyTitle}
               text={
-                language === 'vi'
-                  ? 'Bạn chưa đăng ký tài sản số nào. Hãy bắt đầu bảo vệ di sản bằng cách đăng ký tài sản đầu tiên.'
+                isVi
+                  ? 'Bạn chưa đăng ký tài sản số nào (hoặc không có kết quả khớp bộ lọc). Hãy bắt đầu bảo vệ di sản bằng cách đăng ký tài sản đầu tiên.'
                   : copy.emptyText
               }
               action={
                 <Button to={ownerPaths.newAsset()}>
-                  {language === 'vi' ? 'Đăng ký tài sản đầu tiên' : copy.emptyCta}
+                  {isVi ? 'Đăng ký tài sản đầu tiên' : copy.emptyCta}
                 </Button>
               }
             />
@@ -145,7 +184,7 @@ export default function AssetsPage() {
               <div className="asset-table__row asset-table__row--head" aria-hidden="true">
                 <span>{copy.columns.name}</span>
                 <span>{copy.columns.type}</span>
-                <span>{language === 'vi' ? 'Trạng thái' : 'Status'}</span>
+                <span>{isVi ? 'Trạng thái' : 'Status'}</span>
                 <span>{copy.columns.created}</span>
               </div>
               <ul>
@@ -169,8 +208,8 @@ export default function AssetsPage() {
                       <span>
                         <span className={`badge ${isAssigned ? 'green' : 'amber'}`}>
                           {isAssigned
-                            ? (language === 'vi' ? 'Đã phân công' : 'Assigned')
-                            : (language === 'vi' ? 'Chưa phân công' : 'Unassigned')}
+                            ? (isVi ? 'Đã phân công' : 'Assigned')
+                            : (isVi ? 'Chưa phân công' : 'Unassigned')}
                         </span>
                       </span>
                       <span className="asset-table__muted">

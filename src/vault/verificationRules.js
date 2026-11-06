@@ -2,10 +2,13 @@ export const VALID_STATUSES = ['PENDING', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED
 
 export const STATUS_LABELS = {
   PENDING: 'Pending',
+  INITIATED: 'Initiated',
   SUBMITTED: 'Submitted',
   UNDER_REVIEW: 'Under Review',
   APPROVED: 'Approved',
   REJECTED: 'Rejected',
+  HANDOVER_IN_PROGRESS: 'Handover In Progress',
+  COMPLETED: 'Completed',
 }
 
 export function canReview(status) {

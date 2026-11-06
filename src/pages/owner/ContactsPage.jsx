@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { CheckCircle, Clock, Plus, Search, Users, XCircle, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  CheckCircle,
+  Clock,
+  Edit2,
+  Mail,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+  Users,
+  XCircle,
+} from 'lucide-react'
+import { useAuth } from '../../auth/AuthContext.jsx'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
@@ -8,14 +20,18 @@ import { LoadingState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import {
   createContactApi,
+  deleteContactApi,
   getContactsApi,
+  resendContactInvitationApi,
+  revokeContactAccessApi,
   revokeContactInvitationApi,
-  deleteContactApi
+  updateContactApi,
 } from '../../services/contactService.js'
 
 export default function ContactsPage() {
   const { language } = useLanguage()
   const isVi = language === 'vi'
+  const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -23,11 +39,14 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingContact, setEditingContact] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [modalError, setModalError] = useState(null)
   const [successMessage, setSuccessMessage] = useState(null)
-  // Quản lý hộp thoại xác nhận: { type: 'revoke' | 'delete', contact: object }
+  // Quản lý hộp thoại xác nhận: { type: 'revoke' | 'revokeAccess' | 'delete', contact: object }
   const [confirmAction, setConfirmAction] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
 
@@ -38,77 +57,89 @@ export default function ContactsPage() {
     role: 'Beneficiary',
   })
 
-  // Hàm tải danh bạ từ backend API (hỗ trợ tìm kiếm theo keyword)
-  const fetchContacts = useCallback(async (keyword = '', silent = false) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
-    if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
-      return
-    }
-
-    if (!silent) setLoading(true)
-    setError(null)
-
-    try {
-      const list = await getContactsApi(keyword)
-      if (Array.isArray(list)) {
-        const mapped = list.map((c) => {
-          const isBoth = (c.isBeneficiary && c.isExecutor) || c.expectedRole === 'Both' || c.role === 'Both'
-          const isExec = !isBoth && (c.isExecutor || c.expectedRole === 'Executor' || c.role === 'Executor')
-          const isBene = !isBoth && (c.isBeneficiary || c.expectedRole === 'Beneficiary' || c.role === 'Beneficiary')
-
-          let role = 'Beneficiary'
-          if (isBoth) role = 'Both'
-          else if (isExec) role = 'Executor'
-
-          const rawStatus = (c.status || 'pending').toLowerCase()
-          let status = 'pending'
-          if (rawStatus === 'verified') status = 'verified'
-          else if (rawStatus === 'rejected' || rawStatus === 'declined' || rawStatus === 'revoked') status = 'rejected'
-
-          return {
-            contactId: c.contactId || c.id || crypto.randomUUID(),
-            id: c.contactId || c.id || crypto.randomUUID(),
-            fullName: c.fullName || c.name || '',
-            name: c.fullName || c.name || '',
-            relationship: c.relationship || '',
-            email: c.email || '',
-            isBeneficiary: isBoth || isBene,
-            isExecutor: isBoth || isExec,
-            role,
-            status,
-            rawStatus,
-          }
-        })
-        setContacts(mapped)
-        localStorage.setItem('legacyvault-contacts', JSON.stringify(mapped))
-      }
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
-          state: {
-            from: location.pathname,
-            message: isVi
-              ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-              : 'Session expired. Please log in again.',
-          },
-        })
+  // Hàm tải danh bạ từ backend API (hỗ trợ tìm kiếm theo keyword, expectedRole, status)
+  const fetchContacts = useCallback(
+    async (keyword = '', silent = false) => {
+      const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
+      if (!token) {
+        navigate('/login', { state: { from: location.pathname } })
         return
       }
 
-      console.error('Lỗi tìm kiếm / lấy danh sách liên hệ:', err)
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }, [isVi, location.pathname, navigate])
+      if (!silent) setLoading(true)
+      setError(null)
 
-  // Lắng nghe tìm kiếm với debounce 400ms và gọi API GET /api/v1/contacts?keyword=...
+      try {
+        const list = await getContactsApi({
+          keyword,
+          expectedRole: roleFilter !== 'ALL' ? roleFilter : '',
+          status: statusFilter !== 'ALL' ? statusFilter : '',
+        })
+        if (Array.isArray(list)) {
+          const mapped = list.map((c) => {
+            const isBoth =
+              (c.isBeneficiary && c.isExecutor) || c.expectedRole === 'Both' || c.role === 'Both'
+            const isExec =
+              !isBoth && (c.isExecutor || c.expectedRole === 'Executor' || c.role === 'Executor')
+            const isBene =
+              !isBoth &&
+              (c.isBeneficiary || c.expectedRole === 'Beneficiary' || c.role === 'Beneficiary')
+
+            let role = 'Beneficiary'
+            if (isBoth) role = 'Both'
+            else if (isExec) role = 'Executor'
+
+            const rawStatus = (c.status || 'pending').toLowerCase()
+            let status = 'pending'
+            if (rawStatus === 'verified') status = 'verified'
+            else if (rawStatus === 'rejected' || rawStatus === 'declined' || rawStatus === 'revoked')
+              status = 'rejected'
+
+            return {
+              contactId: c.contactId || c.id || crypto.randomUUID(),
+              id: c.contactId || c.id || crypto.randomUUID(),
+              fullName: c.fullName || c.name || '',
+              name: c.fullName || c.name || '',
+              relationship: c.relationship || '',
+              email: c.email || '',
+              isBeneficiary: isBoth || isBene,
+              isExecutor: isBoth || isExec,
+              role,
+              status,
+              rawStatus,
+            }
+          })
+          setContacts(mapped)
+          localStorage.setItem('legacyvault-contacts', JSON.stringify(mapped))
+        }
+      } catch (err) {
+        if (err.status === 401 || err.status === 403) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('legacyvault-access-token')
+          navigate('/login', {
+            state: {
+              from: location.pathname,
+              message: isVi
+                ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+                : 'Session expired. Please log in again.',
+            },
+          })
+          return
+        }
+
+        console.error('Lỗi tìm kiếm / lấy danh sách liên hệ:', err)
+      } finally {
+        if (!silent) setLoading(false)
+      }
+    },
+    [isVi, location.pathname, navigate, roleFilter, statusFilter],
+  )
+
+  // Lắng nghe tìm kiếm & bộ lọc với debounce 300ms
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchContacts(search)
-    }, 400)
+    }, 300)
     return () => clearTimeout(timer)
   }, [fetchContacts, search])
 
@@ -119,8 +150,62 @@ export default function ContactsPage() {
     return () => window.removeEventListener('focus', onFocus)
   }, [fetchContacts, search])
 
+  const openAddModal = () => {
+    setEditingContact(null)
+    setForm({
+      name: '',
+      relationship: 'Spouse',
+      email: '',
+      role: 'Beneficiary',
+    })
+    setModalError(null)
+    setModalOpen(true)
+  }
 
-  // Xử lý xác nhận Thu hồi hoặc Xóa liên hệ
+  const openEditModal = (contact) => {
+    setEditingContact(contact)
+    setForm({
+      name: contact.fullName || contact.name || '',
+      relationship: contact.relationship || 'Spouse',
+      email: contact.email || '',
+      role: contact.role || 'Beneficiary',
+    })
+    setModalError(null)
+    setModalOpen(true)
+  }
+
+  // Gửi lại lời mời qua email
+  const handleResendInvite = async (contact) => {
+    const targetId = contact.contactId || contact.id
+    setActionLoading(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      await resendContactInvitationApi(targetId)
+      setSuccessMessage(
+        isVi
+          ? `Đã gửi lại email lời mời cho "${contact.name || contact.email}" thành công.`
+          : `Successfully resent invitation email to "${contact.name || contact.email}".`,
+      )
+      setContacts((prev) =>
+        prev.map((c) =>
+          (c.contactId || c.id) === targetId
+            ? { ...c, status: 'pending', rawStatus: 'pending' }
+            : c,
+        ),
+      )
+    } catch (err) {
+      setError(
+        err.data?.error ||
+          err.message ||
+          (isVi ? 'Không thể gửi lại lời mời.' : 'Failed to resend invitation.'),
+      )
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Xử lý xác nhận Thu hồi lời mời / Thu hồi quyền truy cập / Xóa liên hệ
   const handleConfirmAction = async () => {
     if (!confirmAction) return
     setActionLoading(true)
@@ -132,50 +217,66 @@ export default function ContactsPage() {
 
     try {
       if (type === 'revoke') {
-        // 1. Gọi API Backend thật để thu hồi lời mời
         await revokeContactInvitationApi(targetId)
         setSuccessMessage(
           isVi
             ? `Đã thu hồi lời mời tới ${contact.name || contact.email}.`
-            : `Successfully revoked invitation for ${contact.name || contact.email}.`
+            : `Successfully revoked invitation for ${contact.name || contact.email}.`,
         )
-        // Cập nhật trạng thái dòng đó thành 'rejected'/'revoked'
         setContacts((prev) =>
-          prev.map((c) => ((c.contactId || c.id) === targetId ? { ...c, status: 'rejected', rawStatus: 'revoked' } : c))
+          prev.map((c) =>
+            (c.contactId || c.id) === targetId
+              ? { ...c, status: 'rejected', rawStatus: 'revoked' }
+              : c,
+          ),
+        )
+      } else if (type === 'revokeAccess') {
+        await revokeContactAccessApi(targetId)
+        setSuccessMessage(
+          isVi
+            ? `Đã thu hồi quyền truy cập của ${contact.name || contact.email}.`
+            : `Successfully revoked vault access for ${contact.name || contact.email}.`,
+        )
+        setContacts((prev) =>
+          prev.map((c) =>
+            (c.contactId || c.id) === targetId
+              ? { ...c, status: 'rejected', rawStatus: 'revoked' }
+              : c,
+          ),
         )
       } else if (type === 'delete') {
-        // 2. Gọi API Backend thật để xóa người liên hệ
         await deleteContactApi(targetId)
         setSuccessMessage(
           isVi
             ? `Đã xóa người liên hệ ${contact.name || contact.email} thành công.`
-            : `Successfully deleted contact ${contact.name || contact.email}.`
+            : `Successfully deleted contact ${contact.name || contact.email}.`,
         )
-        // Loại bỏ hẳn người này khỏi danh sách state
         setContacts((prev) => prev.filter((c) => (c.contactId || c.id) !== targetId))
       }
       setConfirmAction(null)
     } catch (err) {
-      setError(err.message || (isVi ? 'Thao tác thất bại. Vui lòng thử lại.' : 'Action failed. Please try again.'))
+      setError(
+        err.data?.error ||
+          err.message ||
+          (isVi ? 'Thao tác thất bại. Vui lòng thử lại.' : 'Action failed. Please try again.'),
+      )
       setConfirmAction(null)
     } finally {
       setActionLoading(false)
     }
   }
 
-  // Xử lý submit thêm người liên hệ mới
-  const handleAddContact = async (e) => {
+  // Xử lý submit thêm mới hoặc cập nhật người liên hệ
+  const handleSaveContact = async (e) => {
     e.preventDefault()
     setModalError(null)
 
-    // 1. Kiểm tra Token & Xác thực
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
       navigate('/login', { state: { from: location.pathname } })
       return
     }
 
-    // 2. Validate cơ bản
     const fullName = form.name.trim()
     const relationship = form.relationship.trim()
     const email = form.email.trim()
@@ -196,44 +297,70 @@ export default function ContactsPage() {
       setModalError(isVi ? 'Địa chỉ email không hợp lệ.' : 'Please enter a valid email address.')
       return
     }
-    const isDuplicateEmail = contacts.some(
-      (c) => (c.email || '').trim().toLowerCase() === email.toLowerCase(),
-    )
-    if (isDuplicateEmail) {
+
+    // Chặn tự mời email của chính Vault Owner
+    if (
+      user?.identifier &&
+      user.identifier.trim().toLowerCase() === email.toLowerCase()
+    ) {
       setModalError(
         isVi
-          ? 'Email này đã tồn tại trong danh bạ của bạn. Các liên hệ không được trùng email với nhau.'
-          : 'This email already exists in your Contact Book. Contacts cannot share the same email address.',
+          ? 'Bạn không thể tự thêm email của chính mình vào sổ liên lạc.'
+          : 'You cannot add your own email address to your Contact Book.',
       )
       return
+    }
+
+    if (!editingContact) {
+      const isDuplicateEmail = contacts.some(
+        (c) => (c.email || '').trim().toLowerCase() === email.toLowerCase(),
+      )
+      if (isDuplicateEmail) {
+        setModalError(
+          isVi
+            ? 'Email này đã tồn tại trong danh bạ của bạn. Các liên hệ không được trùng email với nhau.'
+            : 'This email already exists in your Contact Book. Contacts cannot share the same email address.',
+        )
+        return
+      }
     }
 
     setSubmitting(true)
 
     try {
-      // 3. Gọi POST /api/v1/contacts
-      await createContactApi({
-        fullName,
-        relationship,
-        email,
-        expectedRole: form.role,
-      })
-
-      // 4. Success Flow:
-      setSuccessMessage(
-        isVi
-          ? `Đã thêm "${fullName}" và gửi email xác nhận lời mời tới ${email}!`
-          : `Contact "${fullName}" added and confirmation email sent to ${email}!`,
-      )
+      if (editingContact) {
+        const targetId = editingContact.contactId || editingContact.id
+        await updateContactApi(targetId, {
+          fullName,
+          relationship,
+          email,
+          expectedRole: form.role,
+        })
+        setSuccessMessage(
+          isVi
+            ? `Đã cập nhật thông tin và vai trò cho "${fullName}" thành công!`
+            : `Updated contact "${fullName}" successfully!`,
+        )
+      } else {
+        await createContactApi({
+          fullName,
+          relationship,
+          email,
+          expectedRole: form.role,
+        })
+        setSuccessMessage(
+          isVi
+            ? `Đã thêm "${fullName}" và gửi email xác nhận lời mời tới ${email}!`
+            : `Contact "${fullName}" added and confirmation email sent to ${email}!`,
+        )
+      }
       setTimeout(() => setSuccessMessage(null), 5000)
 
-      // Đóng modal & reset form
       setModalOpen(false)
+      setEditingContact(null)
       setForm({ name: '', relationship: 'Spouse', email: '', role: 'Beneficiary' })
 
-      // Kích hoạt cập nhật lại danh bạ ngay lập tức từ server
-      setSearch('')
-      await fetchContacts('')
+      await fetchContacts(search)
     } catch (err) {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
@@ -249,12 +376,14 @@ export default function ContactsPage() {
         return
       }
 
-      console.error('Lỗi khi thêm liên hệ:', err)
+      console.error('Lỗi khi lưu liên hệ:', err)
       setModalError(
         err.data?.error ||
           err.data?.message ||
           err.message ||
-          (isVi ? 'Thêm người liên hệ thất bại. Vui lòng thử lại.' : 'Failed to add contact. Please try again.'),
+          (isVi
+            ? 'Lưu người liên hệ thất bại. Vui lòng thử lại.'
+            : 'Failed to save contact. Please try again.'),
       )
     } finally {
       setSubmitting(false)
@@ -262,7 +391,9 @@ export default function ContactsPage() {
   }
 
   const filtered = contacts
-
+  const hasActiveFilter = Boolean(
+    search.trim() || roleFilter !== 'ALL' || statusFilter !== 'ALL',
+  )
   const showEmpty = !loading && contacts.length === 0
 
   return (
@@ -270,9 +401,13 @@ export default function ContactsPage() {
       <div className="flow-page-head">
         <div>
           <h1>{isVi ? 'Danh bạ tin cậy' : 'Contact Book'}</h1>
-          <p>{isVi ? 'Quản lý người thụ hưởng và người giám sát/thi hành di sản của bạn.' : 'Manage your trusted contacts for digital asset assignments and handover.'}</p>
+          <p>
+            {isVi
+              ? 'Quản lý người thụ hưởng và người giám sát/thi hành di sản của bạn.'
+              : 'Manage your trusted contacts for digital asset assignments and handover.'}
+          </p>
         </div>
-        <Button onClick={() => { setModalError(null); setModalOpen(true) }}>
+        <Button onClick={openAddModal}>
           <Plus size={16} />
           {isVi ? 'Thêm người liên hệ' : 'Add New Contact'}
         </Button>
@@ -291,11 +426,19 @@ export default function ContactsPage() {
       )}
 
       <section className="panel contact-panel">
-        <div className="contact-toolbar">
+        <div
+          className="contact-toolbar"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}
+        >
           <input
             className="search-input"
+            style={{ flex: '1 1 240px' }}
             type="search"
-            placeholder={isVi ? 'Tìm kiếm theo tên, email, vai trò...' : 'Search contacts by name, email, role...'}
+            placeholder={
+              isVi
+                ? 'Tìm kiếm theo tên, email, mối quan hệ...'
+                : 'Search contacts by name, email, relationship...'
+            }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
@@ -305,37 +448,100 @@ export default function ContactsPage() {
               }
             }}
           />
+
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label={isVi ? 'Lọc theo vai trò' : 'Filter by role'}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              color: 'var(--color-text)',
+              fontSize: '13.5px',
+            }}
+          >
+            <option value="ALL">{isVi ? 'Tất cả vai trò' : 'All Roles'}</option>
+            <option value="beneficiary">{isVi ? 'Người thụ hưởng' : 'Beneficiary'}</option>
+            <option value="executor">{isVi ? 'Người thi hành' : 'Executor'}</option>
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label={isVi ? 'Lọc theo trạng thái' : 'Filter by status'}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              color: 'var(--color-text)',
+              fontSize: '13.5px',
+            }}
+          >
+            <option value="ALL">{isVi ? 'Tất cả trạng thái' : 'All Statuses'}</option>
+            <option value="verified">{isVi ? 'Đã xác thực' : 'Verified'}</option>
+            <option value="pending">{isVi ? 'Chờ xác nhận' : 'Pending'}</option>
+            <option value="revoked">{isVi ? 'Đã thu hồi' : 'Revoked'}</option>
+            <option value="rejected">{isVi ? 'Đã từ chối' : 'Declined'}</option>
+          </select>
         </div>
 
         {loading ? (
           <div style={{ padding: '32px 0' }}>
-            <LoadingState label={search.trim() ? (isVi ? 'Đang tìm kiếm…' : 'Searching contacts…') : (isVi ? 'Đang tải danh bạ…' : 'Loading contacts…')} />
+            <LoadingState
+              label={
+                hasActiveFilter
+                  ? isVi
+                    ? 'Đang tìm kiếm…'
+                    : 'Searching contacts…'
+                  : isVi
+                  ? 'Đang tải danh bạ…'
+                  : 'Loading contacts…'
+              }
+            />
           </div>
         ) : showEmpty ? (
           <div className="empty-state">
             <div className="empty-icon">
-              {search.trim() ? <Search size={36} strokeWidth={1.5} /> : <Users size={36} strokeWidth={1.5} />}
+              {hasActiveFilter ? (
+                <Search size={36} strokeWidth={1.5} />
+              ) : (
+                <Users size={36} strokeWidth={1.5} />
+              )}
             </div>
             <h2>
-              {search.trim()
-                ? (isVi ? 'Không tìm thấy kết quả' : 'No Contacts Found')
-                : (isVi ? 'Chưa có người liên hệ nào' : 'No Contacts Yet')}
+              {hasActiveFilter
+                ? isVi
+                  ? 'Không tìm thấy kết quả'
+                  : 'No Contacts Found'
+                : isVi
+                ? 'Chưa có người liên hệ nào'
+                : 'No Contacts Yet'}
             </h2>
             <p>
-              {search.trim()
-                ? (isVi
-                    ? `Không tìm thấy người liên hệ nào phù hợp với từ khóa "${search.trim()}".`
-                    : `No contacts found matching "${search.trim()}".`)
-                : (isVi
-                    ? 'Thêm người thụ hưởng hoặc người thi hành đầu tiên để bắt đầu phân chia tài sản số.'
-                    : 'You have not added any contacts yet. Add your first trusted contact to start assigning assets.')}
+              {hasActiveFilter
+                ? isVi
+                  ? 'Không tìm thấy người liên hệ nào phù hợp với bộ lọc hiện tại.'
+                  : 'No contacts found matching the current search and filters.'
+                : isVi
+                ? 'Thêm người thụ hưởng hoặc người thi hành đầu tiên để bắt đầu phân chia tài sản số.'
+                : 'You have not added any contacts yet. Add your first trusted contact to start assigning assets.'}
             </p>
-            {search.trim() ? (
-              <Button variant="secondary" onClick={() => setSearch('')}>
-                {isVi ? 'Xóa từ khóa tìm kiếm' : 'Clear Search'}
+            {hasActiveFilter ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSearch('')
+                  setRoleFilter('ALL')
+                  setStatusFilter('ALL')
+                }}
+              >
+                {isVi ? 'Xóa bộ lọc tìm kiếm' : 'Clear Filters'}
               </Button>
             ) : (
-              <Button onClick={() => { setModalError(null); setModalOpen(true) }}>
+              <Button onClick={openAddModal}>
                 <Plus size={16} />
                 {isVi ? 'Thêm người liên hệ đầu tiên' : 'Add Your First Contact'}
               </Button>
@@ -369,14 +575,24 @@ export default function ContactsPage() {
                       <td>
                         <span className="badge">
                           {isBoth
-                            ? (isVi ? 'Cả hai' : 'Beneficiary & Executor')
+                            ? isVi
+                              ? 'Cả hai'
+                              : 'Beneficiary & Executor'
                             : isExec
-                            ? (isVi ? 'Người thi hành' : 'Executor')
-                            : (isVi ? 'Người thụ hưởng' : 'Beneficiary')}
+                            ? isVi
+                              ? 'Người thi hành'
+                              : 'Executor'
+                            : isVi
+                            ? 'Người thụ hưởng'
+                            : 'Beneficiary'}
                         </span>
                       </td>
                       <td>
-                        <span className={`badge ${isVerified ? 'green' : isRejected ? 'red' : 'amber'}`}>
+                        <span
+                          className={`badge ${
+                            isVerified ? 'green' : isRejected ? 'red' : 'amber'
+                          }`}
+                        >
                           {isVerified ? (
                             <>
                               <CheckCircle size={12} style={{ marginRight: 4 }} />
@@ -386,8 +602,12 @@ export default function ContactsPage() {
                             <>
                               <XCircle size={12} style={{ marginRight: 4 }} />
                               {c.rawStatus === 'revoked'
-                                ? (isVi ? 'Đã thu hồi' : 'Revoked')
-                                : (isVi ? 'Đã từ chối' : 'Declined')}
+                                ? isVi
+                                  ? 'Đã thu hồi'
+                                  : 'Revoked'
+                                : isVi
+                                ? 'Đã từ chối'
+                                : 'Declined'}
                             </>
                           ) : (
                             <>
@@ -397,36 +617,34 @@ export default function ContactsPage() {
                           )}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          {/* Nút Thu hồi khi đang Pending */}
-                          {c.status === 'pending' && (
+                      <td style={{ verticalAlign: 'middle', minWidth: '150px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {/* Hàng 1: Nút Sửa bên trái & Nút Thùng rác đỏ nhỏ ở góc trên bên phải */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <button
                               type="button"
                               disabled={actionLoading}
-                              onClick={() => setConfirmAction({ type: 'revoke', contact: c })}
+                              onClick={() => openEditModal(c)}
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '4px',
-                                padding: '4px 10px',
+                                padding: '4px 9px',
                                 fontSize: '12px',
                                 fontWeight: '500',
-                                color: '#d97706',
-                                background: 'rgba(245, 158, 11, 0.1)',
-                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                color: 'var(--color-primary, #0f766e)',
+                                background: 'rgba(15, 118, 110, 0.08)',
+                                border: '1px solid rgba(15, 118, 110, 0.25)',
                                 borderRadius: '6px',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
                               }}
-                              title={isVi ? 'Thu hồi lời mời này' : 'Revoke this invitation'}
+                              title={isVi ? 'Chỉnh sửa thông tin hoặc vai trò' : 'Edit contact or role'}
                             >
-                              <RotateCcw size={12} />
-                              {isVi ? 'Thu hồi' : 'Revoke'}
+                              <Edit2 size={12} />
+                              {isVi ? 'Sửa' : 'Edit'}
                             </button>
-                          )}
 
-                          {/* Nút Xóa khi đã Verified hoặc Rejected */}
-                          {c.status !== 'pending' && (
+                            {/* Nút Thùng rác đỏ nhỏ ở góc trên bên phải */}
                             <button
                               type="button"
                               disabled={actionLoading}
@@ -434,22 +652,117 @@ export default function ContactsPage() {
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '4px',
-                                padding: '4px 10px',
-                                fontSize: '12px',
-                                fontWeight: '500',
-                                color: '#ef4444',
-                                background: 'rgba(239, 68, 68, 0.1)',
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                justifyContent: 'center',
+                                width: '26px',
+                                height: '26px',
+                                padding: 0,
                                 borderRadius: '6px',
-                                cursor: 'pointer'
+                                color: '#ef4444',
+                                background: 'rgba(239, 68, 68, 0.08)',
+                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'
+                                e.currentTarget.style.borderColor = '#ef4444'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)'
                               }}
                               title={isVi ? 'Xóa người liên hệ này' : 'Delete this contact'}
                             >
-                              <Trash2 size={12} />
-                              {isVi ? 'Xóa' : 'Delete'}
+                              <Trash2 size={13} />
                             </button>
-                          )}
+                          </div>
+
+                          {/* Hàng 2: Các nút trạng thái (Thu hồi quyền / Gửi lại / Thu hồi lời mời) */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                            {/* Nút Gửi lại lời mời khi chưa Verified */}
+                            {!isVerified && (
+                              <button
+                                type="button"
+                                disabled={actionLoading}
+                                onClick={() => handleResendInvite(c)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '4px 9px',
+                                  fontSize: '12px',
+                                  fontWeight: '500',
+                                  color: '#2563eb',
+                                  background: 'rgba(37, 99, 235, 0.08)',
+                                  border: '1px solid rgba(37, 99, 235, 0.25)',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                }}
+                                title={isVi ? 'Gửi lại email lời mời' : 'Resend invitation email'}
+                              >
+                                <Mail size={12} />
+                                {isVi ? 'Gửi lại' : 'Resend'}
+                              </button>
+                            )}
+
+                            {/* Nút Thu hồi lời mời khi đang Pending */}
+                            {c.status === 'pending' && (
+                              <button
+                                type="button"
+                                disabled={actionLoading}
+                                onClick={() => setConfirmAction({ type: 'revoke', contact: c })}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '4px 9px',
+                                  fontSize: '12px',
+                                  fontWeight: '500',
+                                  color: '#d97706',
+                                  background: 'rgba(245, 158, 11, 0.1)',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                }}
+                                title={isVi ? 'Thu hồi lời mời này' : 'Revoke this invitation'}
+                              >
+                                <RotateCcw size={12} />
+                                {isVi ? 'Thu hồi' : 'Revoke'}
+                              </button>
+                            )}
+
+                            {/* Nút Thu hồi quyền khi đã Verified */}
+                            {isVerified && (
+                              <button
+                                type="button"
+                                disabled={actionLoading}
+                                onClick={() =>
+                                  setConfirmAction({ type: 'revokeAccess', contact: c })
+                                }
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '4px 9px',
+                                  fontSize: '12px',
+                                  fontWeight: '500',
+                                  color: '#d97706',
+                                  background: 'rgba(245, 158, 11, 0.1)',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                }}
+                                title={
+                                  isVi
+                                    ? 'Thu hồi quyền truy cập kho của người liên hệ này'
+                                    : 'Revoke vault access for this contact'
+                                }
+                              >
+                                <RotateCcw size={12} />
+                                {isVi ? 'Thu hồi quyền' : 'Revoke Access'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -467,6 +780,7 @@ export default function ContactsPage() {
           onMouseDown={() => {
             if (!submitting) {
               setModalOpen(false)
+              setEditingContact(null)
               setModalError(null)
             }
           }}
@@ -474,10 +788,26 @@ export default function ContactsPage() {
           <form
             className="flow-modal"
             onMouseDown={(e) => e.stopPropagation()}
-            onSubmit={handleAddContact}
+            onSubmit={handleSaveContact}
           >
-            <h2>{isVi ? 'Thêm người liên hệ mới' : 'Add New Contact'}</h2>
-            <p>{isVi ? 'Thêm người đáng tin cậy để phân bổ tài sản hoặc chỉ định người thi hành.' : 'Add a trusted person to allocate your digital assets or act as an executor.'}</p>
+            <h2>
+              {editingContact
+                ? isVi
+                  ? 'Chỉnh sửa người liên hệ'
+                  : 'Edit Contact'
+                : isVi
+                ? 'Thêm người liên hệ mới'
+                : 'Add New Contact'}
+            </h2>
+            <p>
+              {editingContact
+                ? isVi
+                  ? 'Cập nhật thông tin hoặc thay đổi vai trò chỉ định của người liên hệ.'
+                  : 'Update contact details or change their assigned role in your vault.'
+                : isVi
+                ? 'Thêm người đáng tin cậy để phân bổ tài sản hoặc chỉ định người thi hành.'
+                : 'Add a trusted person to allocate your digital assets or act as an executor.'}
+            </p>
 
             {modalError && (
               <div style={{ marginBottom: '16px' }}>
@@ -500,11 +830,13 @@ export default function ContactsPage() {
               onChange={(e) => setForm({ ...form, relationship: e.target.value })}
               disabled={submitting}
             >
-              {['Spouse', 'Child', 'Parent', 'Sibling', 'Friend', 'Attorney', 'Other'].map((rel) => (
-                <option key={rel} value={rel}>
-                  {rel}
-                </option>
-              ))}
+              {['Spouse', 'Child', 'Parent', 'Sibling', 'Friend', 'Attorney', 'Other'].map(
+                (rel) => (
+                  <option key={rel} value={rel}>
+                    {rel}
+                  </option>
+                ),
+              )}
             </select>
 
             <label className="flow-form-label">Email</label>
@@ -514,7 +846,7 @@ export default function ContactsPage() {
               placeholder="name@example.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              disabled={submitting}
+              disabled={submitting || Boolean(editingContact)}
             />
 
             <label className="flow-form-label">{isVi ? 'Vai trò chỉ định' : 'Expected Role'}</label>
@@ -523,8 +855,12 @@ export default function ContactsPage() {
               onChange={(e) => setForm({ ...form, role: e.target.value })}
               disabled={submitting}
             >
-              <option value="Beneficiary">{isVi ? 'Người thụ hưởng (Beneficiary)' : 'Beneficiary'}</option>
-              <option value="Executor">{isVi ? 'Người thi hành di chúc (Executor)' : 'Executor'}</option>
+              <option value="Beneficiary">
+                {isVi ? 'Người thụ hưởng (Beneficiary)' : 'Beneficiary'}
+              </option>
+              <option value="Executor">
+                {isVi ? 'Người thi hành di chúc (Executor)' : 'Executor'}
+              </option>
               <option value="Both">{isVi ? 'Cả hai (Both)' : 'Both'}</option>
             </select>
 
@@ -535,37 +871,71 @@ export default function ContactsPage() {
                 disabled={submitting}
                 onClick={() => {
                   setModalOpen(false)
+                  setEditingContact(null)
                   setModalError(null)
                 }}
               >
                 {isVi ? 'Hủy' : 'Cancel'}
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? (isVi ? 'Đang lưu…' : 'Saving…') : (isVi ? 'Lưu người liên hệ' : 'Save Contact')}
+                {submitting
+                  ? isVi
+                    ? 'Đang lưu…'
+                    : 'Saving…'
+                  : editingContact
+                  ? isVi
+                    ? 'Cập nhật liên hệ'
+                    : 'Update Contact'
+                  : isVi
+                  ? 'Lưu người liên hệ'
+                  : 'Save Contact'}
               </Button>
             </div>
           </form>
         </div>
       )}
+
       {confirmAction && (
         <div className="flow-modal-overlay">
           <div className="flow-modal" style={{ maxWidth: '440px' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '18px', color: confirmAction.type === 'delete' ? '#ef4444' : '#f59e0b' }}>
+            <h3
+              style={{
+                margin: '0 0 12px',
+                fontSize: '18px',
+                color: confirmAction.type === 'delete' ? '#ef4444' : '#f59e0b',
+              }}
+            >
               {confirmAction.type === 'delete'
-                ? (isVi ? 'Xác nhận xóa liên hệ' : 'Confirm Delete Contact')
-                : (isVi ? 'Xác nhận thu hồi lời mời' : 'Confirm Revoke Invitation')}
+                ? isVi
+                  ? 'Xác nhận xóa liên hệ'
+                  : 'Confirm Delete Contact'
+                : confirmAction.type === 'revokeAccess'
+                ? isVi
+                  ? 'Xác nhận thu hồi quyền truy cập'
+                  : 'Confirm Revoke Vault Access'
+                : isVi
+                ? 'Xác nhận thu hồi lời mời'
+                : 'Confirm Revoke Invitation'}
             </h3>
             <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: '1.6', margin: '0 0 24px' }}>
               {confirmAction.type === 'delete'
-                ? (isVi
-                    ? `CẢNH BÁO: Xóa "${confirmAction.contact.name || confirmAction.contact.email}" sẽ thu hồi toàn bộ quyền truy cập kho di sản và hủy các chỉ định thừa kế liên quan. Hành động này không thể hoàn tác!`
-                    : `WARNING: Deleting "${confirmAction.contact.name || confirmAction.contact.email}" will revoke all vault access and associated asset assignments. This cannot be undone!`)
-                : (isVi
-                    ? `Bạn có chắc chắn muốn thu hồi lời mời gửi tới "${confirmAction.contact.name || confirmAction.contact.email}"? Liên kết trong email đã gửi sẽ bị vô hiệu hóa ngay lập tức.`
-                    : `Are you sure you want to revoke the invitation sent to "${confirmAction.contact.name || confirmAction.contact.email}"? The link in the sent email will be invalidated immediately.`)}
+                ? isVi
+                  ? `CẢNH BÁO: Xóa "${confirmAction.contact.name || confirmAction.contact.email}" sẽ thu hồi toàn bộ quyền truy cập kho di sản và hủy các chỉ định thừa kế liên quan. Hành động này không thể hoàn tác!`
+                  : `WARNING: Deleting "${confirmAction.contact.name || confirmAction.contact.email}" will revoke all vault access and associated asset assignments. This cannot be undone!`
+                : confirmAction.type === 'revokeAccess'
+                ? isVi
+                  ? `Bạn có chắc chắn muốn thu hồi quyền truy cập kho di sản của "${confirmAction.contact.name || confirmAction.contact.email}"? Người này sẽ chuyển sang trạng thái Đã thu hồi (Revoked) cho tới khi bạn gửi lại lời mời.`
+                  : `Are you sure you want to revoke vault access for "${confirmAction.contact.name || confirmAction.contact.email}"? Their status will change to Revoked until you resend an invitation.`
+                : isVi
+                ? `Bạn có chắc chắn muốn thu hồi lời mời gửi tới "${confirmAction.contact.name || confirmAction.contact.email}"? Liên kết trong email đã gửi sẽ bị vô hiệu hóa ngay lập tức.`
+                : `Are you sure you want to revoke the invitation sent to "${confirmAction.contact.name || confirmAction.contact.email}"? The link in the sent email will be invalidated immediately.`}
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <Button variant="secondary" disabled={actionLoading} onClick={() => setConfirmAction(null)}>
+              <Button
+                variant="secondary"
+                disabled={actionLoading}
+                onClick={() => setConfirmAction(null)}
+              >
                 {isVi ? 'Hủy bỏ' : 'Cancel'}
               </Button>
               <button
@@ -581,14 +951,20 @@ export default function ContactsPage() {
                   background: confirmAction.type === 'delete' ? '#ef4444' : '#d97706',
                   border: 'none',
                   cursor: actionLoading ? 'not-allowed' : 'pointer',
-                  opacity: actionLoading ? 0.7 : 1
+                  opacity: actionLoading ? 0.7 : 1,
                 }}
               >
                 {actionLoading
-                  ? (isVi ? 'Đang xử lý…' : 'Processing…')
+                  ? isVi
+                    ? 'Đang xử lý…'
+                    : 'Processing…'
                   : confirmAction.type === 'delete'
-                  ? (isVi ? 'Xóa liên hệ' : 'Delete')
-                  : (isVi ? 'Thu hồi' : 'Revoke')}
+                  ? isVi
+                    ? 'Xóa liên hệ'
+                    : 'Delete'
+                  : isVi
+                  ? 'Thu hồi'
+                  : 'Revoke'}
               </button>
             </div>
           </div>
