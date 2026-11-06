@@ -283,7 +283,17 @@ function AuthorizationPanel({ handover, user, t, onChange }) {
 
 function AssetsPanel({ handover, user, t, onChange }) {
   const c = t.caseView
-  const [opened, setOpened] = useState({}) // assetId → content (kept in memory only)
+  const [opened, setOpened] = useState(() => {
+    const init = {}
+    if (handover.status === HANDOVER_STATUS.COMPLETED && Array.isArray(handover.assets)) {
+      handover.assets.forEach((a) => {
+        if (a.protectedContent) {
+          init[a.id] = a.protectedContent
+        }
+      })
+    }
+    return init
+  })
   const [busyId, setBusyId] = useState(null)
   const [failure, setFailure] = useState(null)
 
@@ -347,8 +357,23 @@ function AssetsPanel({ handover, user, t, onChange }) {
                 {(asset.documents?.length ?? 0) ? (
                   <ul className="file-list file-list--compact">
                     {(asset.documents || []).map((doc) => (
-                      <li key={doc.id} className="file-list__item">
-                        <span className="file-list__name"><Icon name="fileText" size={15} /> {doc.name}</span>
+                      <li key={doc.id} className="file-list__item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="file-list__name">
+                          <Icon name="fileText" size={15} />{' '}
+                          {doc.url ? (
+                            <a
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: '#0f766e', fontWeight: 600, textDecoration: 'underline' }}
+                              title="Tải / Xem tệp đính kèm"
+                            >
+                              {doc.name}
+                            </a>
+                          ) : (
+                            doc.name
+                          )}
+                        </span>
                         <span className="file-list__size">{formatFileSize(doc.size)}</span>
                       </li>
                     ))}

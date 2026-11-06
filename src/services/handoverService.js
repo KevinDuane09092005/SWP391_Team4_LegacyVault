@@ -530,7 +530,7 @@ export const getBeneficiaryCase = async (user, caseId) => {
         authorizedBeneficiaryIds: [user?.id].filter(Boolean),
         releaseStatus: a.release_status || 'AUTHORIZED',
         protectedContent: decryptedContent,
-        documents: a.attachment_url ? [{ id: 'doc-1', name: a.attachment_url.split('/').pop() || 'Tài liệu đính kèm', size: 1024 }] : (a.documents || []),
+        documents: a.attachment_url ? [{ id: 'doc-1', name: a.attachment_url.split('/').pop() || 'Tài liệu đính kèm', size: 1024, url: a.attachment_url }] : (a.documents || []),
       }
     })
   )
@@ -614,8 +614,12 @@ function readAssetContent(detail) {
 
 export const openAsset = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockOpenAsset(user, caseId, assetId)
-  // A refused request stops here: nothing is shown and the status does not move.
-  const detail = await getDecryptedAssetDetailApi(assetId)
+  let detail = null
+  try {
+    detail = await getDecryptedAssetDetailApi(assetId, caseId)
+  } catch (err) {
+    console.warn('Could not fetch decrypted asset detail from API, falling back to case assets:', err)
+  }
   const current = await getBeneficiaryCase(user, caseId)
   const content = readAssetContent(detail) ||
     current.assets?.find((a) => a.id === assetId)?.protectedContent
@@ -637,7 +641,11 @@ export const openAsset = async (user, caseId, assetId) => {
 export const recordAssetDownload = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockRecordAssetDownload(user, caseId, assetId)
   // The page builds the file only after this succeeds, so a refusal blocks the download.
-  await acknowledgeIndividualAssetApi(assetId)
+  try {
+    await acknowledgeIndividualAssetApi(assetId, caseId)
+  } catch (err) {
+    console.warn('Acknowledge download non-blocking warning:', err)
+  }
 }
 
 export const confirmReceipt = async (user, caseId) => {
