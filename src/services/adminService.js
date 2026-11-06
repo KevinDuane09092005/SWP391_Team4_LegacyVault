@@ -15,9 +15,9 @@ import { IS_DEMO_MODE, apiFetch } from './apiClient.js'
 export { IS_DEMO_MODE }
 
 // 1. GET /admin/dashboard
-export async function getAdminDashboardApi() {
+export async function getAdminDashboardApi(user) {
   if (IS_DEMO_MODE) {
-    const users = await mockAdminListUsers()
+    const users = await mockAdminListUsers(user)
     return {
       metrics: {
         total_users: users.length,

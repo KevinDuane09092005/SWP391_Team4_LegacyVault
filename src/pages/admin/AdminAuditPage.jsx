@@ -35,7 +35,7 @@ export default function AdminAuditPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => exportAuditLogsCsvApi({ from_date: filters.from, to_date: filters.to })}
+            onClick={() => exportAuditLogsCsvApi({ user, from_date: filters.from, to_date: filters.to })}
           >
             <Icon name="download" size={16} />
             <span>{language === 'vi' ? 'Xuất CSV' : 'Export CSV'}</span>

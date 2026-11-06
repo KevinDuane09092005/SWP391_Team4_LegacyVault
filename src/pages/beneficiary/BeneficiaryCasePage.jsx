@@ -21,6 +21,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import {
   confirmReceipt,
   getBeneficiaryCase,
+  isDemoMode,
   openAsset,
   recordAssetDownload,
   runAuthorizationCheck,
@@ -309,8 +310,7 @@ function AssetsPanel({ handover, user, t, onChange }) {
       setFailure({ assetId: asset.id, error: err })
       return
     }
-    const isMock = opened[asset.id]?.includes('autumn · harbor · classic')
-    const disclaimer = isMock ? `\n\n${c.demoDecrypt}\n` : ''
+    const disclaimer = isDemoMode() ? `\n\n${c.demoDecrypt}\n` : ''
     const text = `${asset.name}\n${handover.id}\n\n${opened[asset.id]}${disclaimer}\n`
     const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
     const link = document.createElement('a')
@@ -377,7 +377,7 @@ function AssetsPanel({ handover, user, t, onChange }) {
                     ) : (
                       <p style={{ whiteSpace: 'pre-wrap', fontWeight: 500, margin: '0 0 10px 0' }}>{content}</p>
                     )}
-                    {content.includes('autumn · harbor · classic') && (
+                    {isDemoMode() && (
                       <small><Icon name="info" size={13} /> {c.demoDecrypt}</small>
                     )}
                     {access.allowed && (

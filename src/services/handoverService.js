@@ -10,6 +10,7 @@ import {
   mockStartHandover,
   mockVerifyIdentity,
 } from '../mocks/mockHandoverStore.js'
+import { HandoverError } from '../handover/HandoverError.js'
 import { IS_DEMO_MODE, isDemoMode, apiFetch } from './apiClient.js'
 
 export { IS_DEMO_MODE, isDemoMode }
@@ -429,7 +430,7 @@ export const listBeneficiaryCases = async (user) => {
             status: mappedStatus,
             vault: {
               name: d.vault_owner?.vault_name || 'Kho di sản số (Digital Vault)',
-              ownerName: d.vault_owner?.name || c.vault_owner || 'LE LAM SINH',
+              ownerName: d.vault_owner?.name || c.vault_owner || '—',
             },
             beneficiary: {
               userId: user?.id,
@@ -437,10 +438,10 @@ export const listBeneficiaryCases = async (user) => {
               email: bEmail,
             },
             assets: rawAssets.map((a, idx) => ({
-              id: a.asset_id || a.id || (a.asset_name === 'TÀI KHOẢN NGÂN HÀNG' ? '1e7eda85-861b-4ccc-ab31-f407241c5059' : `asset-${idx + 1}`),
+              id: a.asset_id || a.id || `asset-${idx + 1}`,
               name: a.asset_name || a.name || 'Tài sản số',
               category: (a.category || a.asset_type || 'BANK_ACCOUNT').toUpperCase().replace(/\s+/g, '_'),
-              description: a.description || (a.asset_name === 'TÀI KHOẢN NGÂN HÀNG' ? 'Đây là tài thông tin tài khoản ngân hàng VCB' : ''),
+              description: a.description || '',
               forThisBeneficiary: true,
               authorizedBeneficiaryIds: [user?.id].filter(Boolean),
             })),
@@ -501,7 +502,7 @@ export const getBeneficiaryCase = async (user, caseId) => {
   const assets = await Promise.all(
     rawAssets.map(async (a, idx) => {
       const rawId = a.asset_id || a.id
-      const assetId = rawId || (a.asset_name === 'TÀI KHOẢN NGÂN HÀNG' ? '1e7eda85-861b-4ccc-ab31-f407241c5059' : `asset-${idx + 1}`)
+      const assetId = rawId || `asset-${idx + 1}`
       let decryptedContent = a.credentials || a.passphrase || a.decrypted_credentials || a.content || ''
       let description = a.description || ''
 
@@ -524,7 +525,7 @@ export const getBeneficiaryCase = async (user, caseId) => {
         id: assetId,
         name: a.asset_name || a.name || 'Tài sản số',
         category: (a.category || a.asset_type || 'BANK_ACCOUNT').toUpperCase().replace(/\s+/g, '_'),
-        description: description || a.description || (a.asset_name === 'TÀI KHOẢN NGÂN HÀNG' ? 'Đây là tài thông tin tài khoản ngân hàng VCB' : ''),
+        description: description || a.description || '',
         forThisBeneficiary: true,
         authorizedBeneficiaryIds: [user?.id].filter(Boolean),
         releaseStatus: a.release_status || 'AUTHORIZED',
@@ -542,7 +543,7 @@ export const getBeneficiaryCase = async (user, caseId) => {
     legalCaseId: caseNum,
     vault: {
       name: d.vault_owner?.vault_name || d.vault_name || 'Kho di sản số (Digital Vault)',
-      ownerName: typeof d.vault_owner === 'string' ? d.vault_owner : d.vault_owner?.name || 'LE LAM SINH',
+      ownerName: typeof d.vault_owner === 'string' ? d.vault_owner : d.vault_owner?.name || '—',
       ownerEmail: d.vault_owner?.email || '',
     },
     beneficiary: {
@@ -589,11 +590,8 @@ export const verifyIdentity = async (user, caseId, form) => {
 
 export const runAuthorizationCheck = async (user, caseId) => {
   if (isDemoMode()) return mockRunAuthorizationCheck(user, caseId)
-  try {
-    await dispatchSecureHandoverApi(caseId)
-  } catch (err) {
-    console.warn('Dispatch API call error (proceeding):', err)
-  }
+  // A refused dispatch must stop here: the page shows the error and the assets stay locked.
+  await dispatchSecureHandoverApi(caseId)
   const current = await getBeneficiaryCase(user, caseId)
   return {
     ...current,
@@ -607,45 +605,21 @@ export const runAuthorizationCheck = async (user, caseId) => {
   }
 }
 
+// The decrypted text from the asset detail response, or '' when there is none.
+function readAssetContent(detail) {
+  const data = detail?.decrypted_credential_data
+  const value = data?.passphrase || data?.credential_data || data || detail?.content || ''
+  return typeof value === 'string' ? value : JSON.stringify(value)
+}
+
 export const openAsset = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockOpenAsset(user, caseId, assetId)
-  let content = ''
-  try {
-    const detail = await getDecryptedAssetDetailApi(assetId, caseId)
-    content = detail?.decrypted_credential_data?.passphrase ||
-      detail?.decrypted_credential_data?.credential_data ||
-      detail?.decrypted_credential_data ||
-      detail?.content ||
-      ''
-  } catch (e) {
-    console.warn('Decrypted asset detail fallback:', e)
-  }
-
-  // If content was not found or is default placeholder, try fetching with known DB asset ID if needed
-  if (!content || content.includes('autumn · harbor · classic')) {
-    if (assetId !== '1e7eda85-861b-4ccc-ab31-f407241c5059') {
-      try {
-        const detail = await getDecryptedAssetDetailApi('1e7eda85-861b-4ccc-ab31-f407241c5059', caseId)
-        const pass = detail?.decrypted_credential_data?.passphrase || detail?.decrypted_credential_data?.credential_data
-        if (pass && !pass.includes('autumn · harbor · classic')) {
-          content = pass
-        }
-      } catch {
-        // ignore
-      }
-    }
-  }
-
+  // A refused request stops here: nothing is shown and the status does not move.
+  const detail = await getDecryptedAssetDetailApi(assetId)
   const current = await getBeneficiaryCase(user, caseId)
-  if (!content) {
-    const foundAsset = current.assets?.find((a) => a.id === assetId)
-    if (foundAsset?.protectedContent) {
-      content = foundAsset.protectedContent
-    }
-  }
-  if (!content) {
-    content = 'autumn · harbor · classic · secure · vault · inheritance · legacy'
-  }
+  const content = readAssetContent(detail) ||
+    current.assets?.find((a) => a.id === assetId)?.protectedContent
+  if (!content) throw new HandoverError('ASSET_CONTENT_UNAVAILABLE')
   const accessed = Array.from(new Set([...(current.accessedAssetIds || []), assetId]))
   const nextStatus = current.status === 'READY_FOR_ACCESS' ? 'RECEIPT_PENDING' : current.status
   const updatedCase = {
@@ -662,23 +636,14 @@ export const openAsset = async (user, caseId, assetId) => {
 
 export const recordAssetDownload = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockRecordAssetDownload(user, caseId, assetId)
-  try {
-    await acknowledgeIndividualAssetApi(assetId, caseId)
-  } catch {
-    // non-fatal
-  }
+  // The page builds the file only after this succeeds, so a refusal blocks the download.
+  await acknowledgeIndividualAssetApi(assetId)
 }
 
 export const confirmReceipt = async (user, caseId) => {
   if (isDemoMode()) return mockConfirmReceipt(user, caseId)
-  try {
-    await confirmReceivedAndCloseCaseApi({
-      accept_digital_estate_custody: true,
-      case_ref: caseId,
-    }, caseId)
-  } catch (e) {
-    console.warn('Confirm received API error:', e)
-  }
+  // COMPLETED is shown only after the backend accepted the confirmation.
+  await confirmReceivedAndCloseCaseApi({ accept_digital_estate_custody: true })
   const current = await getBeneficiaryCase(user, caseId)
   return {
     ...current,

@@ -29,7 +29,7 @@ export default function AdminOverviewPage() {
   const t = flow7Content[language]
   const o = t.admin.overview
   const { status, data, error, reload } = useAsync(
-    () => Promise.all([getAdminDashboardApi(), listUsers(user), listAuditLog(user)]),
+    () => Promise.all([getAdminDashboardApi(user), listUsers(user), listAuditLog(user)]),
     user.id,
   )
   const [confirming, setConfirming] = useState(false)
