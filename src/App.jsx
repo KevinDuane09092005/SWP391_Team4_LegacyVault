@@ -1,5 +1,6 @@
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop.jsx'
+import FloatingAIChat from './components/ai-chat/FloatingAIChat.jsx'
 import { DashboardRedirect, RedirectIfSignedIn, RequireAuth } from './auth/guards.jsx'
 import { ROLES } from './auth/roles.js'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage.jsx'
@@ -41,9 +42,11 @@ import ExecutorSubmissionPage from './pages/verifier/ExecutorSubmissionPage.jsx'
 // All pages of the app.
 // Placeholder text lives in src/data/placeholderContent.js, keyed by `page`.
 export default function App() {
+  const location = useLocation()
   return (
     <>
       <ScrollToTop />
+      <FloatingAIChat key={location.pathname} />
       <Routes>
         {/* Public pages */}
         <Route path="/" element={<LandingPage />} />

@@ -236,10 +236,6 @@ export default function FloatingAIChat() {
   const visible = Boolean(user) && location.pathname.startsWith('/dashboard')
 
   useEffect(() => {
-    if (!visible) setOpen(false)
-  }, [visible])
-
-  useEffect(() => {
     if (!open) return undefined
     function escapeClose(event) { if (event.key === 'Escape') setOpen(false) }
     window.addEventListener('keydown', escapeClose)

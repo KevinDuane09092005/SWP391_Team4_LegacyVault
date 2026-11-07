@@ -4,9 +4,10 @@ Frontend prototype for **LegacyVault — Digital Legacy Management and Digital A
 
 Built with **React**, **Vite**, **JavaScript**, plain **CSS**, and **React Router**.
 
-> **Prototype notice:** this is a frontend only. There is no backend, database, real sign-in, encryption,
-> legal verification, or background monitoring. Nothing you type is saved anywhere — refreshing the page
-> resets it. Any statuses shown in later pages are simulated for demonstration.
+> **Prototype notice:** this is a university project. The frontend can use the Spring Boot backend or demo data,
+> depending on configuration. The chatbot conversation stays in browser memory; in API mode, messages are sent
+> to the authenticated backend for an AI reply and are not stored by the chatbot feature. Never enter passwords,
+> OTPs, recovery phrases, or private keys in the chat.
 
 ## Requirements
 
@@ -39,6 +40,26 @@ Press `Ctrl + C` in the terminal to stop the server.
 | `npm run build`   | Builds an optimised production version into `dist/`        |
 | `npm run preview` | Serves the `dist/` build locally to check it               |
 | `npm run lint`    | Checks the code with ESLint                                |
+
+## AI assistant integration
+
+The floating assistant is available on signed-in `/dashboard/...` pages. It has two modes:
+
+- `VITE_CHAT_API_MODE=demo` uses curated local sample replies and does not call the backend.
+- `VITE_CHAT_API_MODE=api` calls `POST /api/v1/chatbot/suggestions` and
+  `POST /api/v1/chatbot/message` through the existing API client (including the signed-in token).
+
+To connect it to the Spring Boot chatbot, copy `.env.example` to `.env.local`, keep
+`VITE_CHAT_API_MODE=api`, and run the backend on `http://localhost:8080` (the Vite proxy target).
+Configure `OPENAI_API_KEY` only in the backend environment. Do not place provider credentials in any
+`VITE_...` variable or frontend file. Without a backend key, the backend returns a clear “AI not configured”
+message; suggested questions remain locally available from the backend FAQ endpoint.
+
+Run the chatbot contract checks with:
+
+```bash
+node --test tests/ai-chat.test.mjs
+```
 
 ## Project structure
 
