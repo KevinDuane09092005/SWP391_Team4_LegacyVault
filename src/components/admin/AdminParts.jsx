@@ -5,7 +5,6 @@ import { flow7Content } from '../../data/flow7Content.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { formatDisplayDateTime } from '../../vault/format.js'
 import { adminPaths } from '../../admin/adminPaths.js'
-import { IS_DEMO_MODE } from '../../services/adminService.js'
 import '../../styles/forms.css'
 import '../../styles/vault.css'
 import '../../styles/flow3-4.css'
@@ -14,7 +13,7 @@ import '../../styles/admin.css'
 
 // Flow 7 — shared Administration pieces.
 
-// Flow 1 top bar + side menu (same layout as the Vault Owner area) + demo notice.
+// Shared administration layout and tables.
 export function AdminLayout({ children }) {
   const { language } = useLanguage()
   const t = flow7Content[language].admin
@@ -39,21 +38,11 @@ export function AdminLayout({ children }) {
           ))}
         </nav>
         <div className="owner-content">
-          {IS_DEMO_MODE && (
-            <p className="demo-banner">
-              <Icon name="info" size={16} />
-              <span>{t.demo}</span>
-            </p>
-          )}
           {children}
         </div>
       </div>
     </DashboardLayout>
   )
-}
-
-export function PrototypeOnlyNotice() {
-  return null
 }
 
 export function OutcomeBadge({ outcome, severity }) {
@@ -96,7 +85,6 @@ export function AuditTable({ entries }) {
             <tr key={entry.id}>
               <td className="admin-table__nowrap">
                 {formatDisplayDateTime(entry.at)}
-                {entry.seeded && <small className="admin-muted"> · {t.seeded}</small>}
               </td>
               <td>
                 {entry.actor?.name ?? t.anonymous}

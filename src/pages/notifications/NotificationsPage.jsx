@@ -2,7 +2,6 @@ import { useState } from 'react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import DashboardLayout from '../../components/dashboard/DashboardLayout.jsx'
-import Icon from '../../components/Icon.jsx'
 import { NotificationList } from '../../components/notifications/NotificationParts.jsx'
 import useMyNotifications from '../../hooks/useMyNotifications.js'
 import { EmptyState, ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
@@ -10,7 +9,7 @@ import { useAuth } from '../../auth/AuthContext.jsx'
 import { getDashboardPath } from '../../auth/roles.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
-import { IS_DEMO_MODE, markAllNotificationsRead, markNotificationRead } from '../../services/notificationService.js'
+import { markAllNotificationsRead, markNotificationRead } from '../../services/notificationService.js'
 import '../../styles/vault.css'
 import '../../styles/admin.css'
 
@@ -38,12 +37,6 @@ export default function NotificationsPage() {
 
   return (
     <DashboardLayout>
-      {IS_DEMO_MODE && (
-        <p className="demo-banner">
-          <Icon name="info" size={16} />
-          <span>{n.demo}</span>
-        </p>
-      )}
       <div className="page-head">
         <div>
           <h1 className="page-title">{n.title}</h1>

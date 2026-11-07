@@ -54,6 +54,7 @@ export const DEFAULT_INTEGRATIONS = [
   { id: 'storage', name: 'Cloud backup storage', category: 'BACKUP', enabled: false },
   { id: 'esign', name: 'Digital signature service', category: 'LEGAL', enabled: false },
   { id: 'enotary', name: 'Electronic notary portal', category: 'LEGAL', enabled: false },
+  { id: 'ai-assistant', name: 'AI Assistant', category: 'AI', enabled: false },
 ]
 
 export const USER_STATUS = { ACTIVE: 'ACTIVE', SUSPENDED: 'SUSPENDED' }

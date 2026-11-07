@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
-import { AdminLayout, PrototypeOnlyNotice } from '../../components/admin/AdminParts.jsx'
+import { AdminLayout } from '../../components/admin/AdminParts.jsx'
 import { ConfirmDialog } from '../../components/handover/HandoverParts.jsx'
 import { ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
@@ -48,8 +48,6 @@ export default function AdminRolesPage() {
           <p className="page-text">{r.text}</p>
         </div>
       </div>
-
-      <PrototypeOnlyNotice />
 
       {message && <FormAlert tone={message.tone}>{message.text}</FormAlert>}
       {status === 'loading' && <LoadingState label={t.loading} />}

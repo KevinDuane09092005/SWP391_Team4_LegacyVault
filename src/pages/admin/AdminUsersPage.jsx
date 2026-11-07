@@ -13,7 +13,7 @@ import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { listUsers, setUserRole, setUserStatus } from '../../services/adminService.js'
 
-// Flow 7 — Manage users (demo): suspend / activate and change role, each with confirmation.
+// Manage user accounts, access status and role assignments.
 export default function AdminUsersPage() {
   const { user } = useAuth()
   const { language } = useLanguage()

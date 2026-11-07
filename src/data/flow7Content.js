@@ -7,12 +7,11 @@ const en = {
   confirm: 'Confirm',
   save: 'Save',
   saving: 'Saving…',
-  saved: 'Saved (demo).',
+  saved: 'Saved.',
 
   notifications: {
     title: 'Notifications',
     text: 'Events that concern your account. Only your own notifications are shown.',
-    demo: 'Demo in-app notifications: nothing is sent by e-mail, SMS or push.',
     bell: (count) => (count ? `Notifications, ${count} unread` : 'Notifications'),
     markAll: 'Mark all as read',
     markRead: 'Mark as read',
@@ -37,8 +36,8 @@ const en = {
         text: (p) => `The executor started handover ${p.caseId} from ${p.ownerName}. Verify your identity to continue.`,
       },
       IDENTITY_VERIFIED: {
-        title: 'Identity verified (demo)',
-        text: (p) => `Your identity for ${p.caseId} was verified by the demo check. Next: authorization check.`,
+        title: 'Identity verified',
+        text: (p) => `Identity verification for ${p.caseId} is complete. Next: authorization check.`,
       },
       VERIFICATION_LOCKED: {
         title: 'Verification locked',
@@ -62,15 +61,15 @@ const en = {
       },
       ACCOUNT_STATUS_CHANGED: {
         title: 'Account status changed',
-        text: (p) => `An administrator set your account to ${p.status} (demo: sign-in is not affected).`,
+        text: (p) => `An administrator changed your account status to ${p.status}.`,
       },
       ACCOUNT_ROLE_CHANGED: {
         title: 'Account role changed',
-        text: (p) => `An administrator changed your role to ${p.role} (demo: your access is not affected).`,
+        text: (p) => `An administrator changed your role to ${p.role}.`,
       },
       PERMISSIONS_CHANGED: {
         title: 'Role permissions changed',
-        text: (p) => `${p.granted ? 'Granted' : 'Removed'} "${p.permission}" for role ${p.role} (demo only).`,
+        text: (p) => `${p.granted ? 'Granted' : 'Removed'} "${p.permission}" for role ${p.role}.`,
       },
     },
   },
@@ -94,13 +93,12 @@ const en = {
       POLICY_CHANGED: 'Policy changed',
       INTEGRATION_CHANGED: 'Integration changed',
       ADMIN_ACCESS: 'Admin area access',
-      DEMO_DATA_RESET: 'Demo data reset',
+      DEMO_DATA_RESET: 'System data reset',
     },
     outcomes: { SUCCESS: 'Success', FAILURE: 'Failed', DENIED: 'Denied' },
     severities: { INFO: 'Info', WARNING: 'Warning', CRITICAL: 'Critical' },
     columns: { time: 'Time', actor: 'Actor', action: 'Action', entity: 'Related', outcome: 'Outcome', details: 'Details' },
     anonymous: 'anonymous',
-    seeded: 'seed',
     filters: {
       search: 'Actor, case or entity',
       action: 'Action',
@@ -117,9 +115,6 @@ const en = {
 
   admin: {
     badge: 'Administration',
-    demo:
-      'Demo administration: changes are saved in this browser, audited and notified, but they do not change sign-in, ' +
-      'route guards, encryption keys, backups or any third-party service.',
     nav: {
       label: 'Administration sections',
       overview: 'Overview',
@@ -150,16 +145,16 @@ const en = {
       requestApproved: 'Access request approved.',
       requestRejected: 'Access request rejected.',
       viewAll: 'View audit log',
-      reset: 'Reset all demo data',
-      resetTitle: 'Reset all demo data?',
+      reset: 'Reset data',
+      resetTitle: 'Reset application data?',
       resetText:
-        'Handover progress, notifications, admin settings and the demo audit log in this browser are cleared. ' +
-        'The reset itself is recorded.',
-      resetDone: 'Demo data was reset.',
+        'Handover progress, notifications, administration settings and audit history will be cleared. ' +
+        'This action will be recorded.',
+      resetDone: 'Application data was reset.',
     },
     users: {
       title: 'Manage users',
-      text: 'Demo accounts from Flow 1. Changing a status or role here does not change how they sign in.',
+      text: 'Manage user accounts, roles and access status.',
       name: 'Name',
       account: 'Account',
       role: 'Role',
@@ -173,11 +168,11 @@ const en = {
       confirmStatus: (name, status) => `Set ${name} to ${status}?`,
       confirmRole: (name, role) => `Change the role of ${name} to ${role}?`,
       confirmText: 'The user is notified and the change is written to the audit log.',
-      changed: 'Change saved (demo).',
+      changed: 'Changes saved.',
     },
     roles: {
       title: 'Roles & permissions',
-      text: 'What each role may do. The route guards in the app keep their own rules; this matrix is a demo record.',
+      text: 'Review and manage the permissions assigned to each role.',
       permission: 'Permission',
       locked: 'Required for administrators',
       labels: {
@@ -192,13 +187,11 @@ const en = {
         'notifications.view': 'See own notifications',
       },
       confirm: (granted, permission, role) => `${granted ? 'Grant' : 'Remove'} "${permission}" ${granted ? 'to' : 'from'} ${role}?`,
-      confirmText: 'Users with this role are notified and the change is audited. Real access is not affected.',
+      confirmText: 'Users with this role will be notified and the change will be recorded in the audit log.',
     },
     auditPage: {
       title: 'Audit log & security alerts',
       text: 'Important actions from every flow. Passwords, OTP codes, ID numbers, keys and asset contents are never recorded.',
-      warning:
-        'Demo audit log stored in this browser. It is not a secure, tamper-proof, server-side audit trail.',
     },
     policies: {
       title: 'Encryption, backup & Dead Man’s Switch policies',
@@ -226,14 +219,15 @@ const en = {
     },
     integrations: {
       title: 'Third-party integrations',
-      text: 'Services the platform could connect to. None is connected: switching one on only records the setting.',
-      status: { on: 'Enabled (demo)', off: 'Disabled' },
+      text: 'Manage services used for notifications, identity verification, backups, legal workflows and AI assistance.',
+      status: { on: 'Enabled', off: 'Disabled' },
       notConnected: 'Not connected',
+      chatbotName: 'AI Assistant',
       enable: 'Enable',
       disable: 'Disable',
-      categories: { NOTIFICATION: 'Notifications', IDENTITY: 'Identity', BACKUP: 'Backup', LEGAL: 'Legal' },
+      categories: { NOTIFICATION: 'Notifications', IDENTITY: 'Identity', BACKUP: 'Backup', LEGAL: 'Legal', AI: 'AI assistance' },
       confirm: (enabled, name) => `${enabled ? 'Enable' : 'Disable'} ${name}?`,
-      confirmText: 'No connection is made. The change is only recorded and audited.',
+      confirmText: 'Confirm this integration setting change.',
     },
   },
 
@@ -255,12 +249,11 @@ const vi = {
   confirm: 'Xác nhận',
   save: 'Lưu',
   saving: 'Đang lưu…',
-  saved: 'Đã lưu (demo).',
+  saved: 'Đã lưu.',
 
   notifications: {
     title: 'Thông báo',
     text: 'Các sự kiện liên quan đến tài khoản của bạn. Chỉ hiển thị thông báo của chính bạn.',
-    demo: 'Thông báo demo trong ứng dụng: không gửi e-mail, SMS hay push.',
     bell: (count) => (count ? `Thông báo, ${count} chưa đọc` : 'Thông báo'),
     markAll: 'Đánh dấu tất cả đã đọc',
     markRead: 'Đánh dấu đã đọc',
@@ -285,8 +278,8 @@ const vi = {
         text: (p) => `Người thực thi đã bắt đầu bàn giao ${p.caseId} từ ${p.ownerName}. Hãy xác minh danh tính để tiếp tục.`,
       },
       IDENTITY_VERIFIED: {
-        title: 'Đã xác minh danh tính (demo)',
-        text: (p) => `Danh tính của bạn cho ${p.caseId} đã qua kiểm tra demo. Tiếp theo: kiểm tra quyền.`,
+        title: 'Đã xác minh danh tính',
+        text: (p) => `Việc xác minh danh tính cho ${p.caseId} đã hoàn tất. Tiếp theo: kiểm tra quyền.`,
       },
       VERIFICATION_LOCKED: {
         title: 'Xác minh bị khóa',
@@ -310,15 +303,15 @@ const vi = {
       },
       ACCOUNT_STATUS_CHANGED: {
         title: 'Trạng thái tài khoản thay đổi',
-        text: (p) => `Quản trị viên đã đặt tài khoản của bạn thành ${p.status} (demo: không ảnh hưởng đăng nhập).`,
+        text: (p) => `Quản trị viên đã đổi trạng thái tài khoản của bạn thành ${p.status}.`,
       },
       ACCOUNT_ROLE_CHANGED: {
         title: 'Vai trò tài khoản thay đổi',
-        text: (p) => `Quản trị viên đã đổi vai trò của bạn thành ${p.role} (demo: quyền truy cập không đổi).`,
+        text: (p) => `Quản trị viên đã đổi vai trò của bạn thành ${p.role}.`,
       },
       PERMISSIONS_CHANGED: {
         title: 'Quyền của vai trò thay đổi',
-        text: (p) => `${p.granted ? 'Cấp' : 'Gỡ'} quyền "${p.permission}" cho vai trò ${p.role} (chỉ demo).`,
+        text: (p) => `${p.granted ? 'Cấp' : 'Gỡ'} quyền "${p.permission}" cho vai trò ${p.role}.`,
       },
     },
   },
@@ -342,13 +335,12 @@ const vi = {
       POLICY_CHANGED: 'Đổi chính sách',
       INTEGRATION_CHANGED: 'Đổi tích hợp',
       ADMIN_ACCESS: 'Truy cập khu quản trị',
-      DEMO_DATA_RESET: 'Đặt lại dữ liệu demo',
+      DEMO_DATA_RESET: 'Đặt lại dữ liệu hệ thống',
     },
     outcomes: { SUCCESS: 'Thành công', FAILURE: 'Thất bại', DENIED: 'Bị từ chối' },
     severities: { INFO: 'Thông tin', WARNING: 'Cảnh báo', CRITICAL: 'Nghiêm trọng' },
     columns: { time: 'Thời gian', actor: 'Người thực hiện', action: 'Hành động', entity: 'Liên quan', outcome: 'Kết quả', details: 'Chi tiết' },
     anonymous: 'ẩn danh',
-    seeded: 'mẫu',
     filters: {
       search: 'Người thực hiện, hồ sơ hoặc đối tượng',
       action: 'Hành động',
@@ -365,9 +357,6 @@ const vi = {
 
   admin: {
     badge: 'Quản trị',
-    demo:
-      'Quản trị demo: thay đổi được lưu trên trình duyệt này, có audit và thông báo, nhưng không thay đổi đăng nhập, ' +
-      'phân quyền route, khóa mã hóa, sao lưu hay dịch vụ bên thứ ba nào.',
     nav: {
       label: 'Các mục quản trị',
       overview: 'Tổng quan',
@@ -398,16 +387,16 @@ const vi = {
       requestApproved: 'Đã chấp thuận yêu cầu truy cập.',
       requestRejected: 'Đã từ chối yêu cầu truy cập.',
       viewAll: 'Xem audit log',
-      reset: 'Đặt lại toàn bộ dữ liệu demo',
-      resetTitle: 'Đặt lại toàn bộ dữ liệu demo?',
+      reset: 'Đặt lại dữ liệu',
+      resetTitle: 'Đặt lại dữ liệu ứng dụng?',
       resetText:
-        'Tiến độ bàn giao, thông báo, cài đặt quản trị và audit log demo trên trình duyệt này sẽ bị xóa. ' +
-        'Việc đặt lại cũng được ghi lại.',
-      resetDone: 'Đã đặt lại dữ liệu demo.',
+        'Tiến độ bàn giao, thông báo, cài đặt quản trị và lịch sử audit sẽ bị xóa. ' +
+        'Thao tác này sẽ được ghi lại.',
+      resetDone: 'Đã đặt lại dữ liệu ứng dụng.',
     },
     users: {
       title: 'Quản lý người dùng',
-      text: 'Các tài khoản demo của Flow 1. Đổi trạng thái hay vai trò ở đây không thay đổi cách họ đăng nhập.',
+      text: 'Quản lý tài khoản người dùng, vai trò và trạng thái truy cập.',
       name: 'Họ tên',
       account: 'Tài khoản',
       role: 'Vai trò',
@@ -421,11 +410,11 @@ const vi = {
       confirmStatus: (name, status) => `Đặt ${name} thành ${status}?`,
       confirmRole: (name, role) => `Đổi vai trò của ${name} thành ${role}?`,
       confirmText: 'Người dùng sẽ được thông báo và thay đổi được ghi vào audit log.',
-      changed: 'Đã lưu thay đổi (demo).',
+      changed: 'Đã lưu thay đổi.',
     },
     roles: {
       title: 'Vai trò & quyền',
-      text: 'Mỗi vai trò được làm gì. Route guard trong ứng dụng vẫn giữ quy tắc riêng; ma trận này chỉ là bản ghi demo.',
+      text: 'Xem và quản lý các quyền được gán cho từng vai trò.',
       permission: 'Quyền',
       locked: 'Bắt buộc cho quản trị viên',
       labels: {
@@ -440,12 +429,11 @@ const vi = {
         'notifications.view': 'Xem thông báo của mình',
       },
       confirm: (granted, permission, role) => `${granted ? 'Cấp' : 'Gỡ'} quyền "${permission}" ${granted ? 'cho' : 'khỏi'} ${role}?`,
-      confirmText: 'Người dùng có vai trò này sẽ được thông báo và thay đổi được audit. Quyền truy cập thật không đổi.',
+      confirmText: 'Người dùng có vai trò này sẽ được thông báo và thay đổi sẽ được ghi vào audit log.',
     },
     auditPage: {
       title: 'Audit log & cảnh báo bảo mật',
       text: 'Các hành động quan trọng từ mọi flow. Mật khẩu, mã OTP, số giấy tờ, khóa và nội dung tài sản không bao giờ được ghi.',
-      warning: 'Audit log demo lưu trên trình duyệt này. Đây không phải audit trail an toàn, chống sửa đổi phía server.',
     },
     policies: {
       title: 'Chính sách mã hóa, sao lưu & Dead Man’s Switch',
@@ -473,14 +461,15 @@ const vi = {
     },
     integrations: {
       title: 'Tích hợp bên thứ ba',
-      text: 'Các dịch vụ nền tảng có thể kết nối. Chưa có dịch vụ nào được kết nối: bật chỉ ghi lại cài đặt.',
-      status: { on: 'Đã bật (demo)', off: 'Đã tắt' },
+      text: 'Quản lý các dịch vụ thông báo, xác minh danh tính, sao lưu, quy trình pháp lý và trợ lý AI.',
+      status: { on: 'Đã bật', off: 'Đã tắt' },
       notConnected: 'Chưa kết nối',
+      chatbotName: 'Trợ lý AI',
       enable: 'Bật',
       disable: 'Tắt',
-      categories: { NOTIFICATION: 'Thông báo', IDENTITY: 'Định danh', BACKUP: 'Sao lưu', LEGAL: 'Pháp lý' },
+      categories: { NOTIFICATION: 'Thông báo', IDENTITY: 'Định danh', BACKUP: 'Sao lưu', LEGAL: 'Pháp lý', AI: 'Trợ lý AI' },
       confirm: (enabled, name) => `${enabled ? 'Bật' : 'Tắt'} ${name}?`,
-      confirmText: 'Không có kết nối nào được tạo. Thay đổi chỉ được ghi lại và audit.',
+      confirmText: 'Xác nhận thay đổi cài đặt tích hợp này.',
     },
   },
 

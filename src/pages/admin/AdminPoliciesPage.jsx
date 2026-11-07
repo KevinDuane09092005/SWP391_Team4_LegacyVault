@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import FormField from '../../components/auth/FormField.jsx'
-import { AdminLayout, PrototypeOnlyNotice } from '../../components/admin/AdminParts.jsx'
+import { AdminLayout } from '../../components/admin/AdminParts.jsx'
 import { ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
@@ -25,7 +25,6 @@ export default function AdminPoliciesPage() {
           <p className="page-text">{t.admin.policies.text}</p>
         </div>
       </div>
-      <PrototypeOnlyNotice />
       {status === 'loading' && <LoadingState label={t.loading} />}
       {status === 'error' && <ErrorState message={flow7ErrorText(t, error)} retryLabel={t.retry} onRetry={reload} />}
       {status === 'ready' && <PolicyForm key={JSON.stringify(data.policies)} initial={data.policies} options={data.options} />}

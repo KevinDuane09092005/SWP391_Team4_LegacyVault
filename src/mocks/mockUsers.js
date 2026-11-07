@@ -12,7 +12,7 @@ export const DEMO_OTP_CODE = '123456'
 export const mockUsers = [
   {
     id: 'demo-admin',
-    fullName: 'Demo Admin',
+    fullName: 'System Administrator',
     identifier: 'admin@legacyvault.demo',
     role: ROLES.ADMIN,
   },

@@ -22,7 +22,7 @@ import { listAuditLog } from '../../services/auditService.js'
 
 const RECENT_ALERTS = 5
 
-// Flow 7 — Admin dashboard: totals, recent security alerts, demo reset.
+// Administration overview: totals, recent security alerts and access requests.
 export default function AdminOverviewPage() {
   const { user } = useAuth()
   const { language } = useLanguage()
