@@ -452,3 +452,495 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- Beneficiary Dashboard Redesign ---------- */
+
+.beneficiary-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 28px;
+  margin-bottom: 22px;
+  border: 1px solid var(--color-border-accent);
+  border-radius: var(--radius-lg);
+  background: var(--gradient-panel);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.beneficiary-hero__copy {
+  display: grid;
+  gap: 10px;
+  max-width: 680px;
+}
+
+.beneficiary-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.beneficiary-hero__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.beneficiary-hero .page-title {
+  margin: 0;
+}
+
+.beneficiary-hero .page-text {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.beneficiary-hero__emblem {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 68px;
+  height: 68px;
+  border-radius: 18px;
+  border: 1px solid var(--color-border-accent);
+  background-color: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+/* KPI Strip */
+.beneficiary-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.beneficiary-kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.beneficiary-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.beneficiary-kpi-card__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.beneficiary-kpi-card__icon--amber {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.beneficiary-kpi-card__icon--neutral {
+  background-color: var(--color-surface-muted);
+  color: var(--color-muted);
+}
+
+.beneficiary-kpi-card__body {
+  min-width: 0;
+}
+
+.beneficiary-kpi-card__label {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.beneficiary-kpi-card__value {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-heading);
+  font-size: 1.5rem;
+  font-weight: 750;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.beneficiary-kpi-card__hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+/* Handovers Section Header */
+.beneficiary-section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.beneficiary-section-bar h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  color: var(--color-heading);
+}
+
+.beneficiary-count-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background-color: var(--color-surface-muted);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Legacy Case Card */
+.beneficiary-case-list {
+  display: grid;
+  gap: 18px;
+}
+
+.beneficiary-case-card {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  padding: 22px 24px;
+  border-left: 4px solid var(--color-primary);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.beneficiary-case-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.beneficiary-case-card--pending {
+  border-left-color: #d97706;
+}
+
+.beneficiary-case-card--danger {
+  border-left-color: var(--color-danger);
+}
+
+.beneficiary-case-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.beneficiary-case-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.beneficiary-case-card__badge-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.beneficiary-case-card--pending .beneficiary-case-card__badge-icon {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.beneficiary-case-card--danger .beneficiary-case-card__badge-icon {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.beneficiary-case-card__title {
+  margin: 2px 0 0;
+  font-size: 1.125rem;
+  color: var(--color-heading);
+  word-break: break-word;
+}
+
+/* 4-step Mini Pipeline */
+.beneficiary-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.beneficiary-stepper__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-subtle);
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.beneficiary-stepper__dot {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--color-surface-muted);
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.beneficiary-stepper__step.is-done {
+  border-color: var(--color-border-accent);
+  background-color: var(--color-highlight-bg);
+  color: var(--color-primary);
+}
+
+.beneficiary-stepper__step.is-done .beneficiary-stepper__dot {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.beneficiary-stepper__step.is-current {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface);
+  color: var(--color-heading);
+}
+
+.beneficiary-stepper__step.is-current .beneficiary-stepper__dot {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent-border);
+}
+
+/* Meta Bento inside Card */
+.beneficiary-case-bento {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 1.7fr);
+  gap: 14px;
+}
+
+.beneficiary-meta-box {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-subtle);
+}
+
+.beneficiary-meta-box__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.beneficiary-meta-box__value {
+  color: var(--color-heading);
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.beneficiary-meta-box__sub {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+/* Asset Preview Chips */
+.beneficiary-asset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.beneficiary-asset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-heading);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.beneficiary-asset-chip svg {
+  color: var(--color-primary);
+}
+
+.beneficiary-asset-chip--more {
+  border-style: dashed;
+  background-color: var(--color-surface-muted);
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+/* Footer CTA Bar */
+.beneficiary-case-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.beneficiary-next-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background-color: var(--color-surface-muted);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.beneficiary-next-pill--done {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.beneficiary-next-pill--danger {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* Claim Modal Polish */
+.beneficiary-claim-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.beneficiary-claim-title-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.beneficiary-claim-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.beneficiary-claim-close {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.beneficiary-claim-close:hover:not(:disabled) {
+  background-color: var(--color-surface-muted);
+  color: var(--color-heading);
+}
+
+@media (max-width: 900px) {
+  .beneficiary-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .beneficiary-stepper {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .beneficiary-case-bento {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .beneficiary-hero {
+    padding: 20px;
+  }
+
+  .beneficiary-hero__emblem {
+    display: none;
+  }
+
+  .beneficiary-stepper {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beneficiary-kpi-card,
+  .beneficiary-case-card {
+    transition: none;
+  }
+
+  .beneficiary-kpi-card:hover,
+  .beneficiary-case-card:hover {
+    transform: none;
+  }
+}
