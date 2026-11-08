@@ -240,7 +240,6 @@ export function CaseDetail({ record, onApprove, onReject, onView, working, t }) 
 
 export function ApproveDialog({ record, close, confirm, working, error, t }) {
   const [note, setNote] = useState('')
-  const [pin, setPin] = useState('')
   const [checked, setChecked] = useState(false)
 
   return (
@@ -262,19 +261,6 @@ export function ApproveDialog({ record, close, confirm, working, error, t }) {
           onChange={(e) => setNote(e.target.value)}
           placeholder={t.dialogs.notePlaceholder}
           maxLength={1000}
-        />
-
-        <label className="field-label" htmlFor="verifier-pin">
-          {t.dialogs.verifierPin}{' '}
-          <span className="field-optional">{t.dialogs.pinOptional}</span>
-        </label>
-        <input
-          id="verifier-pin"
-          type="password"
-          autoComplete="off"
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          placeholder={t.dialogs.pinPlaceholder}
         />
 
         <label className="confirm-check">
@@ -307,9 +293,7 @@ export function ApproveDialog({ record, close, confirm, working, error, t }) {
         <Button
           variant="primary"
           disabled={!checked || working}
-          onClick={() =>
-            confirm({ signature_note: note.trim(), verifier_pin: pin })
-          }
+          onClick={() => confirm({ signature_note: note.trim() })}
         >
           {working ? t.actions.processing : t.actions.approve}
         </Button>

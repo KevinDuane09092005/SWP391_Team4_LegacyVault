@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   CheckCircle,
   Clock,
   Edit2,
   Mail,
+  MoreVertical,
   Plus,
   RotateCcw,
   Search,
@@ -49,6 +51,8 @@ export default function ContactsPage() {
   // Quản lý hộp thoại xác nhận: { type: 'revoke' | 'revokeAccess' | 'delete', contact: object }
   const [confirmAction, setConfirmAction] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [openMenu, setOpenMenu] = useState(null)
+  const menuRef = useRef(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -150,7 +154,52 @@ export default function ContactsPage() {
     return () => window.removeEventListener('focus', onFocus)
   }, [fetchContacts, search])
 
+  // Đóng menu ⋮ khi bấm ra ngoài, cuộn trang, đổi kích thước hoặc nhấn Escape
+  useEffect(() => {
+    if (!openMenu) return undefined
+    const handleOutside = (event) => {
+      if (menuRef.current && menuRef.current.contains(event.target)) return
+      if (event.target.closest?.('.contact-more-btn')) return
+      setOpenMenu(null)
+    }
+    const handleKey = (event) => {
+      if (event.key === 'Escape') setOpenMenu(null)
+    }
+    const handleClose = () => setOpenMenu(null)
+
+    document.addEventListener('mousedown', handleOutside)
+    window.addEventListener('keydown', handleKey)
+    window.addEventListener('scroll', handleClose, true)
+    window.addEventListener('resize', handleClose)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      window.removeEventListener('keydown', handleKey)
+      window.removeEventListener('scroll', handleClose, true)
+      window.removeEventListener('resize', handleClose)
+    }
+  }, [openMenu])
+
+  const handleToggleMenu = (event, contact) => {
+    event.stopPropagation()
+    const targetId = contact.contactId || contact.id
+    if (openMenu && (openMenu.contact.contactId || openMenu.contact.id) === targetId) {
+      setOpenMenu(null)
+      return
+    }
+    const rect = event.currentTarget.getBoundingClientRect()
+    const estimatedHeight = contact.status === 'pending' ? 148 : 112
+    const openUp = rect.bottom + 6 + estimatedHeight > window.innerHeight - 12
+    setOpenMenu({
+      contact,
+      top: rect.bottom + 6,
+      bottom: window.innerHeight - rect.top + 6,
+      right: Math.max(12, window.innerWidth - rect.right),
+      openUp,
+    })
+  }
+
   const openAddModal = () => {
+    setOpenMenu(null)
     setEditingContact(null)
     setForm({
       name: '',
@@ -163,12 +212,13 @@ export default function ContactsPage() {
   }
 
   const openEditModal = (contact) => {
+    setOpenMenu(null)
     setEditingContact(contact)
     setForm({
       name: contact.fullName || contact.name || '',
       relationship: contact.relationship || 'Spouse',
       email: contact.email || '',
-      role: contact.role || 'Beneficiary',
+      role: contact.role === 'Executor' ? 'Executor' : 'Beneficiary',
     })
     setModalError(null)
     setModalOpen(true)
@@ -557,18 +607,21 @@ export default function ContactsPage() {
                   <th>Email</th>
                   <th>{isVi ? 'Vai trò kỳ vọng' : 'Expected Role'}</th>
                   <th>{isVi ? 'Trạng thái' : 'Status'}</th>
-                  <th>{isVi ? 'Thao tác' : 'Actions'}</th>
+                  <th className="contact-actions-th">{isVi ? 'Thao tác' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => {
+                  const contactId = c.contactId || c.id
                   const isBoth = (c.isBeneficiary && c.isExecutor) || c.role === 'Both'
                   const isExec = !isBoth && (c.isExecutor || c.role === 'Executor')
                   const isVerified = c.status === 'verified'
                   const isRejected = c.status === 'rejected'
+                  const isMenuOpen =
+                    openMenu && (openMenu.contact.contactId || openMenu.contact.id) === contactId
 
                   return (
-                    <tr key={c.contactId || c.id}>
+                    <tr key={contactId}>
                       <td className="strong">{c.fullName || c.name}</td>
                       <td>{c.relationship}</td>
                       <td>{c.email}</td>
@@ -617,152 +670,49 @@ export default function ContactsPage() {
                           )}
                         </span>
                       </td>
-                      <td style={{ verticalAlign: 'middle', minWidth: '150px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {/* Hàng 1: Nút Sửa bên trái & Nút Thùng rác đỏ nhỏ ở góc trên bên phải */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <td className="contact-actions-td">
+                        <div className="contact-action-group">
+                          {isVerified ? (
                             <button
                               type="button"
+                              className="contact-primary-btn contact-primary-btn--edit"
                               disabled={actionLoading}
                               onClick={() => openEditModal(c)}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '4px 9px',
-                                fontSize: '12px',
-                                fontWeight: '500',
-                                color: 'var(--color-primary, #0f766e)',
-                                background: 'rgba(15, 118, 110, 0.08)',
-                                border: '1px solid rgba(15, 118, 110, 0.25)',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                              }}
-                              title={isVi ? 'Chỉnh sửa thông tin hoặc vai trò' : 'Edit contact or role'}
+                              title={
+                                isVi ? 'Chỉnh sửa thông tin hoặc vai trò' : 'Edit contact or role'
+                              }
                             >
-                              <Edit2 size={12} />
+                              <Edit2 size={13} />
                               {isVi ? 'Sửa' : 'Edit'}
                             </button>
-
-                            {/* Nút Thùng rác đỏ nhỏ ở góc trên bên phải */}
+                          ) : (
                             <button
                               type="button"
+                              className="contact-primary-btn contact-primary-btn--resend"
                               disabled={actionLoading}
-                              onClick={() => setConfirmAction({ type: 'delete', contact: c })}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '26px',
-                                height: '26px',
-                                padding: 0,
-                                borderRadius: '6px',
-                                color: '#ef4444',
-                                background: 'rgba(239, 68, 68, 0.08)',
-                                border: '1px solid rgba(239, 68, 68, 0.25)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
+                              onClick={() => {
+                                setOpenMenu(null)
+                                handleResendInvite(c)
                               }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'
-                                e.currentTarget.style.borderColor = '#ef4444'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'
-                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)'
-                              }}
-                              title={isVi ? 'Xóa người liên hệ này' : 'Delete this contact'}
+                              title={isVi ? 'Gửi lại email lời mời' : 'Resend invitation email'}
                             >
-                              <Trash2 size={13} />
+                              <Mail size={13} />
+                              {isVi ? 'Gửi lại' : 'Resend'}
                             </button>
-                          </div>
+                          )}
 
-                          {/* Hàng 2: Các nút trạng thái (Thu hồi quyền / Gửi lại / Thu hồi lời mời) */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                            {/* Nút Gửi lại lời mời khi chưa Verified */}
-                            {!isVerified && (
-                              <button
-                                type="button"
-                                disabled={actionLoading}
-                                onClick={() => handleResendInvite(c)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '4px 9px',
-                                  fontSize: '12px',
-                                  fontWeight: '500',
-                                  color: '#2563eb',
-                                  background: 'rgba(37, 99, 235, 0.08)',
-                                  border: '1px solid rgba(37, 99, 235, 0.25)',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                }}
-                                title={isVi ? 'Gửi lại email lời mời' : 'Resend invitation email'}
-                              >
-                                <Mail size={12} />
-                                {isVi ? 'Gửi lại' : 'Resend'}
-                              </button>
-                            )}
-
-                            {/* Nút Thu hồi lời mời khi đang Pending */}
-                            {c.status === 'pending' && (
-                              <button
-                                type="button"
-                                disabled={actionLoading}
-                                onClick={() => setConfirmAction({ type: 'revoke', contact: c })}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '4px 9px',
-                                  fontSize: '12px',
-                                  fontWeight: '500',
-                                  color: '#d97706',
-                                  background: 'rgba(245, 158, 11, 0.1)',
-                                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                }}
-                                title={isVi ? 'Thu hồi lời mời này' : 'Revoke this invitation'}
-                              >
-                                <RotateCcw size={12} />
-                                {isVi ? 'Thu hồi' : 'Revoke'}
-                              </button>
-                            )}
-
-                            {/* Nút Thu hồi quyền khi đã Verified */}
-                            {isVerified && (
-                              <button
-                                type="button"
-                                disabled={actionLoading}
-                                onClick={() =>
-                                  setConfirmAction({ type: 'revokeAccess', contact: c })
-                                }
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '4px 9px',
-                                  fontSize: '12px',
-                                  fontWeight: '500',
-                                  color: '#d97706',
-                                  background: 'rgba(245, 158, 11, 0.1)',
-                                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                }}
-                                title={
-                                  isVi
-                                    ? 'Thu hồi quyền truy cập kho của người liên hệ này'
-                                    : 'Revoke vault access for this contact'
-                                }
-                              >
-                                <RotateCcw size={12} />
-                                {isVi ? 'Thu hồi quyền' : 'Revoke Access'}
-                              </button>
-                            )}
-                          </div>
+                          <button
+                            type="button"
+                            className={`contact-more-btn${isMenuOpen ? ' is-open' : ''}`}
+                            disabled={actionLoading}
+                            onClick={(e) => handleToggleMenu(e, c)}
+                            aria-haspopup="menu"
+                            aria-expanded={Boolean(isMenuOpen)}
+                            aria-label={isVi ? 'Thêm thao tác' : 'More actions'}
+                            title={isVi ? 'Thêm thao tác' : 'More actions'}
+                          >
+                            <MoreVertical size={15} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -861,7 +811,6 @@ export default function ContactsPage() {
               <option value="Executor">
                 {isVi ? 'Người thi hành di chúc (Executor)' : 'Executor'}
               </option>
-              <option value="Both">{isVi ? 'Cả hai (Both)' : 'Both'}</option>
             </select>
 
             <div className="flow-modal-actions">
@@ -970,6 +919,89 @@ export default function ContactsPage() {
           </div>
         </div>
       )}
+      {openMenu &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="contact-overflow-menu"
+            role="menu"
+            style={{
+              right: `${openMenu.right}px`,
+              ...(openMenu.openUp
+                ? { bottom: `${openMenu.bottom}px` }
+                : { top: `${openMenu.top}px` }),
+            }}
+          >
+            {openMenu.contact.status !== 'verified' && (
+              <button
+                type="button"
+                role="menuitem"
+                className="contact-overflow-item"
+                disabled={actionLoading}
+                onClick={() => {
+                  const target = openMenu.contact
+                  setOpenMenu(null)
+                  openEditModal(target)
+                }}
+              >
+                <Edit2 size={14} />
+                {isVi ? 'Chỉnh sửa liên hệ' : 'Edit'}
+              </button>
+            )}
+
+            {openMenu.contact.status === 'pending' && (
+              <button
+                type="button"
+                role="menuitem"
+                className="contact-overflow-item contact-overflow-item--warn"
+                disabled={actionLoading}
+                onClick={() => {
+                  const target = openMenu.contact
+                  setOpenMenu(null)
+                  setConfirmAction({ type: 'revoke', contact: target })
+                }}
+              >
+                <RotateCcw size={14} />
+                {isVi ? 'Thu hồi lời mời' : 'Revoke Invitation'}
+              </button>
+            )}
+
+            {openMenu.contact.status === 'verified' && (
+              <button
+                type="button"
+                role="menuitem"
+                className="contact-overflow-item contact-overflow-item--warn"
+                disabled={actionLoading}
+                onClick={() => {
+                  const target = openMenu.contact
+                  setOpenMenu(null)
+                  setConfirmAction({ type: 'revokeAccess', contact: target })
+                }}
+              >
+                <RotateCcw size={14} />
+                {isVi ? 'Thu hồi quyền' : 'Revoke Access'}
+              </button>
+            )}
+
+            <div className="contact-overflow-divider" role="separator" />
+
+            <button
+              type="button"
+              role="menuitem"
+              className="contact-overflow-item contact-overflow-item--danger"
+              disabled={actionLoading}
+              onClick={() => {
+                const target = openMenu.contact
+                setOpenMenu(null)
+                setConfirmAction({ type: 'delete', contact: target })
+              }}
+            >
+              <Trash2 size={14} />
+              {isVi ? 'Xóa liên hệ' : 'Delete'}
+            </button>
+          </div>,
+          document.body,
+        )}
     </OwnerLayout>
   )
 }
