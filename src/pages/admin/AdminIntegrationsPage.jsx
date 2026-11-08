@@ -67,7 +67,14 @@ export default function AdminIntegrationsPage() {
               <div className="handover-card__head">
                 <div>
                   <h2 className="section-title">{item.name}</h2>
-                  <small className="admin-muted">{g.categories[item.category] ?? item.category} · {g.notConnected}</small>
+                  <small className="admin-muted">
+                    {g.categories[item.category] ?? item.category} ·{' '}
+                    {item.connectionStatus === 'DEGRADED'
+                      ? g.degraded
+                      : item.connectionStatus === 'HEALTHY' || item.enabled
+                        ? g.connected
+                        : g.notConnected}
+                  </small>
                 </div>
                 <span className={`handover-status handover-status--${item.enabled ? 'info' : 'neutral'}`}>
                   <span className="handover-status__dot" aria-hidden="true" />

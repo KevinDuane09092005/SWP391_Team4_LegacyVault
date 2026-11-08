@@ -34,13 +34,16 @@ export function NotificationList({ items, onMarkRead }) {
       {items.map((item) => {
         const text = t.types[item.type]
         const link = notificationLink(user, item)
+        const titleText = item.title || text?.title || item.type
+        const bodyText = item.text || (text ? text.text(item.params ?? {}) : '')
         return (
           <li key={item.id} className={`notification-item${item.read ? '' : ' is-unread'}`}>
             <div className="notification-item__head">
-              <strong>{text?.title ?? item.type}</strong>
+              <strong>{titleText}</strong>
+              {item.badgeLabel && <span className="badge">{item.badgeLabel}</span>}
               {!item.read && <span className="badge badge--accent">{t.unread}</span>}
             </div>
-            <p>{text ? text.text(item.params ?? {}) : ''}</p>
+            <p>{bodyText}</p>
             <small>
               {formatDisplayDateTime(item.createdAt)}
               {item.caseId && ` · ${t.case} ${item.caseId}`}

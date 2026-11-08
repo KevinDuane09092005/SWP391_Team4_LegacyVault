@@ -58,14 +58,29 @@ export async function getAuditLogsApi({
 }
 
 // 2. GET /admin/audit-logs/export-csv
-export async function exportAuditLogsCsvApi({ user, from_date = '', to_date = '' } = {}) {
+export async function exportAuditLogsCsvApi({
+  user,
+  search = '',
+  role = 'ALL',
+  action = 'ALL',
+  status = 'ALL',
+  from_date = '',
+  to_date = '',
+} = {}) {
   if (IS_DEMO_MODE) {
-    const list = await mockListAudit(user)
-    const header = 'log_id,timestamp,user,role,action,target,status,ip_address\n'
+    const list = await mockListAudit(user, {
+      actor: search,
+      role: role === 'ALL' ? undefined : role,
+      action: action === 'ALL' ? undefined : action,
+      outcome: status === 'ALL' ? undefined : status,
+      from: from_date,
+      to: to_date,
+    })
+    const header = 'log_id,timestamp,user,role,action,target,status,ip_address,details\n'
     const rows = list
       .map(
         (e) =>
-          `"${e.id}","${e.at}","${e.actor?.name || 'System'}","${e.actor?.role || 'SYSTEM'}","${e.action}","${e.entity?.id || ''}","${e.outcome}","127.0.0.1"`
+          `"${e.id}","${e.at}","${e.actor?.name || 'System'}","${e.actor?.role || 'SYSTEM'}","${e.action}","${e.entity?.id || ''}","${e.outcome}","127.0.0.1","${typeof e.details === 'string' ? e.details.replace(/"/g, '""') : JSON.stringify(e.details || {}).replace(/"/g, '""')}"`
       )
       .join('\n')
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' })
@@ -74,6 +89,10 @@ export async function exportAuditLogsCsvApi({ user, from_date = '', to_date = ''
   }
 
   const params = new URLSearchParams({
+    ...(search ? { search } : {}),
+    ...(role && role !== 'ALL' ? { role } : {}),
+    ...(action && action !== 'ALL' ? { action } : {}),
+    ...(status && status !== 'ALL' ? { status } : {}),
     ...(from_date ? { from_date } : {}),
     ...(to_date ? { to_date } : {}),
   })
@@ -88,16 +107,37 @@ export async function exportAuditLogsCsvApi({ user, from_date = '', to_date = ''
 // Admin only
 export const listAuditLog = async (user, filters) => {
   if (IS_DEMO_MODE) return mockListAudit(user, filters)
-  const data = await getAuditLogsApi({
+  const firstPage = await getAuditLogsApi({
     search: filters?.actor,
     role: filters?.role,
     action: filters?.action,
     status: filters?.outcome,
     from_date: filters?.from,
     to_date: filters?.to,
+    page: 0,
     size: 100,
   })
-  const entries = (data?.logs || []).map((l, idx) => {
+  const rawLogs = [...(firstPage?.logs || [])]
+  const totalPages = firstPage?.pagination?.total_pages ?? firstPage?.pagination?.totalPages ?? 1
+  if (totalPages > 1) {
+    const remaining = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, index) =>
+        getAuditLogsApi({
+          search: filters?.actor,
+          role: filters?.role,
+          action: filters?.action,
+          status: filters?.outcome,
+          from_date: filters?.from,
+          to_date: filters?.to,
+          page: index + 1,
+          size: 100,
+        }),
+      ),
+    )
+    rawLogs.push(...remaining.flatMap((pageData) => pageData?.logs || []))
+  }
+
+  const entries = rawLogs.map((l, idx) => {
     const actor = typeof l.user === 'string' ? l.user : l.user?.name || 'System'
     const outcome = String(l.status || 'SUCCESS').toUpperCase()
     return {
@@ -111,8 +151,9 @@ export const listAuditLog = async (user, filters) => {
       entity: { id: l.target || 'System', type: 'RECORD' },
       outcome,
       severity: outcome === 'SUCCESS' ? 'INFO' : 'WARNING',
-      ip_address: l.ip_address,
-      details: {},
+      ip_address: l.ip_address || l.ipAddress || '—',
+      ipAddress: l.ip_address || l.ipAddress || '—',
+      details: l.details || '',
     }
   })
 

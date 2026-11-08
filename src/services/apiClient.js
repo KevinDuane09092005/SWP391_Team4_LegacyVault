@@ -133,6 +133,17 @@ export async function apiFetch(path, options = {}) {
     )
     error.status = response.status
     error.data = details
+    if (details?.code) {
+      error.code = details.code
+    } else if (response.status === 401) {
+      error.code = 'NOT_SIGNED_IN'
+    } else if (response.status === 403) {
+      error.code = 'ADMIN_ONLY'
+    } else if (response.status === 404) {
+      error.code = 'NOT_FOUND'
+    } else if (response.status === 409) {
+      error.code = 'CONFLICT'
+    }
     throw error
   }
 
