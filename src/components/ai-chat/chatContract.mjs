@@ -89,6 +89,11 @@ export function mapChatError(error, language = 'en') {
     INVALID_SUGGESTIONS_RESPONSE: vi ? 'Không tải được câu hỏi gợi ý.' : 'Unable to load suggestions.',
   }
   if (local[error?.message]) return local[error.message]
+  if (error?.status === 503 && error?.data?.code === 'AI_NOT_CONFIGURED') {
+    return vi
+      ? 'Trợ lý AI chưa được cấu hình trên máy chủ. Vui lòng báo quản trị viên.'
+      : 'The AI assistant is not configured on the server yet. Please contact the administrator.'
+  }
   switch (error?.status) {
     case 400: return vi ? 'Câu hỏi không hợp lệ. Hãy chỉnh sửa và thử lại.' : 'Invalid question. Please edit it and try again.'
     case 401: return vi ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : 'Your session has expired. Please sign in again.'
