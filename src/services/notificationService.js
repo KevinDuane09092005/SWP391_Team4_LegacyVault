@@ -103,7 +103,9 @@ export const listMyNotifications = async (user) => {
       extractCaseId(n.subtext)
     return {
       id: n.notification_id || n.id,
-      type: n.badge_label || 'INFO',
+      type: n.event_type || n.eventType || n.badge_label || 'INFO',
+      eventType: n.event_type || n.eventType || null,
+      badgeLabel: n.badge_label || n.badgeLabel || null,
       title: n.title,
       text: n.subtext || n.content,
       createdAt: n.timestamp_formatted || n.timestampFormatted || n.created_at,

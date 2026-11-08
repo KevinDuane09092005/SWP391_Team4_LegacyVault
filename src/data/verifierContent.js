@@ -84,9 +84,6 @@ export const verifierContent = {
       verificationNote: 'Verification note',
       optional: '(optional)',
       notePlaceholder: 'Example: Documents reviewed against supporting legal records.',
-      verifierPin: 'Verifier PIN',
-      pinOptional: '(optional, if backend requires it)',
-      pinPlaceholder: 'Enter verifier PIN',
       confirmCheck:
         'I have reviewed the documents and understand this action requires legal authorization.',
       approveDemoNote: 'Demo mode: no real digital signature or unlock authorization is produced.',
@@ -225,9 +222,6 @@ export const verifierContent = {
       verificationNote: 'Ghi chú thẩm định',
       optional: '(tùy chọn)',
       notePlaceholder: 'Ví dụ: Đã đối chiếu giấy chứng tử với cơ sở dữ liệu hộ tịch.',
-      verifierPin: 'Mã PIN thẩm định viên',
-      pinOptional: '(tùy chọn, nếu backend yêu cầu xác thực PIN)',
-      pinPlaceholder: 'Nhập mã PIN xác nhận',
       confirmCheck:
         'Tôi đã kiểm tra kỹ các tài liệu và hiểu rằng hành động này mang trách nhiệm pháp lý mở khóa kho di sản.',
       approveDemoNote: 'Chế độ mô phỏng: không phát hành chữ ký số hoặc lệnh mở khóa thực tế.',

@@ -77,15 +77,29 @@
   font-weight: 600;
   font-size: 0.75rem;
   height: 40px;
-  padding: 0 16px;
+  padding: 0 12px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .contact-table td {
-  padding: 14px 16px;
+  padding: 14px 12px;
   border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
   color: var(--color-text);
+}
+
+.contact-table th:first-child,
+.contact-table td:first-child {
+  padding-left: 16px;
+}
+
+.contact-table th:last-child,
+.contact-table td:last-child {
+  padding-right: 16px;
 }
 
 .contact-table tr:hover td {
@@ -95,6 +109,186 @@
 .contact-table .strong {
   font-weight: 600;
   color: var(--color-heading);
+}
+
+/* Contacts Actions: Phương án 2 (Primary Action + Overflow Menu) */
+.contact-actions-th {
+  width: 1%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.contact-actions-td {
+  width: 1%;
+  vertical-align: middle;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.contact-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.contact-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 92px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-heading);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.contact-primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.contact-primary-btn--edit:hover:not(:disabled) {
+  border-color: var(--color-border-accent);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.contact-primary-btn--resend:hover:not(:disabled) {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+}
+
+[data-theme='dark'] .contact-primary-btn--resend:hover:not(:disabled) {
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+
+.contact-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.contact-more-btn:hover:not(:disabled),
+.contact-more-btn.is-open {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-muted);
+  color: var(--color-heading);
+}
+
+.contact-more-btn.is-open {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.contact-more-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.contact-overflow-menu {
+  position: fixed;
+  z-index: 950;
+  min-width: 192px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  animation: contactMenuIn 0.14s ease-out;
+}
+
+@keyframes contactMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.contact-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.contact-overflow-item:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+  color: var(--color-heading);
+}
+
+.contact-overflow-item--warn:hover:not(:disabled) {
+  background: #fff5df;
+  color: #b45309;
+}
+
+[data-theme='dark'] .contact-overflow-item--warn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+}
+
+.contact-overflow-item--danger {
+  color: var(--color-danger);
+}
+
+.contact-overflow-item--danger:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.contact-overflow-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--color-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-overflow-menu {
+    animation: none;
+  }
 }
 
 .badge {

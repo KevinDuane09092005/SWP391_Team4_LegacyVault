@@ -16,6 +16,12 @@ export default function AdminPoliciesPage() {
   const { language } = useLanguage()
   const t = flow7Content[language]
   const { status, data, error, reload } = useAsync(() => getPolicies(user), user.id)
+  const [savedMessage, setSavedMessage] = useState(null)
+
+  const handleSaved = () => {
+    setSavedMessage({ tone: 'success', text: t.saved })
+    reload()
+  }
 
   return (
     <AdminLayout>
@@ -25,14 +31,23 @@ export default function AdminPoliciesPage() {
           <p className="page-text">{t.admin.policies.text}</p>
         </div>
       </div>
+      {savedMessage && <FormAlert tone={savedMessage.tone}>{savedMessage.text}</FormAlert>}
       {status === 'loading' && <LoadingState label={t.loading} />}
       {status === 'error' && <ErrorState message={flow7ErrorText(t, error)} retryLabel={t.retry} onRetry={reload} />}
-      {status === 'ready' && <PolicyForm key={JSON.stringify(data.policies)} initial={data.policies} options={data.options} />}
+      {status === 'ready' && (
+        <PolicyForm
+          key={JSON.stringify(data.policies)}
+          initial={data.policies}
+          options={data.options}
+          onSaving={() => setSavedMessage(null)}
+          onSaved={handleSaved}
+        />
+      )}
     </AdminLayout>
   )
 }
 
-function PolicyForm({ initial, options }) {
+function PolicyForm({ initial, options, onSaving, onSaved }) {
   const { user } = useAuth()
   const { language } = useLanguage()
   const t = flow7Content[language]
@@ -63,6 +78,7 @@ function PolicyForm({ initial, options }) {
 
   const submit = async (event) => {
     event.preventDefault()
+    onSaving?.()
     if (rotationError || retentionError || dmsIntervalError || dmsGraceError || dmsRemindersError) {
       setMessage({ tone: 'error', text: p.invalid })
       return
@@ -78,7 +94,7 @@ function PolicyForm({ initial, options }) {
         dmsDefaultGraceDays: dmsGrace,
         dmsMaxReminders: dmsReminders,
       })
-      setMessage({ tone: 'success', text: t.saved })
+      onSaved?.()
     } catch (err) {
       setMessage({ tone: 'error', text: flow7ErrorText(t, err) })
     } finally {

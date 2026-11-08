@@ -59,7 +59,9 @@ export function OutcomeBadge({ outcome, severity }) {
 }
 
 function formatDetails(details) {
-  return Object.entries(details ?? {})
+  if (!details) return ''
+  if (typeof details === 'string') return details.trim()
+  return Object.entries(details)
     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
     .join(' · ')
 }
@@ -77,6 +79,7 @@ export function AuditTable({ entries }) {
             <th scope="col">{t.columns.action}</th>
             <th scope="col">{t.columns.entity}</th>
             <th scope="col">{t.columns.outcome}</th>
+            <th scope="col">{t.columns.ipAddress}</th>
             <th scope="col">{t.columns.details}</th>
           </tr>
         </thead>
@@ -96,6 +99,7 @@ export function AuditTable({ entries }) {
                 {entry.caseId && entry.entity?.id !== entry.caseId && <small className="admin-muted">{entry.caseId}</small>}
               </td>
               <td><OutcomeBadge outcome={entry.outcome} severity={entry.severity} /></td>
+              <td className="admin-table__nowrap">{entry.ipAddress || entry.ip_address || '—'}</td>
               <td className="admin-table__details">{formatDetails(entry.details) || '—'}</td>
             </tr>
           ))}

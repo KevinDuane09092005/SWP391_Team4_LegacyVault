@@ -5,13 +5,15 @@ import Icon from '../../components/Icon.jsx'
 import { AdminLayout, AuditTable } from '../../components/admin/AdminParts.jsx'
 import { EmptyState, ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
+import { ROLES } from '../../auth/roles.js'
 import { AUDIT_ACTIONS, OUTCOME } from '../../audit/auditRules.js'
+import { dashboardContent } from '../../data/dashboardContent.js'
 import { flow7Content, flow7ErrorText } from '../../data/flow7Content.js'
 import useAsync from '../../hooks/useAsync.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { exportAuditLogsCsvApi, listAuditLog } from '../../services/auditService.js'
 
-const EMPTY = { actor: '', action: '', outcome: '', from: '', to: '', alertsOnly: false }
+const EMPTY = { actor: '', role: '', action: '', outcome: '', from: '', to: '', alertsOnly: false }
 
 // Flow 7 — Audit log and security alerts (admin only), with filters.
 export default function AdminAuditPage() {
@@ -19,6 +21,7 @@ export default function AdminAuditPage() {
   const { language } = useLanguage()
   const t = flow7Content[language]
   const a = t.audit
+  const roleLabels = dashboardContent[language].roles
   const [searchParams] = useSearchParams()
   const [filters, setFilters] = useState({ ...EMPTY, alertsOnly: searchParams.get('alerts') === '1' })
   const { status, data, error, reload } = useAsync(() => listAuditLog(user, filters), `${user.id}:${JSON.stringify(filters)}`)
@@ -35,7 +38,15 @@ export default function AdminAuditPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => exportAuditLogsCsvApi({ user, from_date: filters.from, to_date: filters.to })}
+            onClick={() => exportAuditLogsCsvApi({
+              user,
+              search: filters.actor,
+              role: filters.role || 'ALL',
+              action: filters.action || 'ALL',
+              status: filters.outcome || 'ALL',
+              from_date: filters.from,
+              to_date: filters.to,
+            })}
           >
             <Icon name="download" size={16} />
             <span>{language === 'vi' ? 'Xuất CSV' : 'Export CSV'}</span>
@@ -49,10 +60,22 @@ export default function AdminAuditPage() {
           <input className="field__input" value={filters.actor} onChange={(e) => set('actor', e.target.value)} />
         </label>
         <label className="admin-filter">
+          <span>{a.filters.role}</span>
+          <select className="field__input" value={filters.role} onChange={(e) => set('role', e.target.value)}>
+            <option value="">{a.filters.any}</option>
+            {Object.values(ROLES).map((role) => (
+              <option key={role} value={role}>{roleLabels[role]?.label ?? role}</option>
+            ))}
+            <option value="SYSTEM">SYSTEM</option>
+          </select>
+        </label>
+        <label className="admin-filter">
           <span>{a.filters.action}</span>
           <select className="field__input" value={filters.action} onChange={(e) => set('action', e.target.value)}>
             <option value="">{a.filters.any}</option>
-            {Object.values(AUDIT_ACTIONS).map((action) => <option key={action} value={action}>{a.actions[action]}</option>)}
+            {Object.values(AUDIT_ACTIONS).map((action) => (
+              <option key={action} value={action}>{a.actions[action] ?? action}</option>
+            ))}
           </select>
         </label>
         <label className="admin-filter">
