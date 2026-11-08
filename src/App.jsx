@@ -1,3 +1,4 @@
+
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop.jsx'
 import FloatingAIChat from './components/ai-chat/FloatingAIChat.jsx'
@@ -39,49 +40,134 @@ import VerifierHistoryPage from './pages/verifier/VerifierHistoryPage.jsx'
 import VerifierSettingsPage from './pages/verifier/VerifierSettingsPage.jsx'
 import ExecutorSubmissionPage from './pages/verifier/ExecutorSubmissionPage.jsx'
 
+// Terms of Service & Privacy Policy
+import LegalDocumentPage from './pages/LegalDocumentPage.jsx'
+
 // All pages of the app.
 // Placeholder text lives in src/data/placeholderContent.js, keyed by `page`.
 export default function App() {
   const location = useLocation()
+
   return (
     <>
       <ScrollToTop />
       <FloatingAIChat key={location.pathname} />
+
       <Routes>
         {/* Public pages */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/terms" element={<PlaceholderPage page="terms" />} />
-        <Route path="/privacy" element={<PlaceholderPage page="privacy" />} />
-        <Route path="/contact" element={<PlaceholderPage page="contact" />} />
-        <Route path="/guides/checklist" element={<PlaceholderPage page="checklist" />} />
+
+        {/* Terms of Service - English / Vietnamese */}
+        <Route
+          path="/terms"
+          element={<LegalDocumentPage kind="terms" />}
+        />
+        <Route
+          path="/terms-of-service"
+          element={<LegalDocumentPage kind="terms" />}
+        />
+
+        {/* Privacy Policy - English / Vietnamese */}
+        <Route
+          path="/privacy"
+          element={<LegalDocumentPage kind="privacy" />}
+        />
+        <Route
+          path="/privacy-policy"
+          element={<LegalDocumentPage kind="privacy" />}
+        />
+
+        <Route
+          path="/contact"
+          element={<PlaceholderPage page="contact" />}
+        />
+        <Route
+          path="/guides/checklist"
+          element={<PlaceholderPage page="checklist" />}
+        />
         <Route
           path="/guides/executor-access"
           element={<PlaceholderPage page="executorGuide" />}
         />
-        <Route path="/assignments" element={<Navigate to="/dashboard/owner/assignments" replace />} />
-        <Route path="/dms" element={<Navigate to="/dashboard/owner/dms" replace />} />
+
+        <Route
+          path="/assignments"
+          element={
+            <Navigate to="/dashboard/owner/assignments" replace />
+          }
+        />
+        <Route
+          path="/dms"
+          element={
+            <Navigate to="/dashboard/owner/dms" replace />
+          }
+        />
 
         {/* Flow 1: sign up, verify, sign in. Signed-in users are sent to their dashboard. */}
-        <Route path="/register" element={<RedirectIfSignedIn><RegisterPage /></RedirectIfSignedIn>} />
-        <Route path="/verify-otp" element={<RedirectIfSignedIn><VerifyOtpPage /></RedirectIfSignedIn>} />
-        <Route path="/login" element={<RedirectIfSignedIn><LoginPage /></RedirectIfSignedIn>} />
+        <Route
+          path="/register"
+          element={
+            <RedirectIfSignedIn>
+              <RegisterPage />
+            </RedirectIfSignedIn>
+          }
+        />
+        <Route
+          path="/verify-otp"
+          element={
+            <RedirectIfSignedIn>
+              <VerifyOtpPage />
+            </RedirectIfSignedIn>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <RedirectIfSignedIn>
+              <LoginPage />
+            </RedirectIfSignedIn>
+          }
+        />
         <Route
           path="/forgot-password"
-          element={<RedirectIfSignedIn><ForgotPasswordPage /></RedirectIfSignedIn>}
+          element={
+            <RedirectIfSignedIn>
+              <ForgotPasswordPage />
+            </RedirectIfSignedIn>
+          }
         />
 
         {/* Signed-in area: one placeholder dashboard per role (see src/auth/roles.js) */}
-        <Route path="/dashboard" element={<RequireAuth><DashboardRedirect /></RequireAuth>} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <DashboardRedirect />
+            </RequireAuth>
+          }
+        />
+
         {/* Flow 7: Notification Center for every signed-in role (each user sees only their own). */}
-        <Route path="/dashboard/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
+        <Route
+          path="/dashboard/notifications"
+          element={
+            <RequireAuth>
+              <NotificationsPage />
+            </RequireAuth>
+          }
+        />
 
         {/* Flow 7: Administration. Every page inside needs the ADMIN role. */}
         <Route
           path="/dashboard/admin"
-          element={<RequireAuth allowedRoles={[ROLES.ADMIN]}><Outlet /></RequireAuth>}
+          element={
+            <RequireAuth allowedRoles={[ROLES.ADMIN]}>
+              <Outlet />
+            </RequireAuth>
+          }
         >
           <Route index element={<AdminOverviewPage />} />
           <Route path="users" element={<AdminUsersPage />} />
@@ -94,20 +180,56 @@ export default function App() {
         {/* Flow 2: Vault Owner area. Every page inside needs the VAULT_OWNER role. */}
         <Route
           path="/dashboard/owner"
-          element={<RequireAuth allowedRoles={[ROLES.VAULT_OWNER]}><Outlet /></RequireAuth>}
+          element={
+            <RequireAuth allowedRoles={[ROLES.VAULT_OWNER]}>
+              <Outlet />
+            </RequireAuth>
+          }
         >
           <Route index element={<OwnerDashboardPage />} />
-          <Route path="vaults" element={<Navigate to="/dashboard/owner/assets" replace />} />
-          <Route path="vaults/new" element={<Navigate to="/dashboard/owner/assets/new" replace />} />
-          <Route path="vaults/:vaultId" element={<Navigate to="/dashboard/owner/assets" replace />} />
-          <Route path="vaults/:vaultId/assets/new" element={<AddAssetPage />} />
-          <Route path="vaults/:vaultId/assets/:assetId" element={<AssetDetailsPage />} />
+          <Route
+            path="vaults"
+            element={
+              <Navigate to="/dashboard/owner/assets" replace />
+            }
+          />
+          <Route
+            path="vaults/new"
+            element={
+              <Navigate to="/dashboard/owner/assets/new" replace />
+            }
+          />
+          <Route
+            path="vaults/:vaultId"
+            element={
+              <Navigate to="/dashboard/owner/assets" replace />
+            }
+          />
+          <Route
+            path="vaults/:vaultId/assets/new"
+            element={<AddAssetPage />}
+          />
+          <Route
+            path="vaults/:vaultId/assets/:assetId"
+            element={<AssetDetailsPage />}
+          />
           <Route path="assets" element={<AssetsPage />} />
           <Route path="assets/new" element={<AddAssetPage />} />
           <Route path="assets/:assetId" element={<AssetDetailsPage />} />
-          <Route path="asset" element={<Navigate to="/dashboard/owner/assets" replace />} />
-          <Route path="asset/new" element={<AddAssetPage />} />
-          <Route path="asset/:assetId" element={<AssetDetailsPage />} />
+          <Route
+            path="asset"
+            element={
+              <Navigate to="/dashboard/owner/assets" replace />
+            }
+          />
+          <Route
+            path="asset/new"
+            element={<AddAssetPage />}
+          />
+          <Route
+            path="asset/:assetId"
+            element={<AssetDetailsPage />}
+          />
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="assignments" element={<AssignmentsPage />} />
           <Route path="dms" element={<DeadMansSwitchPage />} />
@@ -117,31 +239,67 @@ export default function App() {
         {/* Flow 6: Asset Handover. Executor starts it; only the BENEFICIARY role can open the beneficiary pages. */}
         <Route
           path="/dashboard/executor"
-          element={<RequireAuth allowedRoles={[ROLES.EXECUTOR]}><ExecutorHandoverPage /></RequireAuth>}
+          element={
+            <RequireAuth allowedRoles={[ROLES.EXECUTOR]}>
+              <ExecutorHandoverPage />
+            </RequireAuth>
+          }
         />
+
         <Route
           path="/dashboard/beneficiary"
-          element={<RequireAuth allowedRoles={[ROLES.BENEFICIARY]}><Outlet /></RequireAuth>}
+          element={
+            <RequireAuth allowedRoles={[ROLES.BENEFICIARY]}>
+              <Outlet />
+            </RequireAuth>
+          }
         >
           <Route index element={<BeneficiaryHandoversPage />} />
-          <Route path="handover/:caseId" element={<BeneficiaryCasePage />} />
+          <Route
+            path="handover/:caseId"
+            element={<BeneficiaryCasePage />}
+          />
         </Route>
+
         {/* Flow 5: Legal Verification. Every page inside needs the LEGAL_VERIFIER role. */}
         <Route
           path="/dashboard/verifier"
-          element={<RequireAuth allowedRoles={[ROLES.LEGAL_VERIFIER]}><Outlet /></RequireAuth>}
+          element={
+            <RequireAuth allowedRoles={[ROLES.LEGAL_VERIFIER]}>
+              <Outlet />
+            </RequireAuth>
+          }
         >
           <Route index element={<VerifierQueuePage />} />
           <Route path="history" element={<VerifierHistoryPage />} />
           <Route path="settings" element={<VerifierSettingsPage />} />
-          <Route path="submit-documents" element={<Navigate to="/dashboard/executor/submit-documents" replace />} />
+          <Route
+            path="submit-documents"
+            element={
+              <Navigate
+                to="/dashboard/executor/submit-documents"
+                replace
+              />
+            }
+          />
         </Route>
+
         <Route
           path="/dashboard/executor/submit-documents"
-          element={<RequireAuth allowedRoles={[ROLES.EXECUTOR, ROLES.ADMIN]}><ExecutorSubmissionPage /></RequireAuth>}
+          element={
+            <RequireAuth
+              allowedRoles={[ROLES.EXECUTOR, ROLES.ADMIN]}
+            >
+              <ExecutorSubmissionPage />
+            </RequireAuth>
+          }
         />
 
-        <Route path="*" element={<PlaceholderPage page="notFound" />} />
+        {/* Not Found */}
+        <Route
+          path="*"
+          element={<PlaceholderPage page="notFound" />}
+        />
       </Routes>
     </>
   )
