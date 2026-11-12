@@ -1,0 +1,220 @@
+.lv-welcome-help { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; min-height: 38px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-heading); border-radius: 10px; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.lv-welcome-help:hover { color: var(--color-primary); border-color: var(--color-primary); }
+.lv-welcome-help:focus-visible,.lv-welcome__dialog button:focus-visible,.lv-tour__tooltip button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.lv-welcome__backdrop { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(9, 26, 27, .64); animation: lv-tour-fade .18s ease-out; }
+.lv-welcome__dialog { position: relative; width: min(440px, 100%); background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 20px; padding: 35px 32px 29px; box-shadow: 0 22px 70px rgba(0,0,0,.2); outline: none; animation: lv-tour-rise .23s ease-out; }
+.lv-welcome__close { position: absolute; top: 17px; right: 17px; padding: 5px; display: inline-flex; background: transparent; border: none; color: var(--color-muted); border-radius: 7px; cursor: pointer; }
+.lv-welcome__emblem { position: relative; width: 57px; height: 57px; display: flex; align-items: center; justify-content: center; background: var(--color-primary-soft); color: var(--color-primary); border-radius: 17px; margin-bottom: 19px; }
+.lv-welcome__sparkle { position: absolute; right: -6px; top: -6px; }
+.lv-welcome__eyebrow,.lv-tour__top span { color: var(--color-primary); letter-spacing: .09em; font-size: 10px; font-weight: 800; }
+.lv-welcome__dialog h2 { margin: 10px 0 11px; font-size: clamp(21px, 4vw, 26px); line-height: 1.2; color: var(--color-heading); }
+.lv-welcome__dialog p { color: var(--color-muted); font-size: 14px; line-height: 1.65; margin: 0 0 18px; }
+.lv-welcome__feature-line { display: flex; align-items: center; gap: 9px; font-size: 13px; margin-bottom: 10px; color: var(--color-text); }
+.lv-welcome__feature-line svg { color: var(--color-primary); }
+.lv-welcome__actions { display: flex; gap: 10px; justify-content: space-between; margin-top: 25px; }
+.lv-welcome__primary,.lv-welcome__secondary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 10px; padding: 11px 15px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.lv-welcome__primary { border: 1px solid var(--color-primary); background: var(--color-primary); color: var(--color-on-primary); }
+.lv-welcome__primary:hover,.lv-tour__next:hover { filter: brightness(.93); }
+.lv-welcome__secondary { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); }
+.lv-tour__blocker { position: fixed; z-index: 2008; inset: 0; background: transparent; cursor: default; }
+.lv-tour__spotlight { position: fixed; z-index: 2009; pointer-events: none; border: 2px solid #69e2bd; border-radius: 12px; box-shadow: 0 0 0 200vmax rgba(4, 22, 24, .69), 0 0 0 5px rgba(105,226,189,.19); transition: top .22s ease,left .22s ease,width .22s ease,height .22s ease; }
+.lv-tour__tooltip { position: fixed; z-index: 2010; width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 25px); overflow-y: auto; padding: 20px; border: 1px solid var(--color-border); border-radius: 15px; background: var(--color-surface); box-shadow: 0 14px 48px rgba(0,0,0,.22); outline: none; animation: lv-tour-rise .18s ease-out; }
+.lv-tour__tooltip--center { left: 50%; top: 50%; transform: translate(-50%,-50%); }
+.lv-tour__top { display: flex; align-items: center; justify-content: space-between; }
+.lv-tour__top button { display: inline-flex; background: transparent; border: 0; border-radius: 6px; padding: 3px; cursor: pointer; color: var(--color-muted); }
+.lv-tour__tooltip h2 { color: var(--color-heading); font-size: 18px; margin: 11px 0 8px; }
+.lv-tour__tooltip p { color: var(--color-muted); font-size: 13px; line-height: 1.6; margin: 0 0 15px; }
+.lv-tour__dots { display: flex; align-items: center; gap: 5px; margin-bottom: 16px; }
+.lv-tour__dots span { width: 6px; height: 6px; border-radius: 9px; background: var(--color-border-strong); transition: width .2s ease; }
+.lv-tour__dots span.is-current { width: 23px; background: var(--color-primary); }
+.lv-tour__bottom,.lv-tour__nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lv-tour__skip { padding: 8px 3px; border: 0; background: none; color: var(--color-muted); font-size: 12px; cursor: pointer; }
+.lv-tour__nav button { display: inline-flex; align-items: center; gap: 5px; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--color-border); font: inherit; font-weight: 700; font-size: 12px; cursor: pointer; }
+.lv-tour__back { background: var(--color-surface); color: var(--color-text); }
+.lv-tour__next { background: var(--color-primary); border-color: var(--color-primary) !important; color: var(--color-on-primary); }
+@keyframes lv-tour-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes lv-tour-rise { from { opacity: 0; translate: 0 8px } to { opacity: 1; translate: 0 0 } }
+@media (max-width: 780px) { .lv-welcome-help { width: 38px; padding: 7px; } .lv-welcome-help span { display: none; } }
+@media (max-width: 530px) { .lv-welcome__dialog { padding: 28px 20px 22px; } .lv-welcome__actions { flex-direction: column-reverse; } .lv-welcome__actions button { width: 100%; } .lv-tour__tooltip { padding: 16px; } }
+@media (prefers-reduced-motion: reduce) { .lv-welcome__backdrop,.lv-welcome__dialog,.lv-tour__tooltip { animation: none; } .lv-tour__spotlight,.lv-tour__dots span { transition: none; } }
+
+/* Mobile top bar: keep the Guide button reachable without altering notifications. */
+@media (max-width: 720px) {
+  .dashboard-topbar__inner { height: auto; min-height: var(--header-height); padding-top: 8px; padding-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+  .dashboard-topbar__end { width: 100%; justify-content: space-between; gap: 5px; }
+  .role-switcher__trigger { padding: 7px; }
+  .role-switcher__trigger span { max-width: 118px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (max-width: 390px) {
+  .role-switcher__trigger span { max-width: 76px; }
+}
+
+
+/* Smooth-motion enhancement: no added packages and no changes to business logic. */
+.lv-welcome-help {
+  transition: transform .22s cubic-bezier(.22, 1, .36, 1),
+              border-color .22s ease, color .22s ease,
+              box-shadow .22s ease;
+}
+.lv-welcome-help:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 16px rgba(5, 55, 39, .09);
+}
+.lv-welcome__backdrop {
+  background: rgba(9, 26, 27, .63);
+  animation: lv-smooth-overlay .36s ease-out both;
+}
+@supports (backdrop-filter: blur(2px)) {
+  .lv-welcome__backdrop { backdrop-filter: blur(3px); }
+}
+.lv-welcome__dialog {
+  animation: lv-smooth-dialog .52s cubic-bezier(.22, 1, .36, 1) both;
+  transform-origin: center center;
+}
+.lv-welcome__emblem {
+  animation: lv-smooth-emblem .58s .10s cubic-bezier(.18, 1.4, .28, 1) both;
+}
+.lv-welcome__sparkle {
+  transform-origin: center;
+  animation: lv-smooth-sparkle 2.9s .7s ease-in-out infinite;
+}
+.lv-welcome__eyebrow,
+.lv-welcome__dialog h2,
+.lv-welcome__dialog p,
+.lv-welcome__feature-line,
+.lv-welcome__actions {
+  animation: lv-smooth-stagger .48s cubic-bezier(.22, 1, .36, 1) both;
+}
+.lv-welcome__eyebrow { animation-delay: .08s; }
+.lv-welcome__dialog h2 { animation-delay: .13s; }
+.lv-welcome__dialog p { animation-delay: .18s; }
+.lv-welcome__feature-line:nth-of-type(3) { animation-delay: .23s; }
+.lv-welcome__feature-line:nth-of-type(4) { animation-delay: .28s; }
+.lv-welcome__actions { animation-delay: .33s; }
+.lv-welcome__primary,
+.lv-welcome__secondary,
+.lv-tour__nav button,
+.lv-tour__skip {
+  transition: transform .21s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .21s ease,
+              background-color .21s ease, border-color .21s ease,
+              opacity .21s ease;
+}
+.lv-welcome__primary:hover,
+.lv-tour__next:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(15, 107, 82, .18); }
+.lv-welcome__secondary:hover,
+.lv-tour__back:hover { transform: translateY(-1px); }
+.lv-welcome__primary:active,
+.lv-welcome__secondary:active,
+.lv-tour__nav button:active { transform: translateY(0) scale(.985); }
+.lv-tour__spotlight {
+  transition: top .43s cubic-bezier(.22, 1, .36, 1),
+              left .43s cubic-bezier(.22, 1, .36, 1),
+              width .43s cubic-bezier(.22, 1, .36, 1),
+              height .43s cubic-bezier(.22, 1, .36, 1),
+              border-radius .32s ease;
+}
+.lv-tour__spotlight::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 1px solid rgba(105, 226, 189, .37);
+  pointer-events: none;
+  animation: lv-smooth-ring 2.5s ease-in-out infinite;
+}
+.lv-tour__tooltip {
+  animation: lv-smooth-tooltip .37s cubic-bezier(.22, 1, .36, 1) both;
+  transition: left .43s cubic-bezier(.22, 1, .36, 1),
+              top .43s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .28s ease;
+  box-shadow: 0 16px 54px rgba(0, 0, 0, .22);
+}
+.lv-tour__content {
+  min-height: 98px;
+  animation: lv-smooth-step .31s cubic-bezier(.22, 1, .36, 1) both;
+}
+.lv-tour__progress {
+  width: 100%;
+  height: 3px;
+  margin: 16px 0 12px;
+  background: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.lv-tour__progress > span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: inherit;
+  transition: width .43s cubic-bezier(.22, 1, .36, 1);
+}
+.lv-tour__dots span {
+  transition: width .4s cubic-bezier(.22, 1, .36, 1),
+              background-color .3s ease;
+}
+.lv-tour__nav button:hover { transform: translateY(-1px); }
+.lv-tour__next:hover { transform: translateY(-2px); }
+.lv-tour__tooltip--center {
+  /* Avoid the generic tooltip transform animation overriding translate(-50%, -50%). */
+  animation: none;
+  transition: none;
+}
+@keyframes lv-smooth-overlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes lv-smooth-dialog {
+  from { opacity: 0; transform: translateY(17px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes lv-smooth-tooltip {
+  from { opacity: 0; transform: translateY(11px) scale(.975); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes lv-smooth-emblem {
+  from { opacity: 0; transform: scale(.72) rotate(-8deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes lv-smooth-stagger {
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes lv-smooth-step {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes lv-smooth-ring {
+  0%, 100% { opacity: .34; transform: scale(1); }
+  50% { opacity: .65; transform: scale(1.018); }
+}
+@keyframes lv-smooth-sparkle {
+  0%, 85%, 100% { opacity: .55; transform: rotate(-12deg) scale(.88); }
+  46% { opacity: 1; transform: rotate(10deg) scale(1.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-welcome-help,
+  .lv-welcome__backdrop,
+  .lv-welcome__dialog,
+  .lv-welcome__emblem,
+  .lv-welcome__sparkle,
+  .lv-welcome__eyebrow,
+  .lv-welcome__dialog h2,
+  .lv-welcome__dialog p,
+  .lv-welcome__feature-line,
+  .lv-welcome__actions,
+  .lv-welcome__primary,
+  .lv-welcome__secondary,
+  .lv-tour__spotlight,
+  .lv-tour__spotlight::after,
+  .lv-tour__tooltip,
+  .lv-tour__content,
+  .lv-tour__progress > span,
+  .lv-tour__dots span,
+  .lv-tour__nav button,
+  .lv-tour__skip { animation: none !important; transition: none !important; }
+  .lv-welcome-help:hover,
+  .lv-welcome__primary:hover,
+  .lv-tour__next:hover,
+  .lv-tour__nav button:hover { transform: none; }
+}
