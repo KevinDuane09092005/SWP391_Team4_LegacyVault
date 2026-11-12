@@ -1,5 +1,6 @@
 import Button from '../Button.jsx'
 import Icon from '../Icon.jsx'
+import LegacyIllustration from '../decor/LegacyIllustration.jsx'
 
 export default function Hero({ content }) {
   const { titleLines, description, cta, card } = content
@@ -23,25 +24,28 @@ export default function Hero({ content }) {
           </div>
         </div>
 
-        <aside className="card release-card" aria-labelledby="release-card-title">
-          <h2 id="release-card-title" className="release-card__title">
-            {card.title}
-          </h2>
-          <p className="release-card__text">{card.description}</p>
-          <ul className="release-list">
-            {card.items.map((item) => (
-              <li key={item.title} className="release-list__item">
-                <span className="icon-tile">
-                  <Icon name={item.icon} />
-                </span>
-                <div>
-                  <h3 className="release-list__title">{item.title}</h3>
-                  <p className="release-list__text">{item.text}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <div className="hero__side">
+          <LegacyIllustration className="hero__art" />
+          <aside className="card release-card" aria-labelledby="release-card-title">
+            <h2 id="release-card-title" className="release-card__title">
+              {card.title}
+            </h2>
+            <p className="release-card__text">{card.description}</p>
+            <ul className="release-list">
+              {card.items.map((item) => (
+                <li key={item.title} className="release-list__item">
+                  <span className="icon-tile">
+                    <Icon name={item.icon} />
+                  </span>
+                  <div>
+                    <h3 className="release-list__title">{item.title}</h3>
+                    <p className="release-list__text">{item.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        </div>
       </div>
     </section>
   )

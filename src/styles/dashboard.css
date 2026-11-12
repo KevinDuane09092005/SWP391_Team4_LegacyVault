@@ -295,6 +295,39 @@
     display: none;
   }
 
+  /* On phones the role switcher shows only its icons; the label stays for screen readers. */
+  .role-switcher__trigger {
+    padding: 6px 8px;
+  }
+
+  .role-switcher__trigger > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* The menu spans the top bar instead of hanging off the left edge of the screen. */
+  .role-switcher {
+    position: static;
+  }
+
+  .role-switcher__menu {
+    top: calc(100% - 4px);
+    right: 12px;
+    left: 12px;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  /* Only the logo mark remains, so every control in the top bar fits on small phones. */
+  .dashboard-topbar .brand > span:last-child {
+    display: none;
+  }
+
   .session-list > div {
     grid-template-columns: 1fr;
     gap: 2px;

@@ -6,6 +6,7 @@ import StorageGrid from '../components/landing/StorageGrid.jsx'
 import PricingCard from '../components/landing/PricingCard.jsx'
 import FinalCta from '../components/landing/FinalCta.jsx'
 import Footer from '../components/landing/Footer.jsx'
+import PageBackdrop from '../components/decor/PageBackdrop.jsx'
 import { landingContent } from '../data/landingContent.js'
 import { useLanguage } from '../i18n/LanguageContext.jsx'
 import '../styles/landing.css'
@@ -17,6 +18,7 @@ export default function LandingPage() {
 
   return (
     <>
+      <PageBackdrop />
       <Header links={navLinks} ui={ui} />
       <main>
         <Hero content={hero} />

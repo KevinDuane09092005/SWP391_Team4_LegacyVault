@@ -1,0 +1,339 @@
+/*
+  Motion and decoration layer for the whole app (loaded after every page stylesheet).
+  It only adds movement, depth and soft background light on top of the existing design:
+  colours, spacing and layout stay in their own files.
+  Everything here is switched off for people who ask the system for reduced motion.
+*/
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-fast: 140ms;
+  --dur: 220ms;
+  --dur-slow: 420ms;
+  --lift-shadow: 0 10px 28px rgba(15, 29, 53, 0.1);
+}
+
+:root[data-theme='dark'] {
+  --lift-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+@keyframes lv-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes lv-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes lv-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes lv-drop {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes lv-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(3%, -2%, 0) scale(1.06); }
+}
+
+@keyframes lv-shine {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes lv-topbar-shadow {
+  from { box-shadow: none; }
+  to { box-shadow: 0 6px 18px rgba(15, 29, 53, 0.08); }
+}
+
+@keyframes lv-reveal {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ---------- Page entrance ----------
+     Each page renders its own layout, so these play once when a page opens.
+     `backwards` drops the transform afterwards, so fixed dialogs inside stay in place. */
+  .owner-content,
+  .verifier-content,
+  .settings-layout,
+  .dashboard-main > :not(.owner-layout):not(.verifier-layout),
+  .marketing-page > main,
+  .legal-page,
+  .placeholder-page,
+  .auth-card {
+    animation: lv-rise var(--dur-slow) var(--ease-out) backwards;
+  }
+
+  /* ---------- Staggered lists and grids ---------- */
+  .stat-grid > *,
+  .card-grid > *,
+  .vault-grid > *,
+  .handover-list > *,
+  .admin-integrations > *,
+  .notification-list > *,
+  .verifier-list > *,
+  .handover-steps > *,
+  .handover-assets > * {
+    animation: lv-rise var(--dur-slow) var(--ease-out) backwards;
+  }
+
+  :is(.stat-grid, .card-grid, .vault-grid, .handover-list, .admin-integrations, .notification-list,
+    .verifier-list, .handover-steps, .handover-assets) > :nth-child(2) { animation-delay: 50ms; }
+  :is(.stat-grid, .card-grid, .vault-grid, .handover-list, .admin-integrations, .notification-list,
+    .verifier-list, .handover-steps, .handover-assets) > :nth-child(3) { animation-delay: 100ms; }
+  :is(.stat-grid, .card-grid, .vault-grid, .handover-list, .admin-integrations, .notification-list,
+    .verifier-list, .handover-steps, .handover-assets) > :nth-child(4) { animation-delay: 150ms; }
+  :is(.stat-grid, .card-grid, .vault-grid, .handover-list, .admin-integrations, .notification-list,
+    .verifier-list, .handover-steps, .handover-assets) > :nth-child(5) { animation-delay: 200ms; }
+  :is(.stat-grid, .card-grid, .vault-grid, .handover-list, .admin-integrations, .notification-list,
+    .verifier-list, .handover-steps, .handover-assets) > :nth-child(n + 6) { animation-delay: 250ms; }
+
+  /* Table rows fade in softly (no movement, so columns never jump). */
+  .admin-table tbody tr,
+  .asset-table__row:not(.asset-table__row--head) {
+    animation: lv-fade var(--dur-slow) var(--ease-out) backwards;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    transition:
+      background-color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease,
+      color var(--dur-fast) ease,
+      box-shadow var(--dur) var(--ease-out),
+      transform var(--dur) var(--ease-out);
+  }
+
+  .btn-primary:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-primary);
+  }
+
+  .btn-secondary:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn:not(:disabled):active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: none;
+    transition-duration: 60ms;
+  }
+
+  .btn-primary .lucide,
+  .btn-primary svg {
+    transition: transform var(--dur) var(--ease-spring);
+  }
+
+  .btn-primary:not(:disabled):hover svg:last-child {
+    transform: translateX(2px);
+  }
+
+  .theme-toggle:active,
+  .notification-bell:active {
+    transform: scale(0.92);
+  }
+
+  /* ---------- Cards that can be clicked or scanned ---------- */
+  .vault-card,
+  .handover-card,
+  .case-card,
+  .feature-card,
+  .how-card,
+  .person-card,
+  .stat-card,
+  .notification-item,
+  .verifier-item,
+  .asset-select-card,
+  .document-card,
+  .plan-card,
+  .beneficiary-case-card,
+  .beneficiary-kpi-card,
+  .owner-overview-flow-card,
+  .admin-access-queue__item {
+    transition:
+      transform var(--dur) var(--ease-out),
+      box-shadow var(--dur) var(--ease-out),
+      border-color var(--dur) ease;
+  }
+
+  .vault-card:hover,
+  .handover-card:hover,
+  .case-card:hover,
+  .feature-card:hover,
+  .how-card:hover,
+  .person-card:hover,
+  .stat-card:hover,
+  .verifier-item:hover,
+  .asset-select-card:hover,
+  .document-card:hover,
+  .plan-card:hover,
+  .beneficiary-case-card:hover,
+  .beneficiary-kpi-card:hover,
+  .owner-overview-flow-card:hover,
+  .admin-access-queue__item:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--lift-shadow);
+    border-color: var(--color-border-strong);
+  }
+
+  .notification-item:hover {
+    transform: translateX(3px);
+  }
+
+  .icon-tile,
+  .owner-nav__icon {
+    transition: transform var(--dur) var(--ease-spring), background-color var(--dur) ease, color var(--dur) ease;
+  }
+
+  :is(.vault-card, .feature-card, .how-card, .stat-card, .owner-overview-flow-card,
+    .beneficiary-kpi-card):hover .icon-tile,
+  .owner-nav__link:hover .owner-nav__icon {
+    transform: scale(1.08) rotate(-3deg);
+  }
+
+  /* ---------- Side navigation ---------- */
+  .owner-nav__link {
+    transition:
+      background-color var(--dur) ease,
+      color var(--dur) ease,
+      border-color var(--dur) ease,
+      padding-left var(--dur) var(--ease-out);
+  }
+
+  .owner-nav__link:not(.active):hover {
+    padding-left: 16px;
+  }
+
+  .owner-nav__link.active::before {
+    animation: lv-fade var(--dur) ease;
+  }
+
+  /* ---------- Dialogs, menus, messages ---------- */
+  .flow-modal-overlay,
+  .modal-backdrop,
+  .flow6-face__overlay {
+    animation: lv-fade var(--dur) ease;
+  }
+
+  .flow-modal,
+  .modal,
+  .flow6-face__dialog {
+    animation: lv-pop var(--dur-slow) var(--ease-spring);
+  }
+
+  .role-switcher__menu {
+    animation: lv-drop var(--dur) var(--ease-out);
+    transform-origin: top right;
+  }
+
+  .auth-alert,
+  .demo-banner,
+  .error-banner,
+  .state-notice,
+  .amber-notice,
+  .red-notice,
+  .field__error {
+    animation: lv-drop var(--dur) var(--ease-out);
+  }
+
+  /* Loading text breathes so a wait feels alive. */
+  .page-state[role='status'] span:last-child {
+    animation: lv-fade 1.2s ease-in-out infinite alternate;
+  }
+
+  /* Status badges shine once when they appear. */
+  .handover-status--success,
+  .handover-status--info {
+    background-image: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    animation: lv-shine 1.4s ease 0.3s 1 backwards;
+  }
+
+  /* ---------- Soft moving light behind the signed-in area ---------- */
+  .dashboard-page {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .dashboard-page::before,
+  .dashboard-page::after {
+    content: '';
+    position: fixed;
+    z-index: -1;
+    width: 55vmax;
+    height: 55vmax;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(60px);
+    opacity: 0.75;
+    animation: lv-drift 26s ease-in-out infinite;
+  }
+
+  .dashboard-page::before {
+    top: -22vmax;
+    right: -16vmax;
+    background: radial-gradient(circle, var(--page-glow-1) 0%, transparent 65%);
+  }
+
+  .dashboard-page::after {
+    bottom: -26vmax;
+    left: -18vmax;
+    background: radial-gradient(circle, var(--page-glow-2) 0%, transparent 65%);
+    animation-delay: -13s;
+    animation-duration: 32s;
+  }
+
+  /* ---------- Scroll effects (browsers that support scroll timelines) ---------- */
+  @supports (animation-timeline: scroll()) {
+    .dashboard-topbar,
+    .site-header {
+      animation: lv-topbar-shadow linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 80px;
+    }
+
+    .marketing-page section:not(:first-of-type),
+    .marketing-page .feature-card,
+    .marketing-page .how-card,
+    .marketing-page .plan-card {
+      animation: lv-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 22%;
+    }
+  }
+}
+
+/* Keyboard focus is always visible and slightly animated, also with reduced motion. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Theme switch: a short cross-fade (see ThemeContext.jsx). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 320ms;
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
