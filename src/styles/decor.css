@@ -1,0 +1,355 @@
+/*
+  Decorative illustration (LegacyIllustration.jsx) and the colour accents used around the app.
+  Colours follow the light/dark theme; all movement stops with prefers-reduced-motion.
+*/
+
+:root {
+  --hue-teal: #0f8a7e;
+  --hue-teal-soft: #dff3ef;
+  --hue-amber: #e39a2d;
+  --hue-amber-soft: #fdf0dc;
+  --hue-indigo: #5b6bd6;
+  --hue-indigo-soft: #e8ebfb;
+  --hue-rose: #d9668a;
+  --hue-rose-soft: #fbe6ed;
+}
+
+:root[data-theme='dark'] {
+  --hue-teal: #45c7b6;
+  --hue-teal-soft: rgba(69, 199, 182, 0.16);
+  --hue-amber: #f3b65c;
+  --hue-amber-soft: rgba(243, 182, 92, 0.16);
+  --hue-indigo: #8f9cf0;
+  --hue-indigo-soft: rgba(143, 156, 240, 0.16);
+  --hue-rose: #f08fae;
+  --hue-rose-soft: rgba(240, 143, 174, 0.16);
+}
+
+/* ---------- Illustration ---------- */
+.lvart {
+  --art-glow: var(--hue-teal-soft);
+  --art-vault-a: #17978a;
+  --art-vault-b: #0b5953;
+  --art-door-a: #ffffff;
+  --art-door-b: #dcefeb;
+  --art-ink: #0f6e66;
+  --art-line: var(--color-border-strong);
+  --art-chip-ink: #ffffff;
+  --art-shadow: rgba(15, 29, 53, 0.12);
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+:root[data-theme='dark'] .lvart {
+  --art-vault-a: #2fb3a2;
+  --art-vault-b: #0f5c55;
+  --art-door-a: #1f2b38;
+  --art-door-b: #16202b;
+  --art-ink: #63d0c1;
+  --art-shadow: rgba(0, 0, 0, 0.45);
+}
+
+/* On a coloured panel the scene turns into white line art. */
+.lvart--light {
+  --art-glow: rgba(255, 255, 255, 0.18);
+  --art-vault-a: rgba(255, 255, 255, 0.28);
+  --art-vault-b: rgba(255, 255, 255, 0.1);
+  --art-door-a: rgba(255, 255, 255, 0.95);
+  --art-door-b: rgba(255, 255, 255, 0.75);
+  --art-line: rgba(255, 255, 255, 0.35);
+  --art-shadow: rgba(0, 0, 0, 0.18);
+}
+
+.lvart-stop--glow { stop-color: var(--art-glow); }
+.lvart-stop--vault-a { stop-color: var(--art-vault-a); }
+.lvart-stop--vault-b { stop-color: var(--art-vault-b); }
+.lvart-stop--door-a { stop-color: var(--art-door-a); }
+.lvart-stop--door-b { stop-color: var(--art-door-b); }
+
+.lvart-orbit-line {
+  fill: none;
+  stroke: var(--art-line);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 9;
+  stroke-linecap: round;
+}
+
+.lvart-orbit-line--inner {
+  stroke-dasharray: 1 7;
+  opacity: 0.7;
+}
+
+.lvart-path {
+  fill: none;
+  stroke: var(--hue-amber);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 7 9;
+}
+
+.lvart-shadow { fill: var(--art-shadow); }
+.lvart-rim { fill: none; stroke: rgba(255, 255, 255, 0.35); stroke-width: 2; }
+.lvart-foot { fill: var(--art-vault-b); }
+.lvart-dial-face { fill: none; stroke: var(--art-ink); stroke-width: 3; opacity: 0.35; }
+.lvart-tick { fill: var(--art-ink); opacity: 0.55; }
+.lvart-hand { fill: none; stroke: var(--art-ink); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.lvart-shield { fill: var(--hue-amber); }
+.lvart-check { fill: none; stroke: #fff; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+
+.lvart-chip { stroke: rgba(255, 255, 255, 0.7); stroke-width: 3; }
+.lvart-chip--amber { fill: var(--hue-amber); }
+.lvart-chip--indigo { fill: var(--hue-indigo); }
+.lvart-chip--rose { fill: var(--hue-rose); }
+.lvart-chip--teal { fill: var(--hue-teal); }
+.lvart-glyph { fill: var(--art-chip-ink); }
+.lvart-glyph-line { fill: none; stroke: var(--art-chip-ink); stroke-width: 3; stroke-linecap: round; }
+.lvart-glyph-line--ink { stroke: var(--hue-indigo); stroke-width: 2.5; }
+
+.lvart-spark { fill: var(--hue-amber); opacity: 0.85; }
+.lvart-spark--2,
+.lvart-spark--5 { fill: var(--hue-indigo); }
+.lvart-spark--3,
+.lvart-spark--6 { fill: var(--hue-rose); }
+
+/* Everything that rotates or scales turns around its own centre. */
+.lvart-dial,
+.lvart-spin-slow,
+.lvart-spark,
+.lvart-breathe {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes lvart-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes lvart-bob { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(4px, -10px); } }
+@keyframes lvart-turn { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes lvart-dial { 0%, 100% { transform: rotate(-25deg); } 50% { transform: rotate(35deg); } }
+@keyframes lvart-dash { to { stroke-dashoffset: -64; } }
+@keyframes lvart-twinkle { 0%, 100% { opacity: 0.15; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes lvart-breathe { 0%, 100% { transform: scale(0.96); opacity: 0.85; } 50% { transform: scale(1.04); opacity: 1; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .lvart-float { animation: lvart-float 6s ease-in-out infinite; }
+  .lvart-bob { animation: lvart-bob 7s ease-in-out infinite; }
+  .lvart-bob--2 { animation-delay: -1.8s; animation-duration: 8s; }
+  .lvart-bob--3 { animation-delay: -3.5s; animation-duration: 6.5s; }
+  .lvart-bob--4 { animation-delay: -5s; }
+  .lvart-dial { animation: lvart-dial 9s ease-in-out infinite; }
+  .lvart-spin-slow { animation: lvart-turn 60s linear infinite; }
+  .lvart-path { animation: lvart-dash 2.4s linear infinite; }
+  .lvart-breathe { animation: lvart-breathe 8s ease-in-out infinite; }
+  .lvart-spark { animation: lvart-twinkle 3.2s ease-in-out infinite; }
+  .lvart-spark--2 { animation-delay: -0.6s; }
+  .lvart-spark--3 { animation-delay: -1.2s; }
+  .lvart-spark--4 { animation-delay: -1.8s; }
+  .lvart-spark--5 { animation-delay: -2.4s; }
+  .lvart-spark--6 { animation-delay: -2.9s; }
+}
+
+/* ---------- Landing hero ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Slowly moving colour wash behind the hero. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: -20% -10%;
+  z-index: -1;
+  background:
+    radial-gradient(40% 50% at 15% 20%, var(--hue-teal-soft), transparent 70%),
+    radial-gradient(35% 45% at 85% 15%, var(--hue-indigo-soft), transparent 70%),
+    radial-gradient(35% 45% at 70% 90%, var(--hue-amber-soft), transparent 70%),
+    radial-gradient(30% 40% at 30% 95%, var(--hue-rose-soft), transparent 70%);
+}
+
+.hero__inner {
+  position: relative;
+}
+
+.hero__side {
+  position: relative;
+}
+
+.hero__art {
+  position: absolute;
+  top: -96px;
+  left: 50%;
+  z-index: -1;
+  width: 400px;
+  max-width: none;
+  transform: translateX(-46%);
+}
+
+.hero__side .release-card {
+  position: relative;
+  margin-top: 236px;
+  background-color: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+/* Colourful headline accent. */
+.hero__title-line:last-child {
+  background: linear-gradient(90deg, var(--color-primary), var(--hue-indigo) 55%, var(--hue-rose));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes decor-wash {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-3%, 2%, 0) scale(1.05); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero::before { animation: decor-wash 18s ease-in-out infinite; }
+}
+
+@media (max-width: 860px) {
+  .hero__art {
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: 0;
+    transform: none;
+    width: min(360px, 100%);
+    margin: 0 auto -24px;
+  }
+
+  .hero__side .release-card {
+    margin-top: 0;
+  }
+}
+
+/* ---------- Sign-in / sign-up panel ---------- */
+.auth-panel__art {
+  width: min(320px, 100%);
+  margin: 28px auto -12px;
+}
+
+/* ---------- Colour accents in the signed-in area ---------- */
+
+/* Each statistic card gets its own colour: a top stripe and a tinted icon. */
+.stat-grid > *,
+.beneficiary-kpi-card {
+  --accent: var(--hue-teal);
+  --accent-soft: var(--hue-teal-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-grid > :nth-child(4n + 2) { --accent: var(--hue-amber); --accent-soft: var(--hue-amber-soft); }
+.stat-grid > :nth-child(4n + 3) { --accent: var(--hue-indigo); --accent-soft: var(--hue-indigo-soft); }
+.stat-grid > :nth-child(4n + 4) { --accent: var(--hue-rose); --accent-soft: var(--hue-rose-soft); }
+
+.stat-grid > *::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 40%, transparent));
+}
+
+.stat-grid > *::after {
+  content: '';
+  position: absolute;
+  right: -28px;
+  bottom: -28px;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Icon tiles in grids and lists cycle through the palette. */
+:is(.card-grid, .vault-grid, .feature-grid, .storage-grid, .release-list, .how-grid) > :nth-child(4n + 1) .icon-tile {
+  background-color: var(--hue-teal-soft); color: var(--hue-teal);
+}
+:is(.card-grid, .vault-grid, .feature-grid, .storage-grid, .release-list, .how-grid) > :nth-child(4n + 2) .icon-tile {
+  background-color: var(--hue-amber-soft); color: var(--hue-amber);
+}
+:is(.card-grid, .vault-grid, .feature-grid, .storage-grid, .release-list, .how-grid) > :nth-child(4n + 3) .icon-tile {
+  background-color: var(--hue-indigo-soft); color: var(--hue-indigo);
+}
+:is(.card-grid, .vault-grid, .feature-grid, .storage-grid, .release-list, .how-grid) > :nth-child(4n + 4) .icon-tile {
+  background-color: var(--hue-rose-soft); color: var(--hue-rose);
+}
+
+/* Page titles get a short colourful underline. */
+.page-title,
+.flow-page-head h1,
+.verifier-page-header h1 {
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.page-title::after,
+.flow-page-head h1::after,
+.verifier-page-header h1::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 56px;
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-primary), var(--hue-indigo), var(--hue-amber));
+  background-size: 200% 100%;
+}
+
+@keyframes decor-sweep {
+  from { background-position: 0% 0; }
+  to { background-position: 100% 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-title::after,
+  .flow-page-head h1::after,
+  .verifier-page-header h1::after {
+    animation: decor-sweep 3s ease-in-out infinite alternate;
+  }
+}
+
+/* Empty states: the icon floats inside soft pulsing rings. */
+.empty-state__icon {
+  position: relative;
+  background: linear-gradient(135deg, var(--hue-teal-soft), var(--hue-indigo-soft));
+  color: var(--hue-teal);
+}
+
+.empty-state__icon::before,
+.empty-state__icon::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 2px solid var(--hue-teal-soft);
+  border-radius: inherit;
+  opacity: 0;
+}
+
+@keyframes decor-ring {
+  0% { transform: scale(0.9); opacity: 0.9; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .empty-state__icon { animation: lvart-float 4s ease-in-out infinite; }
+  .empty-state__icon::before { animation: decor-ring 2.6s ease-out infinite; }
+  .empty-state__icon::after { animation: decor-ring 2.6s ease-out 1.3s infinite; }
+}
+
+/* A touch more colour in the moving light behind the signed-in area. */
+.dashboard-page {
+  background-image: radial-gradient(color-mix(in srgb, var(--hue-indigo) 9%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.dashboard-page::after {
+  background: radial-gradient(circle, var(--hue-indigo-soft) 0%, transparent 65%) !important;
+}

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import Brand from '../Brand.jsx'
 import Icon from '../Icon.jsx'
+import LegacyIllustration from '../decor/LegacyIllustration.jsx'
 import LanguageSwitcher from '../LanguageSwitcher.jsx'
 import ThemeToggle from '../ThemeToggle.jsx'
 import { authContent } from '../../data/authContent.js'
@@ -47,6 +48,7 @@ export default function AuthLayout({ activeTab, titleId = 'auth-title', children
                 </li>
               ))}
             </ul>
+            <LegacyIllustration className="auth-panel__art" tone="light" />
           </aside>
 
           <section className="card auth-card" aria-labelledby={titleId}>
