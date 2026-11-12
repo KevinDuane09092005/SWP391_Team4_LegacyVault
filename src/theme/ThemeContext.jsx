@@ -38,7 +38,14 @@ export function ThemeProvider({ children }) {
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark'
-    setChoice(next)
+    const apply = () => {
+      // Set the attribute right away so the browser can cross-fade old and new colours.
+      document.documentElement.dataset.theme = next
+      setChoice(next)
+    }
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (document.startViewTransition && !reduceMotion) document.startViewTransition(apply)
+    else apply()
     try {
       window.localStorage.setItem(STORAGE_KEY, next)
     } catch {
