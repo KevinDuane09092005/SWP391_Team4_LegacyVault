@@ -2,6 +2,7 @@ import Button from '../components/Button.jsx'
 import Icon from '../components/Icon.jsx'
 import Header from '../components/landing/Header.jsx'
 import Footer from '../components/landing/Footer.jsx'
+import PageBackdrop from '../components/decor/PageBackdrop.jsx'
 import HomeDashboardPreview from '../components/home/HomeDashboardPreview.jsx'
 import HandoffPanel from '../components/home/HandoffPanel.jsx'
 import AddFirstCarousel from '../components/home/AddFirstCarousel.jsx'
@@ -20,6 +21,7 @@ export default function HomePage() {
 
   return (
     <div className="marketing-page">
+      <PageBackdrop />
       <Header links={navLinks} ui={ui} />
       <main>
         <section className="home-hero">

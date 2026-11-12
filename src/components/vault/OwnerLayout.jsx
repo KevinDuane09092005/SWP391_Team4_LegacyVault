@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import DashboardLayout from '../dashboard/DashboardLayout.jsx'
 import Icon from '../Icon.jsx'
+import SectionBanner from '../decor/SectionBanner.jsx'
 import { vaultContent } from '../../data/vaultContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { IS_DEMO_MODE } from '../../services/vaultService.js'
@@ -72,6 +73,7 @@ export default function OwnerLayout({ children, showDemoBanner = true, showTheme
               <span>{t.demoNotice}</span>
             </p>
           )}
+          <SectionBanner />
           {children}
         </div>
       </div>
