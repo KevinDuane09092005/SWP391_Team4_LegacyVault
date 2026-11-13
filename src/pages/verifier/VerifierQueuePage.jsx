@@ -26,7 +26,6 @@ import {
   rejectCase,
   startReview,
 } from '../../services/verificationService.js'
-import { canReview } from '../../vault/verificationRules.js'
 
 export default function VerifierQueuePage() {
   const { user } = useAuth()
@@ -137,18 +136,6 @@ export default function VerifierQueuePage() {
       setDetail(null)
       setDetailError('')
       setDetailLoading(true)
-    }
-  }
-
-  const newReview = () => {
-    const target = cases.find((record) => canReview(record.status))
-    if (target) {
-      handleSelectCase(target.case_id)
-      document
-        .querySelector('.case-detail-section')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    } else {
-      setPageError(t.errors.noReviewableCases)
     }
   }
 

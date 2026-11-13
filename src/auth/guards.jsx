@@ -8,13 +8,15 @@ import { getDashboardPath } from './roles.js'
 
 // Pages that need a signed-in user. With `allowedRoles`, other roles see Access Denied.
 export function RequireAuth({ allowedRoles, children }) {
-  const { user, justLoggedOut } = useAuth()
+  const { user, justLoggedOut, sessionEnd } = useAuth()
   const location = useLocation()
 
   if (!user) {
     // After Log out: plain sign-in page with a "signed out" notice.
     // Otherwise remember where the user wanted to go, to send them there after sign-in.
-    const state = justLoggedOut ? { loggedOut: true } : { from: location.pathname }
+    const state = justLoggedOut
+      ? { loggedOut: true }
+      : { ...(sessionEnd ?? {}), from: sessionEnd?.from ?? location.pathname }
     return <Navigate to="/login" replace state={state} />
   }
   if (allowedRoles && !allowedRoles.includes(user.role)) {

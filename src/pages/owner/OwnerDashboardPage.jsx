@@ -9,13 +9,13 @@ import {
   Landmark,
   Layers,
   Shield,
-  ShieldCheck,
   Users,
   Wallet,
 } from 'lucide-react'
 import Button from '../../components/Button.jsx'
 import Icon from '../../components/Icon.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
+import PageHeader from '../../components/vault/PageHeader.jsx'
 import { EmptyState, ErrorState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { vaultContent } from '../../data/vaultContent.js'
@@ -47,6 +47,7 @@ export default function OwnerDashboardPage() {
   const isVi = language === 'vi'
   const t = vaultContent[language]
   const navigate = useNavigate()
+  const { endSession } = useAuth()
   const location = useLocation()
   const { status, data: assets, error, reload } = useAsync(() => getAssetsListApi(), `${user?.id}`)
 
@@ -54,16 +55,16 @@ export default function OwnerDashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
     }
-  }, [navigate, location.pathname])
+  }, [navigate, location.pathname, endSession])
 
   // Xử lý khi token hết hạn
   useEffect(() => {
     if (error?.status === 401 || error?.status === 403) {
       localStorage.removeItem('token')
       localStorage.removeItem('legacyvault-access-token')
-      navigate('/login', {
+      endSession({
         state: {
           from: location.pathname,
           message: isVi
@@ -72,7 +73,7 @@ export default function OwnerDashboardPage() {
         },
       })
     }
-  }, [error, navigate, location.pathname, isVi])
+  }, [error, navigate, location.pathname, isVi, endSession])
 
   const assetList = Array.isArray(assets) ? assets : []
   const assetTotal = assetList.length
@@ -83,24 +84,33 @@ export default function OwnerDashboardPage() {
 
   return (
     <OwnerLayout>
-      <header className="owner-overview-hero">
-        <div className="owner-overview-hero__copy">
-          <span className="owner-overview-hero__badge">
-            <ShieldCheck size={13} aria-hidden="true" />
-            {isVi ? 'Chủ kho di sản' : 'Vault Owner'}
-          </span>
-          <h1 className="page-title">{t.dashboard.welcome(user?.fullName || 'Owner')}</h1>
-          <p className="page-text">
-            {isVi
-              ? 'Quản lý tài sản số, người thụ hưởng và các điều kiện chuyển giao di sản an toàn.'
-              : 'Manage digital assets, trusted contacts, and automated legacy handover.'}
-          </p>
-        </div>
-        <Button to={ownerPaths.newAsset()}>
-          <Icon name="key" size={16} />
-          {isVi ? 'Đăng ký tài sản' : 'Register Asset'}
-        </Button>
-      </header>
+      <PageHeader
+        scene="overview"
+        hue="teal"
+        eyebrow={new Date().toLocaleDateString(isVi ? 'vi-VN' : 'en-US', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        })}
+        title={t.dashboard.welcome(user?.fullName || 'Owner')}
+        description={
+          isVi
+            ? 'Quản lý tài sản số, người thụ hưởng và các điều kiện chuyển giao di sản an toàn.'
+            : 'Manage digital assets, trusted contacts, and automated legacy handover.'
+        }
+        actions={
+          <>
+            <Button to={ownerPaths.newAsset()}>
+              <Icon name="key" size={16} />
+              {isVi ? 'Đăng ký tài sản' : 'Register Asset'}
+            </Button>
+            <Button to={ownerPaths.contacts} variant="secondary">
+              <Icon name="users" size={16} />
+              {isVi ? 'Mời người tin cậy' : 'Invite a trusted contact'}
+            </Button>
+          </>
+        }
+      />
 
       {status === 'loading' && (
         <div className="owner-overview-skeleton" role="status" aria-label={t.loading}>

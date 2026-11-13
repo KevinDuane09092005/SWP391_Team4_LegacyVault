@@ -89,7 +89,7 @@ test('verification locks after 5 failed attempts', async () => {
   await rejectsWith(store.mockVerifyIdentity(ben, 'HO-2041', verifyForm), 'VERIFICATION_LOCKED')
 })
 
-test('8–13. full flow: only own assets, receipt completes once, access closes after', async () => {
+test('8–13. full flow: only own assets, receipt completes once, assets stay readable after', async () => {
   await store.mockStartHandover(executor, 'HO-2041')
   const verified = await store.mockVerifyIdentity(ben, 'HO-2041', verifyForm)
   assert.equal(verified.status, 'IDENTITY_VERIFIED')
@@ -113,7 +113,10 @@ test('8–13. full flow: only own assets, receipt completes once, access closes 
   assert.equal(done.status, 'COMPLETED')
   assert.ok(done.completedAt)
   await rejectsWith(store.mockConfirmReceipt(ben, 'HO-2041'), 'ALREADY_COMPLETED')
-  await rejectsWith(store.mockOpenAsset(ben, 'HO-2041', 'ho-asset-will'), 'ACCESS_DENIED')
+  // Team rule (handoverAccess.js): after COMPLETED the beneficiary owns the assets, so access stays open,
+  // but only for their own assets.
+  assert.match((await store.mockOpenAsset(ben, 'HO-2041', 'ho-asset-will')).content, /^DEMO:/)
+  await rejectsWith(store.mockOpenAsset(ben, 'HO-2041', 'ho-asset-bank'), 'ACCESS_DENIED')
 
   const forExecutor = (await store.mockListExecutorCases(executor)).find((c) => c.id === 'HO-2041')
   assert.equal(forExecutor.status, 'COMPLETED')
@@ -158,13 +161,13 @@ test('seed: HO-2047 waits for verification and hides the other beneficiary asset
   await rejectsWith(store.mockStartHandover(executor, 'HO-2047'), 'ALREADY_STARTED')
 })
 
-test('seed: HO-2048 is COMPLETED, cannot complete again, access closed', async () => {
+test('seed: HO-2048 is COMPLETED, cannot complete again, own asset stays readable', async () => {
   const handover = await store.mockGetBeneficiaryCase(ben, 'HO-2048')
   assert.equal(handover.status, 'COMPLETED')
   assert.equal(handover.completedAt, '2026-10-10T10:20:00.000Z')
   await rejectsWith(store.mockConfirmReceipt(ben, 'HO-2048'), 'ALREADY_COMPLETED')
-  await assert.rejects(store.mockOpenAsset(ben, 'HO-2048', 'ho-asset-letter'),
-    (error) => error.code === 'ACCESS_DENIED' && error.details.reasons.includes(DENY.HANDOVER_COMPLETED))
+  assert.match((await store.mockOpenAsset(ben, 'HO-2048', 'ho-asset-letter')).content, /^DEMO:/)
+  await rejectsWith(store.mockOpenAsset(ben2, 'HO-2048', 'ho-asset-letter'), 'CASE_NOT_FOUND')
   const forExecutor = (await store.mockListExecutorCases(executor)).find((c) => c.id === 'HO-2048')
   assert.equal(forExecutor.status, 'COMPLETED')
 })

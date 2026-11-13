@@ -41,6 +41,8 @@ const en = {
       verified: 'Your account is verified. Sign in to continue.',
       loggedOut: 'You have been signed out.',
       signInRequired: 'Please sign in to open that page.',
+      sessionEnded: 'Your session has ended. Please sign in again.',
+      backendRequired: 'The Vault Owner area needs the backend server. Start the backend, then sign in again.',
     },
   },
 
@@ -173,6 +175,8 @@ const vi = {
       verified: 'Tài khoản đã được xác minh. Hãy đăng nhập để tiếp tục.',
       loggedOut: 'Bạn đã đăng xuất.',
       signInRequired: 'Vui lòng đăng nhập để mở trang đó.',
+      sessionEnded: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
+      backendRequired: 'Khu Vault Owner cần máy chủ backend. Hãy bật backend rồi đăng nhập lại.',
     },
   },
 

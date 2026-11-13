@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../../auth/AuthContext.jsx'
 import Button from '../../components/Button.jsx'
 import Icon from '../../components/Icon.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
+import PageHeader from '../../components/vault/PageHeader.jsx'
 import {
-  Breadcrumbs,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -22,7 +23,7 @@ export default function AssetsPage() {
   const t = vaultContent[language]
   const copy = t.vaultDetails
   const location = useLocation()
-  const navigate = useNavigate()
+  const { endSession } = useAuth()
 
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +39,7 @@ export default function AssetsPage() {
     // 1. Lấy Token & Kiểm tra xác thực
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
       return
     }
 
@@ -54,7 +55,7 @@ export default function AssetsPage() {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message:
@@ -73,7 +74,7 @@ export default function AssetsPage() {
     } finally {
       setLoading(false)
     }
-  }, [isVi, location.pathname, navigate, statusFilter, typeFilter])
+  }, [isVi, location.pathname, statusFilter, typeFilter, endSession])
 
   // Kích hoạt khi component được render hoặc thay đổi bộ lọc
   useEffect(() => {
@@ -82,70 +83,54 @@ export default function AssetsPage() {
 
   return (
     <OwnerLayout>
-      <Breadcrumbs
-        label={t.breadcrumbsLabel}
-        items={[
-          { label: t.nav.dashboard, to: ownerPaths.dashboard },
-          { label: isVi ? 'Tài sản số' : 'Digital Assets' },
-        ]}
+      <PageHeader
+        scene="assets"
+        hue="indigo"
+        title={isVi ? 'Tài sản số của tôi' : 'My digital assets'}
+        description={
+          isVi
+            ? 'Tất cả các tài sản số, tài khoản và tài liệu đã được mã hóa an toàn trong hệ thống.'
+            : 'All digital assets, credentials, and records secured in your vault.'
+        }
+        actions={
+          <Button to={ownerPaths.newAsset()}>
+            <Icon name="key" size={16} />
+            {isVi ? 'Đăng ký tài sản' : 'Register Asset'}
+          </Button>
+        }
       />
 
-      <div className="page-head page-head--spaced">
-        <div>
-          <h1 className="page-title">{isVi ? 'Danh sách tài sản số' : 'Digital Assets'}</h1>
-          <p className="page-text">
-            {isVi
-              ? 'Tất cả các tài sản số, tài khoản và tài liệu đã được mã hóa an toàn trong hệ thống.'
-              : 'All digital assets, credentials, and records secured in your vault.'}
-          </p>
-          {!loading && !error && (
-            <p className="page-meta">
-              {t.assetCount(assets.length)}
-            </p>
-          )}
-        </div>
-        <Button to={ownerPaths.newAsset()}>
-          <Icon name="key" size={16} />
-          {isVi ? 'Đăng ký tài sản' : 'Register Asset'}
-        </Button>
-      </div>
-
       {/* Bộ lọc trạng thái & loại tài sản */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          marginBottom: '16px',
-        }}
-      >
-        <select
-          className="field__input"
-          style={{ width: 'auto', minWidth: '175px', height: '38px', padding: '0 12px' }}
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          aria-label={isVi ? 'Lọc theo trạng thái' : 'Filter by status'}
-        >
-          <option value="ALL">{isVi ? 'Tất cả trạng thái' : 'All Statuses'}</option>
-          <option value="assigned">{isVi ? 'Đã phân công' : 'Assigned'}</option>
-          <option value="unassigned">{isVi ? 'Chưa phân công' : 'Unassigned'}</option>
-        </select>
+      <div className="list-toolbar">
+        <div className="list-toolbar__filters">
+          <select
+            className="field__input list-toolbar__select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label={isVi ? 'Lọc theo trạng thái' : 'Filter by status'}
+          >
+            <option value="ALL">{isVi ? 'Tất cả trạng thái' : 'All Statuses'}</option>
+            <option value="assigned">{isVi ? 'Đã phân công' : 'Assigned'}</option>
+            <option value="unassigned">{isVi ? 'Chưa phân công' : 'Unassigned'}</option>
+          </select>
 
-        <select
-          className="field__input"
-          style={{ width: 'auto', minWidth: '195px', height: '38px', padding: '0 12px' }}
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          aria-label={isVi ? 'Lọc theo loại tài sản' : 'Filter by asset type'}
-        >
-          <option value="ALL">{isVi ? 'Tất cả loại tài sản' : 'All Asset Types'}</option>
-          <option value="Bank Account">{isVi ? 'Tài khoản ngân hàng' : 'Bank Account'}</option>
-          <option value="Crypto Wallet">{isVi ? 'Ví tiền mã hóa' : 'Crypto Wallet'}</option>
-          <option value="Social Media">{isVi ? 'Mạng xã hội' : 'Social Media'}</option>
-          <option value="Important Document">{isVi ? 'Tài liệu quan trọng' : 'Important Document'}</option>
-          <option value="Other">{isVi ? 'Khác' : 'Other'}</option>
-        </select>
+          <select
+            className="field__input list-toolbar__select"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            aria-label={isVi ? 'Lọc theo loại tài sản' : 'Filter by asset type'}
+          >
+            <option value="ALL">{isVi ? 'Tất cả loại tài sản' : 'All Asset Types'}</option>
+            <option value="Bank Account">{isVi ? 'Tài khoản ngân hàng' : 'Bank Account'}</option>
+            <option value="Crypto Wallet">{isVi ? 'Ví tiền mã hóa' : 'Crypto Wallet'}</option>
+            <option value="Social Media">{isVi ? 'Mạng xã hội' : 'Social Media'}</option>
+            <option value="Important Document">{isVi ? 'Tài liệu quan trọng' : 'Important Document'}</option>
+            <option value="Other">{isVi ? 'Khác' : 'Other'}</option>
+          </select>
+        </div>
+        {!loading && !error && (
+          <span className="list-toolbar__count">{t.assetCount(assets.length)}</span>
+        )}
       </div>
 
       {loading && <LoadingState label={t.loading} />}

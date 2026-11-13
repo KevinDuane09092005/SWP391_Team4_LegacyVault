@@ -1,5 +1,5 @@
 // Pure rules shared by the wizard and automated tests. All validation is repeated by the Backend in production.
-export function validateAssignment({ assetIds, beneficiaryIds, executorId, instructions, allocations, contacts }) {
+export function validateAssignment({ assetIds, beneficiaryIds, executorId, instructions, contacts }) {
   const issues = []
   if (!assetIds?.length) issues.push({ step: 1, message: 'Select at least one asset.' })
   if (!beneficiaryIds?.length) issues.push({ step: 2, message: 'Select at least one beneficiary.' })

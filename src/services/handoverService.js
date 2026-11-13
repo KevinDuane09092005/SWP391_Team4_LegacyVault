@@ -612,12 +612,20 @@ function readAssetContent(detail) {
   return typeof value === 'string' ? value : JSON.stringify(value)
 }
 
+// True when the backend refused the request for this user (not a network or server fault).
+function isAccessRefused(error) {
+  return error?.status === 401 || error?.status === 403
+}
+
 export const openAsset = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockOpenAsset(user, caseId, assetId)
   let detail = null
   try {
     detail = await getDecryptedAssetDetailApi(assetId, caseId)
   } catch (err) {
+    // A refusal from the server (401/403) must stop here: never show content it denied.
+    // Other failures (e.g. the detail endpoint missing) may fall back to the case's own data.
+    if (isAccessRefused(err)) throw err
     console.warn('Could not fetch decrypted asset detail from API, falling back to case assets:', err)
   }
   const current = await getBeneficiaryCase(user, caseId)
@@ -640,10 +648,12 @@ export const openAsset = async (user, caseId, assetId) => {
 
 export const recordAssetDownload = async (user, caseId, assetId) => {
   if (isDemoMode()) return mockRecordAssetDownload(user, caseId, assetId)
-  // The page builds the file only after this succeeds, so a refusal blocks the download.
+  // The page builds the file only after this returns. A refusal (401/403) blocks the download;
+  // other acknowledge errors (e.g. already acknowledged) do not stop the beneficiary.
   try {
     await acknowledgeIndividualAssetApi(assetId, caseId)
   } catch (err) {
+    if (isAccessRefused(err)) throw err
     console.warn('Acknowledge download non-blocking warning:', err)
   }
 }

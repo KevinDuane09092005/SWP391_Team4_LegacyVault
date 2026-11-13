@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import * as authService from '../services/authService.js'
 import { recordSignIn, recordSignOut } from '../services/auditService.js'
 import { normalizeRole } from './roles.js'
@@ -14,6 +14,9 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(readSession)
   // True right after the user presses Log out, so the guard can say "You have been signed out".
   const [justLoggedOut, setJustLoggedOut] = useState(false)
+  // Why the session ended without a Log out click (expired token, missing backend session).
+  // RequireAuth passes it to the sign-in page, which shows the message.
+  const [sessionEnd, setSessionEnd] = useState(null)
 
   // Ask the service who is signed in (with a backend: the server). Sign out if it says no one.
   useEffect(() => {
@@ -29,7 +32,7 @@ export function AuthProvider({ children }) {
   // Refresh dynamic role contexts from GET /api/v1/auth/contexts when signed in with backend token.
   useEffect(() => {
     let cancelled = false
-    if (!session?.token || !session?.user) return undefined
+    if (!session?.token || !session?.user?.id) return undefined
     authService.getAuthContexts().then((contexts) => {
       if (cancelled || !Array.isArray(contexts) || contexts.length === 0) return
       setSession((prev) => {
@@ -72,6 +75,7 @@ export function AuthProvider({ children }) {
     recordSignIn({ user, identifier, success: true })
     setSession(saveSession(user, remember, token))
     setJustLoggedOut(false)
+    setSessionEnd(null)
     return user
   }
 
@@ -87,6 +91,16 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Pages call this when the backend session is missing or expired. Unlike only navigating to
+  // /login, it really ends the session, so the sign-in page cannot bounce the user back (no loop).
+  // `options` keeps the old navigate shape: { state: { from, message } }.
+  const endSession = useCallback((options) => {
+    clearSession()
+    setSession(null)
+    setJustLoggedOut(false)
+    setSessionEnd({ sessionEnded: true, ...(options?.state ?? {}) })
+  }, [])
+
   // Called by the sign-in page once it has shown "You have been signed out".
   const markLogoutSeen = () => setJustLoggedOut(false)
 
@@ -94,6 +108,7 @@ export function AuthProvider({ children }) {
     const newSession = saveSession(user, remember, token)
     setSession(newSession)
     setJustLoggedOut(false)
+    setSessionEnd(null)
     return newSession
   }
 
@@ -117,8 +132,10 @@ export function AuthProvider({ children }) {
     user: session?.user ?? null,
     session,
     justLoggedOut,
+    sessionEnd,
     login,
     logout,
+    endSession,
     markLogoutSeen,
     setSessionUser,
     switchRoleContext,

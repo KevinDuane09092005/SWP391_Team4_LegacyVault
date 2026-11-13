@@ -39,6 +39,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
   const copy = t.assetDetails
   const location = useLocation()
   const navigate = useNavigate()
+  const { endSession } = useAuth()
 
   const [assetData, setAssetData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -66,7 +67,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
     // 1. Kiểm tra Token từ localStorage
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
       return
     }
 
@@ -79,7 +80,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message:
@@ -101,7 +102,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
     } finally {
       setLoading(false)
     }
-  }, [assetId, isVi, location.pathname, navigate, user?.id, vaultId])
+  }, [assetId, isVi, location.pathname, user?.id, vaultId, endSession])
 
   // Fetch assignment configuration by assetId: GET /api/v1/assignments/asset/{assetId}
   const fetchAssignmentDetail = useCallback(async () => {
@@ -126,7 +127,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message:
@@ -139,7 +140,7 @@ export default function AssetDetailsPage({ assetId: propAssetId, onClose, isModa
     } finally {
       setLoadingAssignment(false)
     }
-  }, [assetId, isVi, location.pathname, navigate])
+  }, [assetId, isVi, location.pathname, endSession])
 
   // Lắng nghe theo assetId để gọi API khi mở trang hoặc mở modal
   useEffect(() => {

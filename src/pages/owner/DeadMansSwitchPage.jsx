@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
+import { useAuth } from '../../auth/AuthContext.jsx'
 import {
   Shield,
   CalendarDays,
@@ -15,6 +16,7 @@ import {
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
+import PageHeader from '../../components/vault/PageHeader.jsx'
 import { LoadingState, ErrorState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { computeDmsView, dateLabel, formatCountdown, formatTimeInterval } from '../../vault/dmsLogic.js'
@@ -71,7 +73,7 @@ function DmsScheduleSelect({ id, value, onChange, children }) {
 export default function DeadMansSwitchPage() {
   const { language } = useLanguage()
   const isVi = language === 'vi'
-  const navigate = useNavigate()
+  const { endSession } = useAuth()
   const location = useLocation()
 
   // Real backend states
@@ -83,7 +85,7 @@ export default function DeadMansSwitchPage() {
   const [syncing, setSyncing] = useState(false)
   const [apiError, setApiError] = useState('')
   const [successToast, setSuccessToast] = useState('')
-  const [clock, setClock] = useState(Date.now())
+  const [clock, setClock] = useState(() => Date.now())
   const [simulatedOffsetMs, setSimulatedOffsetMs] = useState(0) // for presentation testing
 
   // Form states for config in seconds (matching backend schema: 60s interval, 120s grace default)
@@ -142,7 +144,7 @@ export default function DeadMansSwitchPage() {
   const loadDmsData = useCallback(async () => {
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
       return
     }
 
@@ -178,7 +180,7 @@ export default function DeadMansSwitchPage() {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message: isVi
@@ -192,7 +194,7 @@ export default function DeadMansSwitchPage() {
     } finally {
       setLoading(false)
     }
-  }, [isVi, location.pathname, mapAuditLogs, navigate])
+  }, [isVi, location.pathname, mapAuditLogs, endSession])
 
   // Initial fetch on mount
   useEffect(() => {
@@ -249,7 +251,7 @@ export default function DeadMansSwitchPage() {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message: isVi
@@ -291,7 +293,7 @@ export default function DeadMansSwitchPage() {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message: isVi
@@ -333,7 +335,7 @@ export default function DeadMansSwitchPage() {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message: isVi
@@ -413,38 +415,40 @@ export default function DeadMansSwitchPage() {
 
   return (
     <OwnerLayout>
-      <div className="flow-page-head">
-        <div>
-          <h1>{isVi ? "Công tắc an toàn (Dead Man's Switch)" : "Dead Man's Switch (DMS)"}</h1>
-          <p>
-            {isVi
-              ? 'Tự động kích hoạt quy trình chuyển giao di sản số nếu chủ tài khoản không phản hồi sau một khoảng thời gian thiết lập.'
-              : 'Automated fail-safe trigger that initiates handover verification if you are unable to check in.'}
-          </p>
-        </div>
-        {!loading && dmsData && (
-          <span
-            className={`badge ${
-              dms === 'active'
-                ? 'green'
+      <PageHeader
+        scene="dms"
+        hue="rose"
+        title={isVi ? "Công tắc an toàn (Dead Man's Switch)" : "Dead Man's Switch"}
+        description={
+          isVi
+            ? 'Tự động kích hoạt quy trình chuyển giao di sản số nếu chủ tài khoản không phản hồi sau một khoảng thời gian thiết lập.'
+            : 'Automated fail-safe trigger that initiates handover verification if you are unable to check in.'
+        }
+        status={
+          !loading && dmsData && (
+            <span
+              className={`badge ${
+                dms === 'active'
+                  ? 'green'
+                  : dms === 'soon'
+                  ? 'amber'
+                  : 'red'
+              }`}
+            >
+              <Circle size={9} strokeWidth={0} fill="currentColor" style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden="true" />
+              {dms === 'active'
+                ? isVi ? 'ĐANG GIÁM SÁT' : 'MONITORING ACTIVE'
                 : dms === 'soon'
-                ? 'amber'
-                : 'red'
-            }`}
-          >
-            <Circle size={9} strokeWidth={0} fill="currentColor" style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden="true" />
-            {dms === 'active'
-              ? isVi ? 'ĐANG GIÁM SÁT' : 'MONITORING ACTIVE'
-              : dms === 'soon'
-              ? isVi ? 'SẮP ĐẾN HẠN' : 'CHECK-IN DUE SOON'
-              : dms === 'warning'
-              ? isVi ? 'ĐANG TRONG THỜI GIAN ÂN HẠN' : 'GRACE PERIOD WARNING'
-              : dms === 'triggered'
-              ? isVi ? 'ĐÃ KÍCH HOẠT CHUYỂN GIAO' : 'HANDOVER TRIGGERED'
-              : isVi ? 'LỖI TRẠNG THÁI' : 'STATUS ERROR'}
-          </span>
-        )}
-      </div>
+                ? isVi ? 'SẮP ĐẾN HẠN' : 'CHECK-IN DUE SOON'
+                : dms === 'warning'
+                ? isVi ? 'ĐANG TRONG THỜI GIAN ÂN HẠN' : 'GRACE PERIOD WARNING'
+                : dms === 'triggered'
+                ? isVi ? 'ĐÃ KÍCH HOẠT CHUYỂN GIAO' : 'HANDOVER TRIGGERED'
+                : isVi ? 'LỖI TRẠNG THÁI' : 'STATUS ERROR'}
+            </span>
+          )
+        }
+      />
 
       {loading && (
         <LoadingState
@@ -826,56 +830,58 @@ export default function DeadMansSwitchPage() {
             </section>
           )}
 
-          {/* Presentation Demo Simulator Bar */}
-          <div className="sim-bar">
-            <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Wrench size={15} strokeWidth={1.9} aria-hidden="true" />
-              {isVi ? 'Công cụ mô phỏng demo:' : 'Demo Presentation Simulator:'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setSimulatedOffsetMs(0)
-              }}
-            >
-              {isVi ? '1. Trạng thái bình thường (Active)' : '1. Normal Active'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const threshold = intervalSeconds < 180 ? 10 : Math.min(3 * 86400, intervalSeconds / 3)
-                const offsetSec = Math.max(0, intervalSeconds - (threshold / 2))
-                setSimulatedOffsetMs(offsetSec * 1000)
-              }}
-            >
-              {isVi ? '2. Sắp đến hạn (Due Soon)' : '2. Due Soon'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const extraSec = graceSeconds < 180 ? 5 : Math.min(86400, graceSeconds / 3)
-                setSimulatedOffsetMs((intervalSeconds + extraSec) * 1000)
-              }}
-            >
-              {isVi ? '3. Đang ân hạn (Grace Warning)' : '3. Grace Period Warning'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSimulatedOffsetMs((intervalSeconds + graceSeconds + 5) * 1000)
-              }}
-            >
-              {isVi ? '4. Kích hoạt chuyển giao (Triggered)' : '4. Triggered Handover'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditingConfig(true)
-              }}
-            >
-              {isVi ? 'Cấu hình lại' : 'Re-configure'}
-            </button>
-          </div>
+          {/* Presentation demo simulator: folded away so it does not read as part of the product. */}
+          <details className="sim-tools">
+            <summary>
+              <Wrench size={15} strokeWidth={1.9} aria-hidden="true" style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              {isVi ? 'Công cụ mô phỏng (demo)' : 'Demo simulator'}
+            </summary>
+            <div className="sim-bar">
+              <button
+                type="button"
+                onClick={() => {
+                  setSimulatedOffsetMs(0)
+                }}
+              >
+                {isVi ? '1. Trạng thái bình thường (Active)' : '1. Normal Active'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const threshold = intervalSeconds < 180 ? 10 : Math.min(3 * 86400, intervalSeconds / 3)
+                  const offsetSec = Math.max(0, intervalSeconds - (threshold / 2))
+                  setSimulatedOffsetMs(offsetSec * 1000)
+                }}
+              >
+                {isVi ? '2. Sắp đến hạn (Due Soon)' : '2. Due Soon'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const extraSec = graceSeconds < 180 ? 5 : Math.min(86400, graceSeconds / 3)
+                  setSimulatedOffsetMs((intervalSeconds + extraSec) * 1000)
+                }}
+              >
+                {isVi ? '3. Đang ân hạn (Grace Warning)' : '3. Grace Period Warning'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSimulatedOffsetMs((intervalSeconds + graceSeconds + 5) * 1000)
+                }}
+              >
+                {isVi ? '4. Kích hoạt chuyển giao (Triggered)' : '4. Triggered Handover'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingConfig(true)
+                }}
+              >
+                {isVi ? 'Cấu hình lại' : 'Re-configure'}
+              </button>
+            </div>
+          </details>
         </>
       )}
     </OwnerLayout>

@@ -498,7 +498,7 @@ export async function saveAsset(ownerId, vaultId, { values, files }, onProgress 
 
   try {
     mockCreateAsset(ownerId, vaultId, savedAsset)
-  } catch (err) {
+  } catch {
     // ignore
   }
 

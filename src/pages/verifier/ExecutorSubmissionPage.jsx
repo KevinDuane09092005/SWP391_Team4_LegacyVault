@@ -30,11 +30,11 @@ export default function ExecutorSubmissionPage() {
   const [caseId, setCaseId] = useState(initialCaseId)
   const [cases, setCases] = useState([])
   const [file, setFile] = useState(null)
-  const [documentNumber, setDocumentNumber] = useState('GCT-12345')
-  const [issuedBy, setIssuedBy] = useState('UBND Phường')
-  const [issuedDate, setIssuedDate] = useState('2026-10-25')
-  const [notes, setNotes] = useState('Kính gửi Chuyên viên pháp lý thẩm định giấy tờ')
-  const [autoSubmit, setAutoSubmit] = useState(true)
+  const [documentNumber, setDocumentNumber] = useState('')
+  const [issuedBy, setIssuedBy] = useState('')
+  const [issuedDate, setIssuedDate] = useState('')
+  const [notes, setNotes] = useState('')
+  const [autoSubmit] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
@@ -46,8 +46,9 @@ export default function ExecutorSubmissionPage() {
         .then((data) => {
           if (Array.isArray(data)) {
             setCases(data)
-            if (!caseId && data.length > 0) {
-              setCaseId(data[0].legalCaseId || data[0].case_id || data[0].id)
+            // Pick the first case only when none is chosen yet.
+            if (data.length > 0) {
+              setCaseId((current) => current || data[0].legalCaseId || data[0].case_id || data[0].id)
             }
           }
         })

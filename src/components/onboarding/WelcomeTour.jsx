@@ -41,7 +41,8 @@ function makeSteps(role, isVi) {
     { selector: '.page-head', title: pick('Quản lý bàn giao', 'Handover management'), description: pick('Theo dõi hồ sơ. Chỉ bắt đầu bàn giao khi đã có phê duyệt pháp lý hợp lệ.', 'Track cases. Start handover only after valid legal approval.') },
     help]
   if (role === ROLES.BENEFICIARY) return [...common,
-    { selector: '.page-head', title: pick('Tài sản được bàn giao', 'Inherited assets'), description: pick('Xem hồ sơ được giao; hoàn tất xác minh danh tính trước khi nhận tài sản.', 'Review your cases and verify your identity before receiving assets.') },
+    // The beneficiary dashboard uses a hero header; case pages use the standard page head.
+    { selector: '.beneficiary-hero, .page-head', title: pick('Tài sản được bàn giao', 'Inherited assets'), description: pick('Xem hồ sơ được giao; hoàn tất xác minh danh tính trước khi nhận tài sản.', 'Review your cases and verify your identity before receiving assets.') },
     help]
   return [...common, {
     selector: '.dashboard-main .page-head',

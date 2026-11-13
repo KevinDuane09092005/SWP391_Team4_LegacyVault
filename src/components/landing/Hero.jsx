@@ -1,12 +1,14 @@
 import Button from '../Button.jsx'
 import Icon from '../Icon.jsx'
 import LegacyIllustration from '../decor/LegacyIllustration.jsx'
+import HeroVideo from '../decor/HeroVideo.jsx'
 
 export default function Hero({ content }) {
   const { titleLines, description, cta, card } = content
 
   return (
     <section className="hero">
+      <HeroVideo />
       <div className="container hero__inner">
         <div className="hero__copy">
           <h1 className="hero__title">
