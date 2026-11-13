@@ -6,6 +6,11 @@ import {
   AlertTriangle,
   RotateCcw,
   Settings,
+  Zap,
+  Clock3,
+  ShieldCheck,
+  Wrench,
+  Circle,
 } from 'lucide-react'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
@@ -21,6 +26,47 @@ import {
   getDmsAuditLogsApi,
   getHandoverCasesApi,
 } from '../../services/dmsService.js'
+
+
+// Native <optgroup> labels only support plain text: browser/OS emoji render inconsistently.
+// Show a consistent Lucide SVG alongside the native select while retaining keyboard
+// navigation, accessible option groups, and existing numeric configuration values.
+function DmsScheduleSelect({ id, value, onChange, children }) {
+  const SelectedIcon = Number(value) <= 120
+    ? Zap
+    : Number(value) < 86400
+      ? Clock3
+      : ShieldCheck
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: 13,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          color: 'var(--color-primary, #0F6B52)',
+          pointerEvents: 'none',
+          zIndex: 1,
+        }}
+      >
+        <SelectedIcon size={18} strokeWidth={1.9} />
+      </span>
+      <select
+        id={id}
+        value={value}
+        onChange={onChange}
+        style={{ paddingLeft: 42 }}
+      >
+        {children}
+      </select>
+    </div>
+  )
+}
 
 export default function DeadMansSwitchPage() {
   const { language } = useLanguage()
@@ -386,15 +432,16 @@ export default function DeadMansSwitchPage() {
                 : 'red'
             }`}
           >
+            <Circle size={9} strokeWidth={0} fill="currentColor" style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden="true" />
             {dms === 'active'
-              ? isVi ? '● ĐANG GIÁM SÁT' : '● MONITORING ACTIVE'
+              ? isVi ? 'ĐANG GIÁM SÁT' : 'MONITORING ACTIVE'
               : dms === 'soon'
-              ? isVi ? '● SẮP ĐẾN HẠN' : '● CHECK-IN DUE SOON'
+              ? isVi ? 'SẮP ĐẾN HẠN' : 'CHECK-IN DUE SOON'
               : dms === 'warning'
-              ? isVi ? '● ĐANG TRONG THỜI GIAN ÂN HẠN' : '● GRACE PERIOD WARNING'
+              ? isVi ? 'ĐANG TRONG THỜI GIAN ÂN HẠN' : 'GRACE PERIOD WARNING'
               : dms === 'triggered'
-              ? isVi ? '● ĐÃ KÍCH HOẠT CHUYỂN GIAO' : '● HANDOVER TRIGGERED'
-              : isVi ? '● LỖI TRẠNG THÁI' : '● STATUS ERROR'}
+              ? isVi ? 'ĐÃ KÍCH HOẠT CHUYỂN GIAO' : 'HANDOVER TRIGGERED'
+              : isVi ? 'LỖI TRẠNG THÁI' : 'STATUS ERROR'}
           </span>
         )}
       </div>
@@ -432,23 +479,24 @@ export default function DeadMansSwitchPage() {
             <div className="dms-grid">
               <section className="panel config-card">
                 <h3>{isVi ? 'Cấu hình chu kỳ điểm danh tự động' : 'Configure Automated Trigger'}</h3>
-                <label className="flow-form-label">
+                <label className="flow-form-label" htmlFor="dms-checkin-interval">
                   {isVi ? 'Chu kỳ điểm danh định kỳ' : 'Check-in Interval'}
                 </label>
-                <select
+                <DmsScheduleSelect
+                  id="dms-checkin-interval"
                   value={formInterval}
                   onChange={(e) => setFormInterval(Number(e.target.value))}
                 >
-                  <optgroup label={isVi ? '⚡ Chế độ kiểm thử / Thử nghiệm nhanh' : '⚡ Quick Demo / Testing Mode'}>
+                  <optgroup label={isVi ? 'Chế độ kiểm thử / Thử nghiệm nhanh' : 'Quick Demo / Testing Mode'}>
                     <option value={60}>{isVi ? '1 Phút (60s) — Mặc định kiểm thử' : '1 Minute (60s) — Test Default'}</option>
                   </optgroup>
-                  <optgroup label={isVi ? '⏱️ Theo Giờ' : '⏱️ Hourly Schedule'}>
+                  <optgroup label={isVi ? 'Theo Giờ' : 'Hourly Schedule'}>
                     <option value={3600}>{isVi ? '1 Giờ (3,600s)' : '1 Hour (3,600s)'}</option>
                     <option value={7200}>{isVi ? '2 Giờ (7,200s)' : '2 Hours (7,200s)'}</option>
                     <option value={21600}>{isVi ? '6 Giờ (21,600s)' : '6 Hours (21,600s)'}</option>
                     <option value={43200}>{isVi ? '12 Giờ (43,200s)' : '12 Hours (43,200s)'}</option>
                   </optgroup>
-                  <optgroup label={isVi ? '🛡️ Chế độ thực tế / Production' : '🛡️ Production Schedule'}>
+                  <optgroup label={isVi ? 'Chế độ thực tế / Production' : 'Production Schedule'}>
                     <option value={86400}>{isVi ? '1 Ngày (86,400s)' : '1 Day (86,400s)'}</option>
                     <option value={604800}>{isVi ? '7 Ngày (1 tuần)' : '7 Days (1 week)'}</option>
                     <option value={2592000}>{isVi ? '1 Tháng (30 ngày)' : '1 Month (30 days)'}</option>
@@ -456,37 +504,38 @@ export default function DeadMansSwitchPage() {
                     <option value={15552000}>{isVi ? '6 Tháng (180 ngày)' : '6 Months (180 days)'}</option>
                     <option value={31536000}>{isVi ? '1 Năm (365 ngày)' : '1 Year (365 days)'}</option>
                   </optgroup>
-                </select>
+                </DmsScheduleSelect>
                 <p>
                   {isVi
                     ? 'Khoảng thời gian định kỳ bạn cần đăng nhập hoặc xác nhận để hệ thống biết bạn vẫn an toàn.'
                     : 'The maximum frequency you are required to sign in and confirm you are safe.'}
                 </p>
 
-                <label className="flow-form-label">
+                <label className="flow-form-label" htmlFor="dms-grace-period">
                   {isVi ? 'Thời gian ân hạn bổ sung' : 'Grace Period'}
                 </label>
-                <select
+                <DmsScheduleSelect
+                  id="dms-grace-period"
                   value={formGrace}
                   onChange={(e) => setFormGrace(Number(e.target.value))}
                 >
-                  <optgroup label={isVi ? '⚡ Chế độ kiểm thử / Thử nghiệm nhanh' : '⚡ Quick Demo / Testing Mode'}>
+                  <optgroup label={isVi ? 'Chế độ kiểm thử / Thử nghiệm nhanh' : 'Quick Demo / Testing Mode'}>
                     <option value={120}>{isVi ? '2 Phút (120s) — Mặc định kiểm thử' : '2 Minutes (120s) — Test Default'}</option>
                   </optgroup>
-                  <optgroup label={isVi ? '⏱️ Theo Giờ' : '⏱️ Hourly Schedule'}>
+                  <optgroup label={isVi ? 'Theo Giờ' : 'Hourly Schedule'}>
                     <option value={3600}>{isVi ? '1 Giờ (3,600s)' : '1 Hour (3,600s)'}</option>
                     <option value={7200}>{isVi ? '2 Giờ (7,200s)' : '2 Hours (7,200s)'}</option>
                     <option value={21600}>{isVi ? '6 Giờ (21,600s)' : '6 Hours (21,600s)'}</option>
                     <option value={43200}>{isVi ? '12 Giờ (43,200s)' : '12 Hours (43,200s)'}</option>
                   </optgroup>
-                  <optgroup label={isVi ? '🛡️ Chế độ thực tế / Production' : '🛡️ Production Schedule'}>
+                  <optgroup label={isVi ? 'Chế độ thực tế / Production' : 'Production Schedule'}>
                     <option value={86400}>{isVi ? '1 Ngày (86,400s)' : '1 Day (86,400s)'}</option>
                     <option value={259200}>{isVi ? '3 Ngày' : '3 Days'}</option>
                     <option value={604800}>{isVi ? '7 Ngày (1 tuần)' : '7 Days (1 week)'}</option>
                     <option value={1209600}>{isVi ? '14 Ngày (2 tuần)' : '14 Days (2 weeks)'}</option>
                     <option value={2592000}>{isVi ? '30 Ngày (1 tháng)' : '30 Days (1 month)'}</option>
                   </optgroup>
-                </select>
+                </DmsScheduleSelect>
                 <p>
                   {isVi
                     ? 'Thời gian chờ thêm sau khi quá hạn trước khi hệ thống gửi cảnh báo và bàn giao cho người thi hành.'
@@ -779,8 +828,9 @@ export default function DeadMansSwitchPage() {
 
           {/* Presentation Demo Simulator Bar */}
           <div className="sim-bar">
-            <span style={{ fontWeight: 600 }}>
-              {isVi ? '🛠 Công cụ mô phỏng demo:' : '🛠 Demo Presentation Simulator:'}
+            <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Wrench size={15} strokeWidth={1.9} aria-hidden="true" />
+              {isVi ? 'Công cụ mô phỏng demo:' : 'Demo Presentation Simulator:'}
             </span>
             <button
               type="button"
