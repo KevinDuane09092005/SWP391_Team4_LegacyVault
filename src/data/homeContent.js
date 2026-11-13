@@ -20,32 +20,6 @@ const en = {
     'Start with one password, one document, one trusted person',
   ],
 
-  // Main area of the dashboard preview in the hero. The frame text is in
-  // dashboardShellContent.js.
-  preview: {
-    eyebrow: 'Dashboard',
-    title: 'Legacy readiness at a glance',
-    subtitle: 'See your vault, trusted contacts, and access activity in one place.',
-    stats: [
-      { label: 'Vault items', value: '7', text: 'Secure items currently stored in your vault' },
-      { label: 'Trusted contacts', value: '4', text: 'Timed inactivity release is active for this vault' },
-      { label: 'Inactivity window', value: '7d', text: 'Last active 28 Apr 2026. Final warning 24h before timed release.' },
-      { label: 'Unlocked requests', value: '6', text: '7 access requests tracked so far' },
-    ],
-    table: {
-      title: 'Vault entries',
-      text: 'Passwords, documents, notes, and inheritance instructions, each assigned to a vault collection.',
-      search: 'Search title, type, category or collection',
-      total: '7 total',
-      columns: ['Title', 'Type', 'Collection', 'Documents', 'Updated'],
-      rows: [
-        ['Encrypted vault item', { tag: 'Device passcode' }, 'My new test collection', '1', '17 Apr 2026'],
-        ['Encrypted vault item', { tag: 'Last message' }, 'My family', '0', '17 Apr 2026'],
-        ['Encrypted vault item', { tag: 'Other' }, 'My family', '0', '17 Apr 2026'],
-      ],
-    },
-  },
-
   handoff: {
     id: 'handoff',
     eyebrow: 'If access is needed later',
@@ -144,30 +118,6 @@ const vi = {
     'Chỉ chia sẻ thông tin đã được phê duyệt',
     'Bắt đầu với một mật khẩu, một tài liệu, một người tin cậy',
   ],
-
-  preview: {
-    eyebrow: 'Tổng quan',
-    title: 'Mức độ sẵn sàng của di sản',
-    subtitle: 'Xem kho, người liên hệ tin cậy và hoạt động truy cập tại một nơi.',
-    stats: [
-      { label: 'Mục trong kho', value: '7', text: 'Mục bảo mật đang được lưu trong kho' },
-      { label: 'Người tin cậy', value: '4', text: 'Đang bật trao quyền khi không hoạt động' },
-      { label: 'Thời gian chờ', value: '7d', text: 'Hoạt động gần nhất 28/04/2026. Cảnh báo cuối 24 giờ trước khi trao quyền.' },
-      { label: 'Yêu cầu đã mở', value: '6', text: 'Đã ghi nhận 7 yêu cầu truy cập' },
-    ],
-    table: {
-      title: 'Mục trong kho',
-      text: 'Mật khẩu, tài liệu, ghi chú và chỉ dẫn thừa kế, mỗi mục thuộc một bộ sưu tập.',
-      search: 'Tìm theo tiêu đề, loại, danh mục hoặc bộ sưu tập',
-      total: 'Tổng 7',
-      columns: ['Tiêu đề', 'Loại', 'Bộ sưu tập', 'Tài liệu', 'Cập nhật'],
-      rows: [
-        ['Mục kho đã mã hóa', { tag: 'Mã thiết bị' }, 'Bộ sưu tập thử', '1', '17/04/2026'],
-        ['Mục kho đã mã hóa', { tag: 'Lời nhắn cuối' }, 'Gia đình', '0', '17/04/2026'],
-        ['Mục kho đã mã hóa', { tag: 'Khác' }, 'Gia đình', '0', '17/04/2026'],
-      ],
-    },
-  },
 
   handoff: {
     id: 'handoff',

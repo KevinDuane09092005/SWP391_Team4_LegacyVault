@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import Brand from '../Brand.jsx'
 import Icon from '../Icon.jsx'
 import LegacyIllustration from '../decor/LegacyIllustration.jsx'
+import HeroVideo from '../decor/HeroVideo.jsx'
 import LanguageSwitcher from '../LanguageSwitcher.jsx'
 import ThemeToggle from '../ThemeToggle.jsx'
 import { authContent } from '../../data/authContent.js'
@@ -19,6 +20,7 @@ export default function AuthLayout({ activeTab, titleId = 'auth-title', children
 
   return (
     <div className="marketing-page auth-page">
+      <HeroVideo variant="page" />
       <header className="auth-topbar">
         <div className="container auth-topbar__inner">
           <Brand to="/" label={landingContent[language].ui.brandLabel} />
