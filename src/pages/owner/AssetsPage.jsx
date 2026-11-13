@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../../auth/AuthContext.jsx'
 import Button from '../../components/Button.jsx'
 import Icon from '../../components/Icon.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
@@ -22,7 +23,7 @@ export default function AssetsPage() {
   const t = vaultContent[language]
   const copy = t.vaultDetails
   const location = useLocation()
-  const navigate = useNavigate()
+  const { endSession } = useAuth()
 
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +39,7 @@ export default function AssetsPage() {
     // 1. Lấy Token & Kiểm tra xác thực
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
       return
     }
 
@@ -54,7 +55,7 @@ export default function AssetsPage() {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message:
@@ -73,7 +74,7 @@ export default function AssetsPage() {
     } finally {
       setLoading(false)
     }
-  }, [isVi, location.pathname, navigate, statusFilter, typeFilter])
+  }, [isVi, location.pathname, statusFilter, typeFilter, endSession])
 
   // Kích hoạt khi component được render hoặc thay đổi bộ lọc
   useEffect(() => {

@@ -6,6 +6,7 @@ import Icon from '../Icon.jsx'
 import LanguageSwitcher from '../LanguageSwitcher.jsx'
 import ThemeToggle from '../ThemeToggle.jsx'
 import { NotificationBell } from '../notifications/NotificationParts.jsx'
+import WelcomeTour from '../onboarding/WelcomeTour.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { ROLES, getDashboardPath, normalizeRole } from '../../auth/roles.js'
 import { dashboardContent } from '../../data/dashboardContent.js'
@@ -232,7 +233,7 @@ export default function DashboardLayout({ children, showThemeToggle = true, side
     <div className="dashboard-user" ref={dropdownRef}>
       {!appShell && <span className="dashboard-user__name">{user.fullName}</span>}
 
-      <div className="role-switcher">
+      <div className="role-switcher" data-tour="role-switcher">
         <button
           type="button"
           className={`role-switcher__trigger ${dropdownOpen ? 'role-switcher__trigger--open' : ''}`}
@@ -286,6 +287,11 @@ export default function DashboardLayout({ children, showThemeToggle = true, side
 
   const utilities = (
     <>
+      <WelcomeTour
+        user={user}
+        role={currentRole}
+        storageKey={user?.id ? `${user.id}:${currentRole}` : currentRole}
+      />
       <NotificationBell />
       {showThemeToggle && <ThemeToggle />}
       <LanguageSwitcher label={t.languageLabel} />

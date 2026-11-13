@@ -14,19 +14,10 @@ import { pushNotification } from '../mocks/mockNotificationStore.js'
 import { mockRecordLegalDecision } from '../mocks/mockHandoverStore.js'
 import { mockUsers } from '../mocks/mockUsers.js'
 
-import { IS_DEMO_MODE, apiFetch } from './apiClient.js'
+import { IS_DEMO_MODE, apiFetch, getBaseUrl } from './apiClient.js'
 
 export const DEMO_MODE = IS_DEMO_MODE
 export { IS_DEMO_MODE }
-
-let customTokenProvider = null
-
-export function configureTokenProvider(provider) {
-  if (typeof provider !== 'function') {
-    throw new Error('Provide a function that returns the current access token.')
-  }
-  customTokenProvider = provider
-}
 
 const delay = (ms = 180) => new Promise((resolve) => setTimeout(resolve, ms))
 const clone = (value) => JSON.parse(JSON.stringify(value))
@@ -45,22 +36,14 @@ export function getDocumentViewUrl(doc) {
     if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://') || fileUrl.startsWith('blob:') || fileUrl.startsWith('data:')) {
       return fileUrl
     }
-    const base = (
-      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-      (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
-      'http://localhost:8080'
-    ).replace(/\/$/, '').replace(/\/api\/v1$/, '')
+    const base = getBaseUrl()
     const path = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`
-    return `${base || 'http://localhost:8080'}${path}`
+    return `${base}${path}`
   }
   const id = typeof doc === 'object' ? (doc.document_id || doc.documentId || doc.id) : null
   if (id) {
-    const base = (
-      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-      (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
-      'http://localhost:8080'
-    ).replace(/\/$/, '').replace(/\/api\/v1$/, '')
-    return `${base || 'http://localhost:8080'}/api/v1/legal-verification/documents/${id}/view`
+    const base = getBaseUrl()
+    return `${base}/api/v1/legal-verification/documents/${id}/view`
   }
   return ''
 }
@@ -69,12 +52,8 @@ export function getDocumentDownloadUrl(doc) {
   if (!doc) return '#'
   const id = typeof doc === 'object' ? (doc.document_id || doc.documentId || doc.id) : doc
   if (!id) return '#'
-  const base = (
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-    (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
-    'http://localhost:8080'
-  ).replace(/\/$/, '').replace(/\/api\/v1$/, '')
-  return `${base || 'http://localhost:8080'}/api/v1/legal-verification/documents/${id}/download`
+  const base = getBaseUrl()
+  return `${base}/api/v1/legal-verification/documents/${id}/download`
 }
 
 export function adaptVerifierDocument(doc) {

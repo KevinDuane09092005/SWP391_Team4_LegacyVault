@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import {
   CheckCircle,
   Clock,
@@ -36,7 +36,7 @@ export default function ContactsPage() {
   const isVi = language === 'vi'
   const { user } = useAuth()
   const location = useLocation()
-  const navigate = useNavigate()
+  const { endSession } = useAuth()
 
   const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -67,7 +67,7 @@ export default function ContactsPage() {
     async (keyword = '', silent = false) => {
       const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
       if (!token) {
-        navigate('/login', { state: { from: location.pathname } })
+        endSession({ state: { from: location.pathname } })
         return
       }
 
@@ -121,7 +121,7 @@ export default function ContactsPage() {
         if (err.status === 401 || err.status === 403) {
           localStorage.removeItem('token')
           localStorage.removeItem('legacyvault-access-token')
-          navigate('/login', {
+          endSession({
             state: {
               from: location.pathname,
               message: isVi
@@ -137,7 +137,7 @@ export default function ContactsPage() {
         if (!silent) setLoading(false)
       }
     },
-    [isVi, location.pathname, navigate, roleFilter, statusFilter],
+    [isVi, location.pathname, roleFilter, statusFilter, endSession],
   )
 
   // Lắng nghe tìm kiếm & bộ lọc với debounce 300ms
@@ -324,7 +324,7 @@ export default function ContactsPage() {
 
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
       return
     }
 
@@ -416,7 +416,7 @@ export default function ContactsPage() {
       if (err.status === 401 || err.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message: isVi

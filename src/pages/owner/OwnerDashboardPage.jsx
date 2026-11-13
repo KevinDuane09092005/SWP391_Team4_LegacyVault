@@ -47,6 +47,7 @@ export default function OwnerDashboardPage() {
   const isVi = language === 'vi'
   const t = vaultContent[language]
   const navigate = useNavigate()
+  const { endSession } = useAuth()
   const location = useLocation()
   const { status, data: assets, error, reload } = useAsync(() => getAssetsListApi(), `${user?.id}`)
 
@@ -54,16 +55,16 @@ export default function OwnerDashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
     }
-  }, [navigate, location.pathname])
+  }, [navigate, location.pathname, endSession])
 
   // Xử lý khi token hết hạn
   useEffect(() => {
     if (error?.status === 401 || error?.status === 403) {
       localStorage.removeItem('token')
       localStorage.removeItem('legacyvault-access-token')
-      navigate('/login', {
+      endSession({
         state: {
           from: location.pathname,
           message: isVi
@@ -72,7 +73,7 @@ export default function OwnerDashboardPage() {
         },
       })
     }
-  }, [error, navigate, location.pathname, isVi])
+  }, [error, navigate, location.pathname, isVi, endSession])
 
   const assetList = Array.isArray(assets) ? assets : []
   const assetTotal = assetList.length

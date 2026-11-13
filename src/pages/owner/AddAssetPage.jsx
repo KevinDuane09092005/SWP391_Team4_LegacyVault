@@ -35,15 +35,16 @@ export default function AddAssetPage() {
   const t = vaultContent[language]
   const copy = t.addAsset
   const navigate = useNavigate()
+  const { endSession } = useAuth()
   const location = useLocation()
 
   // Kiểm tra xác thực Token khi truy cập trang
   useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
     }
-  }, [navigate, location.pathname])
+  }, [navigate, location.pathname, endSession])
 
   // The asset is always added to the vault in the address, so load it first.
   const vaultQuery = useAsync(async () => {
@@ -107,7 +108,7 @@ export default function AddAssetPage() {
     // 1. Quản lý Token & Authentication
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
       return
     }
 
@@ -156,7 +157,7 @@ export default function AddAssetPage() {
       if (error.status === 401 || error.status === 403) {
         localStorage.removeItem('token')
         localStorage.removeItem('legacyvault-access-token')
-        navigate('/login', {
+        endSession({
           state: {
             from: location.pathname,
             message:

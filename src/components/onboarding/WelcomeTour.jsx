@@ -1,0 +1,201 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { ArrowLeft, ArrowRight, Check, ChevronRight, HelpCircle, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { ROLES, normalizeRole } from '../../auth/roles.js'
+import { useLanguage } from '../../i18n/LanguageContext.jsx'
+import './welcome-tour.css'
+
+const STORAGE_PREFIX = 'legacyvault.tour.v1:'
+
+function tourSeen(key) {
+  try { return window.localStorage.getItem(`${STORAGE_PREFIX}${key}`) === 'done' } catch { return false }
+}
+function saveTourSeen(key) {
+  try { window.localStorage.setItem(`${STORAGE_PREFIX}${key}`, 'done') } catch { /* storage may be disabled */ }
+}
+
+function makeSteps(role, isVi) {
+  const pick = (vi, en) => isVi ? vi : en
+  const common = [
+    {
+      selector: '[data-tour="role-switcher"]',
+      title: pick('Chuyển vai trò', 'Switch roles'),
+      description: pick('Bạn có thể chuyển giữa những vai trò đã được cấp quyền tại đây.', 'Switch between roles you have permission to use.'),
+    },
+  ]
+  const help = {
+    selector: '[data-tour="welcome-help"]',
+    title: pick('Xem lại hướng dẫn', 'Replay the guide'),
+    description: pick('Bạn luôn có thể nhấn nút này để mở lại hướng dẫn.', 'You can always come back to this button to replay the tour.'),
+  }
+  if (role === ROLES.VAULT_OWNER) return [...common,
+    { selector: '.owner-nav__link[href="/dashboard/owner/assets"]', title: pick('Tài sản số', 'Your assets'), description: pick('Thêm và quản lý thông tin tài sản số của bạn.', 'Add and manage your digital asset records.') },
+    { selector: '.owner-nav__link[href="/dashboard/owner/assignments"]', title: pick('Chỉ định người nhận', 'Asset assignments'), description: pick('Chọn Executor và Beneficiary, đồng thời thiết lập hướng dẫn bàn giao.', 'Choose executors and beneficiaries, and set handover instructions.') },
+    { selector: '.owner-nav__link[href="/dashboard/owner/dms"]', title: pick('Dead Man’s Switch', 'Dead Man’s Switch'), description: pick('Thiết lập lịch check-in và theo dõi trạng thái. Kích hoạt DMS không đồng nghĩa với mở khóa tài sản.', 'Configure check-ins and monitor status. A DMS trigger does not automatically release assets.') },
+    help]
+  if (role === ROLES.LEGAL_VERIFIER) return [...common,
+    { selector: '.verifier-nav__link[href="/dashboard/verifier"]', title: pick('Hồ sơ chờ xác minh', 'Verification queue'), description: pick('Xem và kiểm tra các hồ sơ được giao trước khi phê duyệt hoặc từ chối.', 'Review assigned cases before approving or rejecting them.') },
+    { selector: '.verifier-nav__link[href="/dashboard/verifier/history"]', title: pick('Lịch sử xác minh', 'Verification history'), description: pick('Theo dõi những hồ sơ đã xử lý.', 'Review the cases you have processed.') },
+    help]
+  if (role === ROLES.EXECUTOR) return [...common,
+    { selector: '.page-head', title: pick('Quản lý bàn giao', 'Handover management'), description: pick('Theo dõi hồ sơ. Chỉ bắt đầu bàn giao khi đã có phê duyệt pháp lý hợp lệ.', 'Track cases. Start handover only after valid legal approval.') },
+    help]
+  if (role === ROLES.BENEFICIARY) return [...common,
+    // The beneficiary dashboard uses a hero header; case pages use the standard page head.
+    { selector: '.beneficiary-hero, .page-head', title: pick('Tài sản được bàn giao', 'Inherited assets'), description: pick('Xem hồ sơ được giao; hoàn tất xác minh danh tính trước khi nhận tài sản.', 'Review your cases and verify your identity before receiving assets.') },
+    help]
+  return [...common, {
+    selector: '.dashboard-main .page-head',
+    title: pick('Không gian quản trị', 'Administration'),
+    description: pick('Quản lý người dùng, quyền truy cập và các sự kiện hệ thống theo vai trò của bạn.', 'Manage users, permissions, and system events according to your role.'),
+  }, help]
+}
+
+function getHighlight(selector) {
+  const element = document.querySelector(selector)
+  if (!element) return null
+  const r = element.getBoundingClientRect()
+  if (!r.width || !r.height) return null
+  const pad = 5
+  return {
+    left: Math.max(3, r.left - pad),
+    top: Math.max(3, r.top - pad),
+    width: Math.min(window.innerWidth - Math.max(3, r.left - pad) - 3, r.width + pad * 2),
+    height: Math.min(window.innerHeight - Math.max(3, r.top - pad) - 3, r.height + pad * 2),
+  }
+}
+
+export default function WelcomeTour({ user, role, storageKey }) {
+  const { language } = useLanguage()
+  const isVi = language === 'vi'
+  const [mode, setMode] = useState(() => tourSeen(storageKey) ? 'closed' : 'welcome')
+  const [index, setIndex] = useState(0)
+  const [highlight, setHighlight] = useState(null)
+  const [steps, setSteps] = useState([])
+  const dialogRef = useRef(null)
+  const normalized = normalizeRole(role)
+  const candidates = useMemo(() => makeSteps(normalized, isVi), [normalized, isVi])
+  const pick = (vi, en) => isVi ? vi : en
+  const step = steps[index]
+
+  const finish = () => {
+    saveTourSeen(storageKey)
+    setMode('closed')
+    setHighlight(null)
+  }
+  const begin = () => {
+    // A step is shown only if its actual DOM target exists on the current page.
+    // This avoids spotlighting an invisible or inaccessible control.
+    const available = candidates.filter((candidate) => getHighlight(candidate.selector))
+    setSteps(available)
+    setIndex(0)
+    if (!available.length) finish()
+    else {
+      setHighlight(getHighlight(available[0].selector))
+      setMode('tour')
+    }
+  }
+
+  useEffect(() => {
+    if (mode === 'closed') return undefined
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialogRef.current?.focus()
+    const keyHandler = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); finish(); return }
+      if (event.key !== 'Tab') return
+      const elements = Array.from(dialogRef.current?.querySelectorAll('button:not([disabled])') || [])
+      if (!elements.length) return
+      const first = elements[0]
+      const last = elements[elements.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', keyHandler)
+    return () => { document.removeEventListener('keydown', keyHandler); document.body.style.overflow = prevOverflow }
+  // The finish callback closes the dialog and is only needed on keyboard interaction.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, storageKey])
+
+  useEffect(() => {
+    if (mode !== 'tour' || !step) return undefined
+    let frame
+    const update = () => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => setHighlight(getHighlight(step.selector)))
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => { window.cancelAnimationFrame(frame); window.removeEventListener('resize', update); window.removeEventListener('scroll', update, true) }
+  }, [mode, step])
+
+  const tooltipStyle = (() => {
+    if (!highlight) return undefined
+    const width = Math.min(360, window.innerWidth - 32)
+    const gap = 16
+    const x = Math.max(16, Math.min(highlight.left + highlight.width / 2 - width / 2, window.innerWidth - width - 16))
+    // Choose the side with enough space and clamp the tooltip inside the viewport.
+    // left/top animate in CSS so it follows the spotlight smoothly between steps.
+    const estimatedHeight = Math.min(252, window.innerHeight - 32)
+    const below = window.innerHeight - (highlight.top + highlight.height) - gap - 16
+    const above = highlight.top - gap - 16
+    const placeBelow = below >= estimatedHeight || below >= above
+    const position = placeBelow
+      ? highlight.top + highlight.height + gap
+      : highlight.top - estimatedHeight - gap
+    const y = Math.max(16, Math.min(position, window.innerHeight - estimatedHeight - 16))
+    return { left: x, top: y, width }
+  })()
+
+  return (
+    <>
+      <button type="button" className="lv-welcome-help" data-tour="welcome-help" onClick={() => { setIndex(0); setMode('welcome') }} title={pick('Hướng dẫn sử dụng', 'Guided tour')} aria-label={pick('Mở hướng dẫn sử dụng', 'Open guided tour')}>
+        <HelpCircle size={18} aria-hidden="true" /> <span>{pick('Hướng dẫn', 'Guide')}</span>
+      </button>
+      {createPortal(<>{mode === 'welcome' && (
+        <div className="lv-welcome__backdrop">
+          <section className="lv-welcome__dialog" role="dialog" aria-modal="true" aria-labelledby="lv-welcome-title" tabIndex={-1} ref={dialogRef}>
+            <button className="lv-welcome__close" type="button" onClick={finish} aria-label={pick('Đóng', 'Close')}><X size={19}/></button>
+            <div className="lv-welcome__emblem"><ShieldCheck size={27} /><Sparkles className="lv-welcome__sparkle" size={15}/></div>
+            <div className="lv-welcome__eyebrow">LEGACYVAULT · QUICK START</div>
+            <h2 id="lv-welcome-title">{pick('Chào mừng đến với LegacyVault!', 'Welcome to LegacyVault!')}</h2>
+            <p>{pick(`Xin chào ${user?.fullName || ''}! Khám phá các chức năng phù hợp với vai trò của bạn qua hướng dẫn ngắn ngay trên giao diện.`, `Hello ${user?.fullName || ''}! Take a quick guided tour of the features available to your role.`)}</p>
+            <div className="lv-welcome__feature-line"><Check size={16}/> {pick('Hướng dẫn theo vai trò', 'Role-based instructions')}</div>
+            <div className="lv-welcome__feature-line"><Check size={16}/> {pick('Có thể bỏ qua hoặc xem lại bất kỳ lúc nào', 'Skip now or replay it anytime')}</div>
+            <div className="lv-welcome__actions">
+              <button type="button" className="lv-welcome__secondary" onClick={finish}>{pick('Để sau', 'Maybe later')}</button>
+              <button type="button" className="lv-welcome__primary" onClick={begin}>{pick('Bắt đầu hướng dẫn', 'Start guided tour')} <ArrowRight size={17}/></button>
+            </div>
+          </section>
+        </div>
+      )}
+      {mode === 'tour' && step && (
+        <>
+          <div className="lv-tour__blocker" aria-hidden="true" />
+          {highlight && <div className="lv-tour__spotlight" style={highlight} aria-hidden="true" />}
+          <section className={`lv-tour__tooltip${highlight ? '' : ' lv-tour__tooltip--center'}`} role="dialog" aria-modal="true" aria-label={pick('Hướng dẫn sử dụng', 'Guided tour')} tabIndex={-1} ref={dialogRef} style={tooltipStyle}>
+            <div className="lv-tour__top"><span>{pick('HƯỚNG DẪN NHANH', 'QUICK GUIDE')}</span><button type="button" onClick={finish} aria-label={pick('Đóng hướng dẫn', 'Close tour')}><X size={16}/></button></div>
+            <div className="lv-tour__progress" role="progressbar" aria-label={pick('Tiến độ hướng dẫn', 'Tour progress')} aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={index + 1}>
+              <span style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
+            </div>
+            <div key={`${normalized}-${index}-${language}`} className="lv-tour__content" aria-live="polite" aria-atomic="true">
+              <h2>{step.title}</h2>
+              <p>{step.description}</p>
+            </div>
+            <div className="lv-tour__dots" aria-hidden="true">
+              {steps.map((_, i) => <span key={i} className={i === index ? 'is-current' : ''} />)}
+            </div>
+            <div className="lv-tour__bottom">
+              <button type="button" className="lv-tour__skip" onClick={finish}>{pick('Bỏ qua', 'Skip')}</button>
+              <div className="lv-tour__nav">
+                {index > 0 && <button type="button" className="lv-tour__back" onClick={() => setIndex(index - 1)}><ArrowLeft size={14}/>{pick('Quay lại', 'Back')}</button>}
+                <button type="button" className="lv-tour__next" onClick={() => index === steps.length - 1 ? finish() : setIndex(index + 1)}>{index === steps.length - 1 ? pick('Hoàn tất', 'Finish') : pick('Tiếp theo', 'Next')}{index === steps.length - 1 ? <Check size={15}/> : <ChevronRight size={16}/>}</button>
+              </div>
+            </div>
+          </section>
+        </>
+      )}</>, document.body)}
+    </>
+  )
+}

@@ -29,6 +29,9 @@ export default function LoginPage() {
   let notice = null
   if (location.state?.verified) notice = location.state?.message || copy.notices.verified
   else if (location.state?.loggedOut) notice = copy.notices.loggedOut
+  else if (location.state?.sessionEnded) {
+    notice = location.state.message || (IS_DEMO_MODE ? copy.notices.backendRequired : copy.notices.sessionEnded)
+  }
   else if (location.state?.from) notice = copy.notices.signInRequired
 
   // The notice is now on screen; later visits to protected pages should remember the target again.

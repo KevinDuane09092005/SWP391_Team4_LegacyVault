@@ -27,29 +27,30 @@ export default function VaultDetailsPage() {
   const copy = t.vaultDetails
   const location = useLocation()
   const navigate = useNavigate()
+  const { endSession } = useAuth()
   const { status, data: vault, error, reload } = useAsync(() => getVault(user?.id, vaultId), `${user?.id}-${vaultId}`)
 
   // Kiểm tra token xác thực
   useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('legacyvault-access-token')
     if (!token) {
-      navigate('/login', { state: { from: location.pathname } })
+      endSession({ state: { from: location.pathname } })
     }
-  }, [navigate, location.pathname])
+  }, [navigate, location.pathname, endSession])
 
   // Xử lý khi token hết hạn
   useEffect(() => {
     if (error?.status === 401 || error?.status === 403) {
       localStorage.removeItem('token')
       localStorage.removeItem('legacyvault-access-token')
-      navigate('/login', {
+      endSession({
         state: {
           from: location.pathname,
           message: language === 'vi' ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : 'Session expired. Please log in again.'
         }
       })
     }
-  }, [error, navigate, location.pathname, language])
+  }, [error, navigate, location.pathname, language, endSession])
 
   return (
     <OwnerLayout>

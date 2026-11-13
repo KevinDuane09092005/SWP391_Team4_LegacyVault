@@ -364,10 +364,6 @@ export function DocumentPreviewModal({ doc, onClose, t }) {
     fileName.endsWith('.pdf') ||
     doc?.mime_type?.includes('pdf') ||
     (!fileName.match(/\.(png|jpe?g|webp|gif|svg)$/i) && doc?.document_type === 'DEATH_CERTIFICATE')
-  const isImage =
-    !isPdf &&
-    (fileName.match(/\.(png|jpe?g|webp|gif|svg)$/i) ||
-      doc?.mime_type?.startsWith('image/'))
 
   const viewUrl = getDocumentViewUrl(doc)
   const downloadUrl = getDocumentDownloadUrl(doc)

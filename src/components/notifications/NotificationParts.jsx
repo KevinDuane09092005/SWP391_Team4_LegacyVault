@@ -16,12 +16,13 @@ export function NotificationBell() {
   const { items } = useMyNotifications()
   const unread = items.filter((item) => !item.read).length
 
-  // return (
-  //   <Link to="/dashboard/notifications" className="notification-bell" aria-label={t.bell(unread)} title={t.bell(unread)}>
-  //     <Icon name="mail" size={18} />
-  //     {unread > 0 && <span className="notification-bell__count">{unread > 9 ? '9+' : unread}</span>}
-  //   </Link>
-  // )
+  // The only way into the Notification Center from the app.
+  return (
+    <Link to="/dashboard/notifications" className="notification-bell" aria-label={t.bell(unread)} title={t.bell(unread)}>
+      <Icon name="mail" size={18} />
+      {unread > 0 && <span className="notification-bell__count">{unread > 9 ? '9+' : unread}</span>}
+    </Link>
+  )
 }
 
 export function NotificationList({ items, onMarkRead }) {
