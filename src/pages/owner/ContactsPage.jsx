@@ -18,6 +18,7 @@ import { useAuth } from '../../auth/AuthContext.jsx'
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
+import PageHeader from '../../components/vault/PageHeader.jsx'
 import { LoadingState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import {
@@ -448,20 +449,22 @@ export default function ContactsPage() {
 
   return (
     <OwnerLayout>
-      <div className="flow-page-head">
-        <div>
-          <h1>{isVi ? 'Danh bạ tin cậy' : 'Contact Book'}</h1>
-          <p>
-            {isVi
-              ? 'Quản lý người thụ hưởng và người giám sát/thi hành di sản của bạn.'
-              : 'Manage your trusted contacts for digital asset assignments and handover.'}
-          </p>
-        </div>
-        <Button onClick={openAddModal}>
-          <Plus size={16} />
-          {isVi ? 'Thêm người liên hệ' : 'Add New Contact'}
-        </Button>
-      </div>
+      <PageHeader
+        scene="contacts"
+        hue="amber"
+        title={isVi ? 'Danh bạ tin cậy' : 'Contact Book'}
+        description={
+          isVi
+            ? 'Quản lý người thụ hưởng và người giám sát/thi hành di sản của bạn.'
+            : 'Manage your trusted contacts for digital asset assignments and handover.'
+        }
+        actions={
+          <Button onClick={openAddModal}>
+            <Plus size={16} />
+            {isVi ? 'Thêm người liên hệ' : 'Add New Contact'}
+          </Button>
+        }
+      />
 
       {successMessage && (
         <div style={{ marginBottom: '16px' }}>

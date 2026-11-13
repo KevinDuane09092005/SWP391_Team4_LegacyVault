@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Brand from '../Brand.jsx'
 import Button from '../Button.jsx'
 import Icon from '../Icon.jsx'
@@ -29,14 +29,32 @@ function getButtonLabel(role, language, t) {
 }
 
 // Frame for every signed-in page: top bar with the user, their Switch role dropdown, and Log out.
-export default function DashboardLayout({ children, showThemeToggle = true }) {
+// With `sidebar`, it becomes an app shell instead: a full-height side menu (brand, the given
+// navigation, the signed-in user with Log out) and a slim top bar that starts with `topbarStart`
+// (e.g. a breadcrumb). On narrow screens the side menu opens as a drawer.
+export default function DashboardLayout({ children, showThemeToggle = true, sidebar, topbarStart }) {
   const { user, logout, switchRoleContext } = useAuth()
   const { language } = useLanguage()
   const t = dashboardContent[language]
   const navigate = useNavigate()
+  const location = useLocation()
   const [loggingOut, setLoggingOut] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  // The phone drawer remembers the page it was opened on, so moving to another page closes it.
+  const [navOpenOn, setNavOpenOn] = useState(null)
+  const navOpen = navOpenOn === location.pathname
+  const setNavOpen = (open) => setNavOpenOn(open ? location.pathname : null)
   const dropdownRef = useRef(null)
+
+  // Escape closes the phone drawer.
+  useEffect(() => {
+    if (!navOpen) return undefined
+    const onKey = (event) => {
+      if (event.key === 'Escape') setNavOpenOn(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [navOpen])
 
   useEffect(() => {
     if (!dropdownOpen) return undefined
@@ -208,6 +226,148 @@ export default function DashboardLayout({ children, showThemeToggle = true }) {
   }
 
   const currentRole = normalizeRole(user?.role)
+  const appShell = Boolean(sidebar)
+
+  const roleSwitcher = (
+    <div className="dashboard-user" ref={dropdownRef}>
+      {!appShell && <span className="dashboard-user__name">{user.fullName}</span>}
+
+      <div className="role-switcher">
+        <button
+          type="button"
+          className={`role-switcher__trigger ${dropdownOpen ? 'role-switcher__trigger--open' : ''}`}
+          onClick={() => setDropdownOpen((prev) => !prev)}
+          aria-haspopup="listbox"
+          aria-expanded={dropdownOpen}
+        >
+          <Icon name={getRoleIcon(currentRole)} size={15} />
+          <span>{getButtonLabel(currentRole, language, t)}</span>
+          <Icon name={dropdownOpen ? 'chevronUp' : 'chevronDown'} size={14} />
+        </button>
+
+        {dropdownOpen && (
+          <div className="role-switcher__menu" role="listbox" aria-label="Switch role">
+            <div className="role-switcher__header">
+              {language === 'vi' ? 'Chuyển vai trò' : 'Switch role'}
+            </div>
+            {roleOptions.map((item) => {
+              const isActive = currentRole === item.role
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="option"
+                  aria-selected={isActive}
+                  className={`role-switcher__item ${isActive ? 'role-switcher__item--active' : ''}`}
+                  onClick={() => handleSelectRole(item)}
+                >
+                  <span className="role-switcher__item-icon">
+                    <Icon name={item.icon} size={17} />
+                  </span>
+                  <span className="role-switcher__item-content">
+                    <span className="role-switcher__item-title">{item.title}</span>
+                    {item.subtitle && (
+                      <span className="role-switcher__item-subtitle">{item.subtitle}</span>
+                    )}
+                  </span>
+                  {isActive && (
+                    <span className="role-switcher__item-check">
+                      <Icon name="check" size={16} />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const utilities = (
+    <>
+      <NotificationBell />
+      {showThemeToggle && <ThemeToggle />}
+      <LanguageSwitcher label={t.languageLabel} />
+    </>
+  )
+
+  const logoutLabel = loggingOut ? t.loggingOut : t.logout
+
+  if (appShell) {
+    const initials = getInitials(user.fullName || user.identifier)
+    return (
+      <div className={`dashboard-page app-shell${navOpen ? ' app-shell--nav-open' : ''}`}>
+        <aside className="app-sidebar" id="app-sidebar">
+          <div className="app-sidebar__brand">
+            <Brand to="/" />
+            <button
+              type="button"
+              className="app-sidebar__close"
+              onClick={() => setNavOpen(false)}
+              aria-label={language === 'vi' ? 'Đóng menu' : 'Close menu'}
+            >
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+
+          <div className="app-sidebar__body">{sidebar}</div>
+
+          <div className="app-sidebar__user">
+            <span className="app-sidebar__avatar" aria-hidden="true">{initials}</span>
+            <span className="app-sidebar__who">
+              <span className="app-sidebar__name">{user.fullName}</span>
+              <span className="app-sidebar__email">{user.identifier}</span>
+            </span>
+            <button
+              type="button"
+              className="app-sidebar__logout"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              aria-label={logoutLabel}
+              title={logoutLabel}
+            >
+              <Icon name="logOut" size={17} />
+            </button>
+          </div>
+        </aside>
+
+        <button
+          type="button"
+          className="app-shell__scrim"
+          tabIndex={-1}
+          aria-hidden="true"
+          onClick={() => setNavOpen(false)}
+        />
+
+        <div className="app-shell__main">
+          <header className="dashboard-topbar app-topbar">
+            <div className="app-topbar__inner">
+              <div className="app-topbar__start">
+                <button
+                  type="button"
+                  className="app-topbar__menu"
+                  onClick={() => setNavOpen(true)}
+                  aria-label={language === 'vi' ? 'Mở menu' : 'Open menu'}
+                  aria-controls="app-sidebar"
+                  aria-expanded={navOpen}
+                >
+                  <Icon name="menu" size={20} />
+                </button>
+                {topbarStart}
+              </div>
+              <div className="dashboard-topbar__end">
+                {roleSwitcher}
+                {utilities}
+              </div>
+            </div>
+          </header>
+
+          <main className="app-shell__content">{children}</main>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="dashboard-page">
@@ -215,74 +375,18 @@ export default function DashboardLayout({ children, showThemeToggle = true }) {
         <div className="container dashboard-topbar__inner">
           <Brand to="/" />
           <div className="dashboard-topbar__end">
-            <div className="dashboard-user" ref={dropdownRef}>
-              <span className="dashboard-user__name">{user.fullName}</span>
-
-              <div className="role-switcher">
-                <button
-                  type="button"
-                  className={`role-switcher__trigger ${dropdownOpen ? 'role-switcher__trigger--open' : ''}`}
-                  onClick={() => setDropdownOpen((prev) => !prev)}
-                  aria-haspopup="listbox"
-                  aria-expanded={dropdownOpen}
-                >
-                  <Icon name={getRoleIcon(currentRole)} size={15} />
-                  <span>{getButtonLabel(currentRole, language, t)}</span>
-                  <Icon name={dropdownOpen ? 'chevronUp' : 'chevronDown'} size={14} />
-                </button>
-
-                {dropdownOpen && (
-                  <div className="role-switcher__menu" role="listbox" aria-label="Switch role">
-                    <div className="role-switcher__header">
-                      {language === 'vi' ? 'Chuyển vai trò' : 'Switch role'}
-                    </div>
-                    {roleOptions.map((item) => {
-                      const isActive = currentRole === item.role
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          role="option"
-                          aria-selected={isActive}
-                          className={`role-switcher__item ${isActive ? 'role-switcher__item--active' : ''}`}
-                          onClick={() => handleSelectRole(item)}
-                        >
-                          <span className="role-switcher__item-icon">
-                            <Icon name={item.icon} size={17} />
-                          </span>
-                          <span className="role-switcher__item-content">
-                            <span className="role-switcher__item-title">{item.title}</span>
-                            {item.subtitle && (
-                              <span className="role-switcher__item-subtitle">{item.subtitle}</span>
-                            )}
-                          </span>
-                          {isActive && (
-                            <span className="role-switcher__item-check">
-                              <Icon name="check" size={16} />
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-            <NotificationBell />
-            {showThemeToggle && <ThemeToggle />}
-            <LanguageSwitcher label={t.languageLabel} />
+            {roleSwitcher}
+            {utilities}
             {/* aria-label keeps the button named on phones, where only the icon shows */}
             <Button
               variant="secondary"
               size="sm"
               onClick={handleLogout}
               disabled={loggingOut}
-              aria-label={loggingOut ? t.loggingOut : t.logout}
+              aria-label={logoutLabel}
             >
               <Icon name="logOut" size={16} />
-              <span className="dashboard-topbar__logout-text">
-                {loggingOut ? t.loggingOut : t.logout}
-              </span>
+              <span className="dashboard-topbar__logout-text">{logoutLabel}</span>
             </Button>
           </div>
         </div>
@@ -291,4 +395,11 @@ export default function DashboardLayout({ children, showThemeToggle = true }) {
       <main className="container dashboard-main">{children}</main>
     </div>
   )
+}
+
+// "Linh Nguyen" → "LN"; "owner@site.com" → "O".
+function getInitials(name) {
+  const words = String(name || '?').split('@')[0].trim().split(/\s+/).filter(Boolean)
+  const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : words[0]?.[0] || '?'
+  return letters.toUpperCase()
 }

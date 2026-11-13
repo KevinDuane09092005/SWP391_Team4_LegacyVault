@@ -19,6 +19,7 @@ import {
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
+import PageHeader from '../../components/vault/PageHeader.jsx'
 import { LoadingState } from '../../components/vault/PageStates.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
@@ -425,26 +426,28 @@ export default function AssignmentsPage() {
   if (viewMode === 'list') {
     return (
       <OwnerLayout>
-        <div className="flow-page-head">
-          <div>
-            <h1>{isVi ? 'Quản lý bàn giao tài sản' : 'Asset Assignments'}</h1>
-            <p>
-              {isVi
-                ? 'Danh sách các hồ sơ bàn giao, người thụ hưởng và người thi hành phụ trách cho từng tài sản số.'
-                : 'Manage handover configurations, beneficiaries, and executors assigned to your digital assets.'}
-            </p>
-          </div>
-          <Button
-            onClick={() => {
-              setViewMode('wizard')
-              setStep(1)
-              setErrors([])
-            }}
-          >
-            <Plus size={16} />
-            {isVi ? 'Tạo bàn giao mới' : 'New Assignment'}
-          </Button>
-        </div>
+        <PageHeader
+          scene="assignments"
+          hue="rose"
+          title={isVi ? 'Quản lý bàn giao tài sản' : 'Asset Assignments'}
+          description={
+            isVi
+              ? 'Danh sách các hồ sơ bàn giao, người thụ hưởng và người thi hành phụ trách cho từng tài sản số.'
+              : 'Manage handover configurations, beneficiaries, and executors assigned to your digital assets.'
+          }
+          actions={
+            <Button
+              onClick={() => {
+                setViewMode('wizard')
+                setStep(1)
+                setErrors([])
+              }}
+            >
+              <Plus size={16} />
+              {isVi ? 'Tạo bàn giao mới' : 'New Assignment'}
+            </Button>
+          }
+        />
 
         {editSuccessMessage && (
           <div style={{ marginBottom: '16px' }}>

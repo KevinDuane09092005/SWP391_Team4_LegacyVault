@@ -10,6 +10,7 @@ import {
 import Button from '../../components/Button.jsx'
 import FormAlert from '../../components/auth/FormAlert.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
+import PageHeader from '../../components/vault/PageHeader.jsx'
 import { LoadingState, ErrorState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { computeDmsView, dateLabel, formatCountdown, formatTimeInterval } from '../../vault/dmsLogic.js'
@@ -367,37 +368,39 @@ export default function DeadMansSwitchPage() {
 
   return (
     <OwnerLayout>
-      <div className="flow-page-head">
-        <div>
-          <h1>{isVi ? "Công tắc an toàn (Dead Man's Switch)" : "Dead Man's Switch (DMS)"}</h1>
-          <p>
-            {isVi
-              ? 'Tự động kích hoạt quy trình chuyển giao di sản số nếu chủ tài khoản không phản hồi sau một khoảng thời gian thiết lập.'
-              : 'Automated fail-safe trigger that initiates handover verification if you are unable to check in.'}
-          </p>
-        </div>
-        {!loading && dmsData && (
-          <span
-            className={`badge ${
-              dms === 'active'
-                ? 'green'
+      <PageHeader
+        scene="dms"
+        hue="rose"
+        title={isVi ? "Công tắc an toàn (Dead Man's Switch)" : "Dead Man's Switch"}
+        description={
+          isVi
+            ? 'Tự động kích hoạt quy trình chuyển giao di sản số nếu chủ tài khoản không phản hồi sau một khoảng thời gian thiết lập.'
+            : 'Automated fail-safe trigger that initiates handover verification if you are unable to check in.'
+        }
+        status={
+          !loading && dmsData && (
+            <span
+              className={`badge ${
+                dms === 'active'
+                  ? 'green'
+                  : dms === 'soon'
+                  ? 'amber'
+                  : 'red'
+              }`}
+            >
+              {dms === 'active'
+                ? isVi ? '● ĐANG GIÁM SÁT' : '● MONITORING ACTIVE'
                 : dms === 'soon'
-                ? 'amber'
-                : 'red'
-            }`}
-          >
-            {dms === 'active'
-              ? isVi ? '● ĐANG GIÁM SÁT' : '● MONITORING ACTIVE'
-              : dms === 'soon'
-              ? isVi ? '● SẮP ĐẾN HẠN' : '● CHECK-IN DUE SOON'
-              : dms === 'warning'
-              ? isVi ? '● ĐANG TRONG THỜI GIAN ÂN HẠN' : '● GRACE PERIOD WARNING'
-              : dms === 'triggered'
-              ? isVi ? '● ĐÃ KÍCH HOẠT CHUYỂN GIAO' : '● HANDOVER TRIGGERED'
-              : isVi ? '● LỖI TRẠNG THÁI' : '● STATUS ERROR'}
-          </span>
-        )}
-      </div>
+                ? isVi ? '● SẮP ĐẾN HẠN' : '● CHECK-IN DUE SOON'
+                : dms === 'warning'
+                ? isVi ? '● ĐANG TRONG THỜI GIAN ÂN HẠN' : '● GRACE PERIOD WARNING'
+                : dms === 'triggered'
+                ? isVi ? '● ĐÃ KÍCH HOẠT CHUYỂN GIAO' : '● HANDOVER TRIGGERED'
+                : isVi ? '● LỖI TRẠNG THÁI' : '● STATUS ERROR'}
+            </span>
+          )
+        }
+      />
 
       {loading && (
         <LoadingState
@@ -777,55 +780,55 @@ export default function DeadMansSwitchPage() {
             </section>
           )}
 
-          {/* Presentation Demo Simulator Bar */}
-          <div className="sim-bar">
-            <span style={{ fontWeight: 600 }}>
-              {isVi ? '🛠 Công cụ mô phỏng demo:' : '🛠 Demo Presentation Simulator:'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setSimulatedOffsetMs(0)
-              }}
-            >
-              {isVi ? '1. Trạng thái bình thường (Active)' : '1. Normal Active'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const threshold = intervalSeconds < 180 ? 10 : Math.min(3 * 86400, intervalSeconds / 3)
-                const offsetSec = Math.max(0, intervalSeconds - (threshold / 2))
-                setSimulatedOffsetMs(offsetSec * 1000)
-              }}
-            >
-              {isVi ? '2. Sắp đến hạn (Due Soon)' : '2. Due Soon'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const extraSec = graceSeconds < 180 ? 5 : Math.min(86400, graceSeconds / 3)
-                setSimulatedOffsetMs((intervalSeconds + extraSec) * 1000)
-              }}
-            >
-              {isVi ? '3. Đang ân hạn (Grace Warning)' : '3. Grace Period Warning'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSimulatedOffsetMs((intervalSeconds + graceSeconds + 5) * 1000)
-              }}
-            >
-              {isVi ? '4. Kích hoạt chuyển giao (Triggered)' : '4. Triggered Handover'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditingConfig(true)
-              }}
-            >
-              {isVi ? 'Cấu hình lại' : 'Re-configure'}
-            </button>
-          </div>
+          {/* Presentation demo simulator: folded away so it does not read as part of the product. */}
+          <details className="sim-tools">
+            <summary>{isVi ? 'Công cụ mô phỏng (demo)' : 'Demo simulator'}</summary>
+            <div className="sim-bar">
+              <button
+                type="button"
+                onClick={() => {
+                  setSimulatedOffsetMs(0)
+                }}
+              >
+                {isVi ? '1. Trạng thái bình thường (Active)' : '1. Normal Active'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const threshold = intervalSeconds < 180 ? 10 : Math.min(3 * 86400, intervalSeconds / 3)
+                  const offsetSec = Math.max(0, intervalSeconds - (threshold / 2))
+                  setSimulatedOffsetMs(offsetSec * 1000)
+                }}
+              >
+                {isVi ? '2. Sắp đến hạn (Due Soon)' : '2. Due Soon'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const extraSec = graceSeconds < 180 ? 5 : Math.min(86400, graceSeconds / 3)
+                  setSimulatedOffsetMs((intervalSeconds + extraSec) * 1000)
+                }}
+              >
+                {isVi ? '3. Đang ân hạn (Grace Warning)' : '3. Grace Period Warning'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSimulatedOffsetMs((intervalSeconds + graceSeconds + 5) * 1000)
+                }}
+              >
+                {isVi ? '4. Kích hoạt chuyển giao (Triggered)' : '4. Triggered Handover'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingConfig(true)
+                }}
+              >
+                {isVi ? 'Cấu hình lại' : 'Re-configure'}
+              </button>
+            </div>
+          </details>
         </>
       )}
     </OwnerLayout>

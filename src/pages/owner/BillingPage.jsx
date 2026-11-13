@@ -6,6 +6,7 @@ import PaymentFlowScreen from '../../components/billing/PaymentFlowScreen.jsx'
 import BillingToggle from '../../components/pricing/BillingToggle.jsx'
 import PlanCard from '../../components/pricing/PlanCard.jsx'
 import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
+import PageHeader from '../../components/vault/PageHeader.jsx'
 import { ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { pricingContent } from '../../data/pricingContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
@@ -729,12 +730,7 @@ export default function BillingPage() {
 
   return (
     <OwnerLayout showDemoBanner={false}>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">{copy.title}</h1>
-          <p className="page-text">{copy.intro}</p>
-        </div>
-      </div>
+      <PageHeader scene="billing" hue="indigo" title={copy.title} description={copy.intro} />
 
       {message && <FormAlert tone={message.tone}>{message.text}</FormAlert>}
       {actionError && <FormAlert>{actionError.message}</FormAlert>}
@@ -748,8 +744,25 @@ export default function BillingPage() {
               <div>
                 <h2 id="billing-current-title" className="section-title">{copy.current}</h2>
                 <p className="billing-plan-name">{planText[currentPlan?.id]?.name || currentPlan?.id || 'Free'}</p>
+                {currentPlan?.price && (
+                  <p className="billing-plan-price">
+                    <strong>
+                      {new Intl.NumberFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
+                        style: 'currency',
+                        currency: currentPlan.currency || 'USD',
+                      }).format(Number(currentPlan.price[subscription?.billingCycle === 'YEARLY' ? 'yearly' : 'monthly'] || 0))}
+                    </strong>
+                    <span>
+                      {subscription?.billingCycle === 'YEARLY'
+                        ? (language === 'vi' ? ' / năm' : ' / year')
+                        : (language === 'vi' ? ' / tháng' : ' / month')}
+                    </span>
+                  </p>
+                )}
               </div>
-              <span className="badge badge--accent">{subscription?.status || copy.active}</span>
+              <span className={`badge ${subscription?.status && subscription.status !== 'ACTIVE' ? 'amber' : 'green'}`}>
+                {subscription?.status || copy.active}
+              </span>
             </div>
             <dl className="billing-summary">
               <div><dt>{copy.status}</dt><dd>{subscription?.status || 'ACTIVE'}</dd></div>
@@ -793,8 +806,12 @@ export default function BillingPage() {
                       <tr key={transaction.transactionId}>
                         <td>{localDate(transaction.createdAt, language)}</td>
                         <td>{planText[transaction.planId]?.name || transaction.planId}</td>
-                        <td>{new Intl.NumberFormat(language === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: transaction.currency }).format(Number(transaction.amount))}</td>
-                        <td>{transaction.status === 'SUCCEEDED' ? copy.success : copy.failed}</td>
+                        <td className="billing-table__amount">{new Intl.NumberFormat(language === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: transaction.currency }).format(Number(transaction.amount))}</td>
+                        <td>
+                          <span className={`badge ${transaction.status === 'SUCCEEDED' ? 'green' : 'red'}`}>
+                            {transaction.status === 'SUCCEEDED' ? copy.success : copy.failed}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
