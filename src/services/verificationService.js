@@ -296,8 +296,8 @@ export async function rejectCase(caseId, reasonOrPayload, currentUser = null) {
       : reasonOrPayload
   const reasonCode =
     typeof reasonOrPayload === 'object' && reasonOrPayload !== null
-      ? (reasonOrPayload.reasonCode || reasonOrPayload.reason_code || 'INVALID_DOCUMENT')
-      : 'INVALID_DOCUMENT'
+      ? (reasonOrPayload.reasonCode || reasonOrPayload.reason_code || 'INSUFFICIENT_INFORMATION')
+      : 'INSUFFICIENT_INFORMATION'
 
   if (!DEMO_MODE) {
     return request('POST', `/legal-verification/cases/${encodeURIComponent(caseId)}/reject`, {
@@ -319,6 +319,9 @@ export async function rejectCase(caseId, reasonOrPayload, currentUser = null) {
   record.status_label = 'Rejected'
   record.rejection_reason = reason
   record.vault_unlock_authorized = false
+  if (reasonCode.toUpperCase() === 'SUSPECTED_FRAUD') {
+    record.clearance_status = 'FRAUD_HOLD'
+  }
   saveMockCases(data)
 
   // Integration with Flow 7

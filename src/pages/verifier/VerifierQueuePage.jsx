@@ -161,12 +161,12 @@ export default function VerifierQueuePage() {
     }
   }
 
-  const confirmReject = async (reason) => {
+  const confirmReject = async ({ reason, reasonCode }) => {
     if (!detail) return
     setWorking(true)
     setModalError('')
     try {
-      await rejectCase(detail.case_id, reason, user)
+      await rejectCase(detail.case_id, { reason, reasonCode }, user)
       setModal(null)
       refresh()
     } catch (err) {

@@ -304,36 +304,60 @@ export function ApproveDialog({ record, close, confirm, working, error, t }) {
 
 export function RejectDialog({ record, close, confirm, working, error, t }) {
   const [reason, setReason] = useState('')
+  const [reasonCode, setReasonCode] = useState('INSUFFICIENT_INFORMATION')
   const [touched, setTouched] = useState(false)
 
   return (
     <Modal title={t.dialogs.rejectTitle(record.case_number)} onClose={close}>
-      <div className="modal-body">
-        <p className="modal-instruction">{t.dialogs.rejectInstruction}</p>
+      <div className="modal-body reject-dialog-body">
+        <div className="reject-dialog-field">
+          <label className="field-label" htmlFor="rejection-type">
+            {t.dialogs.rejectionType}
+          </label>
+          <select
+            id="rejection-type"
+            className="field__input"
+            value={reasonCode}
+            onChange={(e) => setReasonCode(e.target.value)}
+          >
+            {t.dialogs.rejectionReasons.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <label className="field-label" htmlFor="rejection-reason">
-          {t.dialogs.rejectionReason}{' '}
-          <span className="field-required">{t.dialogs.required}</span>
-        </label>
-        <textarea
-          id="rejection-reason"
-          rows={4}
-          value={reason}
-          onBlur={() => setTouched(true)}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder={t.dialogs.reasonPlaceholder}
-          maxLength={1000}
-        />
-
-        {touched && !validRejectReason(reason) && (
-          <p className="form-error">{t.dialogs.reasonMinLength}</p>
-        )}
-
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
+        {reasonCode === 'SUSPECTED_FRAUD' && (
+          <p className="modal-instruction reject-dialog-warning" role="status">
+            {t.dialogs.fraudHoldWarning}
           </p>
         )}
+
+        <div className="reject-dialog-field">
+          <label className="field-label" htmlFor="rejection-reason">
+            {t.dialogs.rejectionReason}{' '}
+            <span className="field-required">{t.dialogs.required}</span>
+          </label>
+          <textarea
+            id="rejection-reason"
+            rows={3}
+            value={reason}
+            onBlur={() => setTouched(true)}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={1000}
+          />
+
+          {touched && !validRejectReason(reason) && (
+            <p className="form-error">{t.dialogs.reasonMinLength}</p>
+          )}
+
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
       </div>
 
       <footer className="modal-actions">
@@ -343,9 +367,13 @@ export function RejectDialog({ record, close, confirm, working, error, t }) {
         <Button
           variant="danger"
           disabled={working || !validRejectReason(reason)}
-          onClick={() => confirm(reason.trim())}
+          onClick={() => confirm({ reason: reason.trim(), reasonCode })}
         >
-          {working ? t.actions.processing : t.actions.reject}
+          {working
+            ? t.actions.processing
+            : reasonCode === 'SUSPECTED_FRAUD'
+              ? t.dialogs.placeOnHold
+              : t.dialogs.rejectAndReturn}
         </Button>
       </footer>
     </Modal>

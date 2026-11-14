@@ -570,6 +570,24 @@
   padding: 22px;
 }
 
+.reject-dialog-body {
+  display: grid;
+  gap: 14px;
+}
+
+.reject-dialog-field .field-label {
+  margin: 0 0 6px;
+}
+
+.reject-dialog-field textarea {
+  display: block;
+  min-height: 78px;
+}
+
+.reject-dialog-warning {
+  margin: 0;
+}
+
 .modal-instruction,
 .preview-description {
   font-size: 12px;
