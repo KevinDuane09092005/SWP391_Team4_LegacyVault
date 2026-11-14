@@ -10,6 +10,7 @@ import { useAuth } from '../../auth/AuthContext.jsx'
 import { vaultContent } from '../../data/vaultContent.js'
 import useForm from '../../hooks/useForm.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
+import { getPlanLimitMessage } from '../../services/planLimitService.js'
 import { createVault } from '../../services/vaultService.js'
 import { ownerPaths } from '../../vault/paths.js'
 import { LIMITS, validateVault } from '../../vault/vaultValidation.js'
@@ -42,7 +43,7 @@ export default function CreateVaultPage() {
       // The vault is added to the list only now that creating it succeeded.
       navigate(ownerPaths.vault(vault.id), { state: { created: true } })
     } catch (error) {
-      setServerError(error.code ?? 'generic')
+      setServerError(getPlanLimitMessage(error, language) || error.code || 'generic')
       setLoading(false)
     }
   }
@@ -58,7 +59,7 @@ export default function CreateVaultPage() {
         <h1 className="page-title">{copy.title}</h1>
         <p className="page-text">{copy.subtitle}</p>
 
-        {serverError && <FormAlert>{t.errors[serverError] ?? t.errors.generic}</FormAlert>}
+        {serverError && <FormAlert>{t.errors[serverError] ?? serverError}</FormAlert>}
 
         <form className="form-stack form-stack--spaced" noValidate onSubmit={handleSubmit}>
           <FormField

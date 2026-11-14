@@ -28,8 +28,24 @@ export default function AdminOverviewPage() {
   const { language } = useLanguage()
   const t = flow7Content[language]
   const o = t.admin.overview
-  const { status, data, error, reload } = useAsync(
-    () => Promise.all([getAdminDashboardApi(user), listUsers(user), listAuditLog(user)]),
+  const { status, data, reload } = useAsync(
+    async () => {
+      const [dashboardResult, usersResult, auditResult] = await Promise.allSettled([
+        getAdminDashboardApi(user),
+        listUsers(user),
+        listAuditLog(user),
+      ])
+      return {
+        dashboard: dashboardResult.status === 'fulfilled' ? dashboardResult.value : null,
+        users: usersResult.status === 'fulfilled' ? usersResult.value : null,
+        entries: auditResult.status === 'fulfilled' ? auditResult.value : null,
+        errors: {
+          dashboard: dashboardResult.status === 'rejected' ? dashboardResult.reason : null,
+          users: usersResult.status === 'rejected' ? usersResult.reason : null,
+          audit: auditResult.status === 'rejected' ? auditResult.reason : null,
+        },
+      }
+    },
     user.id,
   )
   const [confirming, setConfirming] = useState(false)
@@ -72,15 +88,18 @@ export default function AdminOverviewPage() {
     }
   }
 
-  const [dashboard, users, entries] = data ?? [null, [], []]
-  const alerts = entries.filter(isSecurityAlert)
+  const dashboard = data?.dashboard
+  const users = data?.users
+  const entries = data?.entries
+  const errors = data?.errors ?? {}
+  const alerts = (entries ?? []).filter(isSecurityAlert)
   const requests = dashboard?.access_requests || []
   const stats = [
-    [o.users, dashboard?.metrics?.total_users ?? users.length],
-    [o.pendingRequests, dashboard?.metrics?.pending_requests ?? requests.length],
-    [o.suspended, users.filter((item) => item.status === 'SUSPENDED').length],
-    [o.alerts, alerts.length],
-    [o.events, dashboard?.metrics?.audit_events ?? entries.length],
+    [o.users, dashboard?.metrics?.total_users ?? users?.length ?? '—'],
+    [o.pendingRequests, dashboard?.metrics?.pending_requests ?? (dashboard ? requests.length : '—')],
+    [o.suspended, users ? users.filter((item) => item.status === 'SUSPENDED').length : '—'],
+    [o.alerts, entries ? alerts.length : '—'],
+    [o.events, dashboard?.metrics?.audit_events ?? entries?.length ?? '—'],
   ]
 
   return (
@@ -99,8 +118,8 @@ export default function AdminOverviewPage() {
       </div>
 
       {message && <FormAlert tone={message.tone}>{message.text}</FormAlert>}
+      {errors.users && <FormAlert tone="error">{flow7ErrorText(t, errors.users)}</FormAlert>}
       {status === 'loading' && <LoadingState label={t.loading} />}
-      {status === 'error' && <ErrorState message={flow7ErrorText(t, error)} retryLabel={t.retry} onRetry={reload} />}
       {status === 'ready' && (
         <>
           <dl className="stat-grid handover-stats">
@@ -116,14 +135,19 @@ export default function AdminOverviewPage() {
               <h2 className="section-title">{o.recentAlerts}</h2>
               <Button variant="secondary" size="sm" to={`${adminPaths.audit}?alerts=1`}>{o.viewAll}</Button>
             </div>
-            {alerts.length ? <AuditTable entries={alerts.slice(0, RECENT_ALERTS)} /> : <p className="page-text">{o.noAlerts}</p>}
+            {errors.audit
+              ? <ErrorState message={flow7ErrorText(t, errors.audit)} retryLabel={t.retry} onRetry={reload} />
+              : alerts.length
+                ? <AuditTable entries={alerts.slice(0, RECENT_ALERTS)} />
+                : <p className="page-text">{o.noAlerts}</p>}
           </section>
           <section className="card handover-panel admin-access-queue">
             <div className="handover-card__head">
               <h2 className="section-title">{o.requestsTitle}</h2>
               <span className="badge">{requests.length}</span>
             </div>
-            {requests.length === 0 ? <p className="page-text">{o.noRequests}</p> : (
+            {errors.dashboard ? <ErrorState message={flow7ErrorText(t, errors.dashboard)} retryLabel={t.retry} onRetry={reload} />
+              : requests.length === 0 ? <p className="page-text">{o.noRequests}</p> : (
               <ul className="admin-access-queue__list">
                 {requests.map((request) => (
                   <li key={request.request_id} className="admin-access-queue__item">

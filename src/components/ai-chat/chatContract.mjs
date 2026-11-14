@@ -94,6 +94,11 @@ export function mapChatError(error, language = 'en') {
       ? 'Trợ lý AI chưa được cấu hình trên máy chủ. Vui lòng báo quản trị viên.'
       : 'The AI assistant is not configured on the server yet. Please contact the administrator.'
   }
+  if (error?.status === 503 && error?.data?.code === 'AI_DISABLED') {
+    return vi
+      ? 'Trợ lý AI hiện đang được quản trị viên tắt.'
+      : 'The AI assistant is currently disabled by an administrator.'
+  }
   switch (error?.status) {
     case 400: return vi ? 'Câu hỏi không hợp lệ. Hãy chỉnh sửa và thử lại.' : 'Invalid question. Please edit it and try again.'
     case 401: return vi ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : 'Your session has expired. Please sign in again.'

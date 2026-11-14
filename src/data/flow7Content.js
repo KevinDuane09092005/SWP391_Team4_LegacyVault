@@ -129,7 +129,7 @@ const en = {
       overview: 'Overview',
       users: 'Users',
       roles: 'Roles & permissions',
-      audit: 'Audit log & alerts',
+      audit: 'Audit log',
       policies: 'Encryption & backup',
       integrations: 'Integrations',
     },
@@ -205,8 +205,8 @@ const en = {
       confirmText: 'Users with this role will be notified and the change will be recorded in the audit log.',
     },
     auditPage: {
-      title: 'Audit log & security alerts',
-      text: 'Important actions from every flow. Passwords, OTP codes, ID numbers, keys and asset contents are never recorded.',
+      title: 'Audit log',
+      text: 'Review important actions across the system, including events flagged for security review. Passwords, OTP codes, ID numbers, keys and asset contents are never recorded.',
     },
     policies: {
       title: 'Encryption, backup & Dead Man’s Switch policies',
@@ -390,7 +390,7 @@ const vi = {
       overview: 'Tổng quan',
       users: 'Người dùng',
       roles: 'Vai trò & quyền',
-      audit: 'Audit log & cảnh báo',
+      audit: 'Nhật ký kiểm toán',
       policies: 'Mã hóa & sao lưu',
       integrations: 'Tích hợp',
     },
@@ -466,8 +466,8 @@ const vi = {
       confirmText: 'Người dùng có vai trò này sẽ được thông báo và thay đổi sẽ được ghi vào audit log.',
     },
     auditPage: {
-      title: 'Audit log & cảnh báo bảo mật',
-      text: 'Các hành động quan trọng từ mọi flow. Mật khẩu, mã OTP, số giấy tờ, khóa và nội dung tài sản không bao giờ được ghi.',
+      title: 'Nhật ký kiểm toán',
+      text: 'Xem các hành động quan trọng trong hệ thống, bao gồm sự kiện được đánh dấu cần rà soát bảo mật. Mật khẩu, mã OTP, số giấy tờ, khóa và nội dung tài sản không bao giờ được ghi.',
     },
     policies: {
       title: 'Chính sách mã hóa, sao lưu & Dead Man’s Switch',

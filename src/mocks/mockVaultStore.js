@@ -53,6 +53,10 @@ export async function mockListVaults(ownerId) {
   return copy(owned.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
 }
 
+export function countOwnedVaults(ownerId) {
+  return vaults.filter((vault) => vault.ownerId === ownerId).length
+}
+
 export async function mockGetVault(ownerId, vaultId) {
   await delay(100)
   return copy(withAssets(findOwnedVault(ownerId, vaultId)))

@@ -14,9 +14,10 @@ import { vaultContent } from '../../data/vaultContent.js'
 import useAsync from '../../hooks/useAsync.js'
 import useForm from '../../hooks/useForm.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
+import { getCurrentPlanLimits, getPlanLimitMessage } from '../../services/planLimitService.js'
 import { getVault, saveAsset } from '../../services/vaultService.js'
 import { buildAssetFromForm, EMPTY_ASSET_FORM } from '../../vault/assetDraft.js'
-import { checkNewFiles } from '../../vault/documentRules.js'
+import { DOCUMENT_RULES, checkNewFiles } from '../../vault/documentRules.js'
 import { ownerPaths } from '../../vault/paths.js'
 import { getAssetFieldOrder, validateAssetInfo } from '../../vault/vaultValidation.js'
 
@@ -68,6 +69,19 @@ export default function AddAssetPage() {
   const [progress, setProgress] = useState(null)
   const [saveError, setSaveError] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [planAttachmentLimit, setPlanAttachmentLimit] = useState(DOCUMENT_RULES.maxFiles)
+
+  useEffect(() => {
+    let active = true
+    getCurrentPlanLimits()
+      .then(({ limits }) => {
+        if (active) setPlanAttachmentLimit(Math.min(DOCUMENT_RULES.maxFiles, limits.attachmentsPerRecord))
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [user?.id])
+
+  const maxAttachments = Math.min(DOCUMENT_RULES.maxFiles, planAttachmentLimit)
 
   const goTo = (nextStep) => {
     setStep(nextStep)
@@ -92,7 +106,7 @@ export default function AddAssetPage() {
   }
 
   const addFiles = (picked) => {
-    const { accepted, rejected } = checkNewFiles(picked, files)
+    const { accepted, rejected } = checkNewFiles(picked, files, maxAttachments)
     setFiles((current) => [...current, ...accepted])
     setRejectedFiles(rejected)
   }
@@ -171,6 +185,7 @@ export default function AddAssetPage() {
 
       // Xử lý hiển thị thông báo lỗi từ response backend
       const errorMsg =
+        getPlanLimitMessage(error, language) ||
         error.message ||
         error.code ||
         (language === 'vi' ? 'Lỗi tạo tài sản.' : 'Failed to save asset.')
@@ -230,6 +245,7 @@ export default function AddAssetPage() {
               onAdd={addFiles}
               onRemove={removeFile}
               t={t}
+              maxFiles={maxAttachments}
             />
             <div className="form-actions">
               <Button variant="secondary" size="lg" onClick={() => goTo(STEP.INFO)}>

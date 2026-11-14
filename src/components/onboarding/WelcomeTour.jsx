@@ -68,12 +68,12 @@ function getHighlight(selector) {
 export default function WelcomeTour({ user, role, storageKey }) {
   const { language } = useLanguage()
   const isVi = language === 'vi'
-  const [mode, setMode] = useState(() => tourSeen(storageKey) ? 'closed' : 'welcome')
+  const normalized = normalizeRole(role)
+  const [mode, setMode] = useState(() => normalized === ROLES.ADMIN || tourSeen(storageKey) ? 'closed' : 'welcome')
   const [index, setIndex] = useState(0)
   const [highlight, setHighlight] = useState(null)
   const [steps, setSteps] = useState([])
   const dialogRef = useRef(null)
-  const normalized = normalizeRole(role)
   const candidates = useMemo(() => makeSteps(normalized, isVi), [normalized, isVi])
   const pick = (vi, en) => isVi ? vi : en
   const step = steps[index]
@@ -97,7 +97,7 @@ export default function WelcomeTour({ user, role, storageKey }) {
   }
 
   useEffect(() => {
-    if (mode === 'closed') return undefined
+    if (normalized === ROLES.ADMIN || mode === 'closed') return undefined
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     dialogRef.current?.focus()
@@ -115,10 +115,10 @@ export default function WelcomeTour({ user, role, storageKey }) {
     return () => { document.removeEventListener('keydown', keyHandler); document.body.style.overflow = prevOverflow }
   // The finish callback closes the dialog and is only needed on keyboard interaction.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, storageKey])
+  }, [mode, normalized, storageKey])
 
   useEffect(() => {
-    if (mode !== 'tour' || !step) return undefined
+    if (normalized === ROLES.ADMIN || mode !== 'tour' || !step) return undefined
     let frame
     const update = () => {
       window.cancelAnimationFrame(frame)
@@ -128,7 +128,7 @@ export default function WelcomeTour({ user, role, storageKey }) {
     window.addEventListener('resize', update)
     window.addEventListener('scroll', update, true)
     return () => { window.cancelAnimationFrame(frame); window.removeEventListener('resize', update); window.removeEventListener('scroll', update, true) }
-  }, [mode, step])
+  }, [mode, normalized, step])
 
   const tooltipStyle = (() => {
     if (!highlight) return undefined
@@ -147,6 +147,8 @@ export default function WelcomeTour({ user, role, storageKey }) {
     const y = Math.max(16, Math.min(position, window.innerHeight - estimatedHeight - 16))
     return { left: x, top: y, width }
   })()
+
+  if (normalized === ROLES.ADMIN) return null
 
   return (
     <>

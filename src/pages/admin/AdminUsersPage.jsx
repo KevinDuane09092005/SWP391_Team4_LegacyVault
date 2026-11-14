@@ -14,6 +14,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { listUsers, setUserRole, setUserStatus } from '../../services/adminService.js'
 
 const EMPTY_FILTERS = { search: '', role: 'ALL', status: 'ALL' }
+const ADMIN_ASSIGNABLE_ROLES = [ROLES.ADMIN, ROLES.LEGAL_VERIFIER, ROLES.VAULT_OWNER]
 
 // Manage user accounts, access status and role assignments.
 export default function AdminUsersPage() {
@@ -117,6 +118,7 @@ export default function AdminUsersPage() {
                 <tbody>
                   {filteredUsers.map((item) => {
                     const self = item.id === user.id
+                    const roleCanBeChanged = ADMIN_ASSIGNABLE_ROLES.includes(item.role)
                     const draft = roleDraft[item.id] ?? item.role
                     const nextStatus = item.status === USER_STATUS.ACTIVE ? USER_STATUS.SUSPENDED : USER_STATUS.ACTIVE
                     return (
@@ -127,18 +129,29 @@ export default function AdminUsersPage() {
                         </td>
                         <td className="admin-table__details">{item.identifier}</td>
                         <td>
-                          <label className="visually-hidden" htmlFor={`role-${item.id}`}>{u.role}</label>
-                          <select
-                            id={`role-${item.id}`}
-                            className="field__input admin-select"
-                            value={draft}
-                            disabled={self}
-                            onChange={(e) => setRoleDraft((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                          >
-                            {Object.values(ROLES).map((role) => (
-                              <option key={role} value={role}>{roleLabels[role].label}</option>
-                            ))}
-                          </select>
+                          {roleCanBeChanged ? (
+                            <>
+                              <label className="visually-hidden" htmlFor={`role-${item.id}`}>{u.role}</label>
+                              <select
+                                id={`role-${item.id}`}
+                                className="field__input admin-select"
+                                value={draft}
+                                disabled={self}
+                                onChange={(e) => setRoleDraft((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                              >
+                                {ADMIN_ASSIGNABLE_ROLES.map((role) => (
+                                  <option key={role} value={role}>{roleLabels[role].label}</option>
+                                ))}
+                              </select>
+                            </>
+                          ) : (
+                            <span className="admin-muted" title={language === 'vi'
+                              ? 'Vai trò này được xác định theo liên kết vault hoặc hồ sơ bàn giao.'
+                              : 'This role is determined by vault or handover-case relationships.'}
+                            >
+                              {roleLabels[item.role]?.label ?? item.role}
+                            </span>
+                          )}
                         </td>
                         <td>
                           <span className={`handover-status handover-status--${item.status === USER_STATUS.ACTIVE ? 'success' : 'danger'}`}>
@@ -147,14 +160,16 @@ export default function AdminUsersPage() {
                           </span>
                         </td>
                         <td className="admin-actions">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={self || draft === item.role}
-                            onClick={() => setPending({ kind: 'role', target: item, value: draft })}
-                          >
-                            {u.changeRole}
-                          </Button>
+                          {roleCanBeChanged && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={self || draft === item.role}
+                              onClick={() => setPending({ kind: 'role', target: item, value: draft })}
+                            >
+                              {u.changeRole}
+                            </Button>
+                          )}
                           <Button
                             variant="secondary"
                             size="sm"

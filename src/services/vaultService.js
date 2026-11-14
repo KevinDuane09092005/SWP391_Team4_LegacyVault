@@ -4,11 +4,13 @@ import {
   mockGetAsset,
   mockGetVault,
   mockListVaults,
+  countOwnedVaults,
 } from '../mocks/mockVaultStore.js'
 import { buildAssetFromForm } from '../vault/assetDraft.js'
 import { VaultError } from '../vault/VaultError.js'
 import { prepareDocuments } from './documentService.js'
 import { prepareSensitiveData } from './encryptionService.js'
+import { assertPlanCapacity } from './planLimitService.js'
 
 // The ONLY place the vault pages call for data (Flow 2).
 //
@@ -84,7 +86,8 @@ export async function getVault(ownerId, vaultId) {
 
 // Input:  { name, description }
 // Output: the new vault (with an empty assets list)
-export function createVault(ownerId, { name, description }) {
+export async function createVault(ownerId, { name, description }) {
+  await assertPlanCapacity('collections', countOwnedVaults(ownerId))
   return mockCreateVault(ownerId, { name: name.trim(), description: description.trim() })
 }
 
@@ -415,6 +418,12 @@ export async function saveAsset(ownerId, vaultId, { values, files }, onProgress 
   const rawType = values.type || values.assetType || ''
   const assetName = (values.name || values.assetName || '').trim()
   if (!assetName || !rawType) throw new VaultError('INVALID_ASSET')
+
+  const currentAssets = await getAssetsListApi()
+  await assertPlanCapacity('records', Array.isArray(currentAssets) ? currentAssets.length : 0)
+  const linkedAttachmentCount = String(values.attachmentUrl || '').split(',').filter((url) => url.trim()).length
+  const requestedAttachmentCount = Math.max(files?.length || 0, linkedAttachmentCount)
+  await assertPlanCapacity('attachmentsPerRecord', 0, requestedAttachmentCount)
 
   onProgress('documents')
   const relatedDocuments = await prepareDocuments(files)

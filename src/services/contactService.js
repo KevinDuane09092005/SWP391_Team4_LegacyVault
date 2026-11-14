@@ -1,4 +1,5 @@
 // Contact Service: Integrates with Backend Contacts API endpoints (Flow 2)
+import { assertPlanCapacity } from './planLimitService.js'
 
 function getContactsBaseEndpoint() {
   const baseUrl = (
@@ -23,6 +24,8 @@ function getTokenOrThrow() {
 }
 
 export async function createContactApi({ fullName, relationship, email, expectedRole }) {
+  const existingContacts = await getContactsApi()
+  await assertPlanCapacity('trustedContacts', existingContacts.length)
   const token = getTokenOrThrow()
   const endpoint = getContactsBaseEndpoint()
 

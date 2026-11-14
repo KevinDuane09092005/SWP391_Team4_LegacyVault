@@ -11,7 +11,8 @@ import {
 
 // AI API key stays on the backend, never in Vite/client code.
 export function isAssistantApiEnabled() {
-  return import.meta.env?.VITE_CHAT_API_MODE === 'api'
+  // Use the real backend by default; the local sample chatbot is opt-in only.
+  return String(import.meta.env?.VITE_CHAT_API_MODE || 'api').trim().toLowerCase() !== 'demo'
 }
 
 export async function getChatbotSuggestions({ query = '', language, role, signal } = {}) {

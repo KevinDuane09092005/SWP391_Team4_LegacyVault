@@ -9,6 +9,7 @@ import { vaultContent } from '../../data/vaultContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
 import { updateAssetApi } from '../../services/vaultService.js'
 import { uploadAssetDocumentApi } from '../../services/documentService.js'
+import { assertPlanCapacity, getCurrentPlanLimits, getPlanLimitMessage } from '../../services/planLimitService.js'
 
 // Mapping giữa code hệ thống và tên loại tài sản backend API
 const RAW_TO_BACKEND = {
@@ -66,6 +67,18 @@ export default function EditAssetModal({ isOpen, onClose, asset, onSuccess }) {
   const [successMessage, setSuccessMessage] = useState(null)
   const [files, setFiles] = useState([])
   const [rejectedFiles, setRejectedFiles] = useState([])
+  const [planAttachmentLimit, setPlanAttachmentLimit] = useState(DOCUMENT_RULES.maxFiles)
+
+  useEffect(() => {
+    if (!isOpen) return undefined
+    let active = true
+    getCurrentPlanLimits()
+      .then(({ limits }) => {
+        if (active) setPlanAttachmentLimit(Math.min(DOCUMENT_RULES.maxFiles, limits.attachmentsPerRecord))
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [isOpen])
 
   // Khởi tạo và điền dữ liệu tài sản vào form khi mở modal
   useEffect(() => {
@@ -141,16 +154,17 @@ export default function EditAssetModal({ isOpen, onClose, asset, onSuccess }) {
   if (!isOpen) return null
 
   const maxSize = formatFileSize(DOCUMENT_RULES.maxSizeBytes)
+  const maxAttachments = Math.min(DOCUMENT_RULES.maxFiles, planAttachmentLimit)
   const reasonText = (reason) => {
     if (reason === 'size') return t.documents.reasons.size(maxSize)
-    if (reason === 'count') return t.documents.reasons.count(DOCUMENT_RULES.maxFiles)
+    if (reason === 'count') return t.documents.reasons.count(maxAttachments)
     return t.documents.reasons[reason]
   }
 
   const handleFileChange = (event) => {
     const picked = Array.from(event.target.files)
     if (!picked.length) return
-    const { accepted, rejected } = checkNewFiles(picked, files)
+    const { accepted, rejected } = checkNewFiles(picked, files, maxAttachments)
     setRejectedFiles(rejected)
     if (accepted.length > 0) {
       const updated = [...files, ...accepted]
@@ -201,6 +215,17 @@ export default function EditAssetModal({ isOpen, onClose, asset, onSuccess }) {
       return
     }
 
+    const newFilesToUpload = files.filter((f) => f.file instanceof File)
+    if (newFilesToUpload.length > 0) {
+      const existingAttachmentCount = String(asset?.attachmentUrl || '').split(',').filter((url) => url.trim()).length
+      try {
+        await assertPlanCapacity('attachmentsPerRecord', existingAttachmentCount, newFilesToUpload.length)
+      } catch (limitError) {
+        setError(getPlanLimitMessage(limitError, language) || limitError.message)
+        return
+      }
+    }
+
     setIsSubmitting(true)
 
     // Tự động tổng hợp credentials từ các trường con giống hệt Create Asset
@@ -230,7 +255,6 @@ export default function EditAssetModal({ isOpen, onClose, asset, onSuccess }) {
     const backendAssetType = RAW_TO_BACKEND[trimmedType] || trimmedType
 
     let finalAttachmentUrl = formValues.attachmentUrl.trim()
-    const newFilesToUpload = files.filter((f) => f.file instanceof File)
     if (newFilesToUpload.length > 0) {
       try {
         const uploadedUrls = []

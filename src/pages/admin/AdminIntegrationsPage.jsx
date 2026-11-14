@@ -22,9 +22,10 @@ export default function AdminIntegrationsPage() {
   const [pending, setPending] = useState(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
+  const email = data?.find((item) => item.id === 'email')
   const chatbot = data?.find((item) => item.id === CHATBOT_INTEGRATION_ID)
   const integrationItems = [
-    ...(data ?? []).filter((item) => item.id !== CHATBOT_INTEGRATION_ID),
+    ...(email ? [email] : []),
     {
       ...chatbot,
       id: CHATBOT_INTEGRATION_ID,
@@ -32,6 +33,7 @@ export default function AdminIntegrationsPage() {
       category: 'AI',
       enabled: chatbot?.enabled ?? false,
     },
+    ...(data ?? []).filter((item) => item.id !== 'email' && item.id !== CHATBOT_INTEGRATION_ID),
   ]
 
   const apply = async () => {

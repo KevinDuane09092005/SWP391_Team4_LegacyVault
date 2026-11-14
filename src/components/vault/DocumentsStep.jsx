@@ -4,11 +4,11 @@ import { DOCUMENT_RULES, formatFileSize } from '../../vault/documentRules.js'
 
 // Add Asset — step 2 "Upload related documents".
 // Files are checked and listed only. Nothing is uploaded (see documentService.js).
-export default function DocumentsStep({ files, rejected, onAdd, onRemove, t }) {
+export default function DocumentsStep({ files, rejected, onAdd, onRemove, t, maxFiles = DOCUMENT_RULES.maxFiles }) {
   const maxSize = formatFileSize(DOCUMENT_RULES.maxSizeBytes)
   const reasonText = (reason) => {
     if (reason === 'size') return t.documents.reasons.size(maxSize)
-    if (reason === 'count') return t.documents.reasons.count(DOCUMENT_RULES.maxFiles)
+    if (reason === 'count') return t.documents.reasons.count(maxFiles)
     return t.documents.reasons[reason]
   }
 
@@ -40,7 +40,7 @@ export default function DocumentsStep({ files, rejected, onAdd, onRemove, t }) {
             onChange={handleChange}
           />
         </label>
-        <p className="file-picker__rules">{t.documents.rules(maxSize, DOCUMENT_RULES.maxFiles)}</p>
+        <p className="file-picker__rules">{t.documents.rules(maxSize, maxFiles)}</p>
       </div>
 
       {rejected.length > 0 && (

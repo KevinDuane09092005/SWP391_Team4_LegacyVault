@@ -23,7 +23,7 @@ function getExtension(fileName) {
 // Checks newly picked files against the rules and the files already in the list.
 // Returns { accepted: [{ id, file, name, size, type }], rejected: [{ name, reason }] }
 // where reason is 'type' | 'size' | 'empty' | 'duplicate' | 'count'.
-export function checkNewFiles(newFiles, currentFiles) {
+export function checkNewFiles(newFiles, currentFiles, maxFiles = DOCUMENT_RULES.maxFiles) {
   const accepted = []
   const rejected = []
   const knownIds = new Set(currentFiles.map((item) => item.id))
@@ -35,7 +35,7 @@ export function checkNewFiles(newFiles, currentFiles) {
     else if (file.size === 0) reason = 'empty'
     else if (file.size > DOCUMENT_RULES.maxSizeBytes) reason = 'size'
     else if (knownIds.has(id)) reason = 'duplicate'
-    else if (currentFiles.length + accepted.length >= DOCUMENT_RULES.maxFiles) reason = 'count'
+    else if (currentFiles.length + accepted.length >= maxFiles) reason = 'count'
 
     if (reason) {
       rejected.push({ name: file.name, reason })

@@ -1,4 +1,5 @@
 import Button from '../Button.jsx'
+import FormAlert from '../auth/FormAlert.jsx'
 import Icon from '../Icon.jsx'
 import OwnerLayout from '../vault/OwnerLayout.jsx'
 import '../../styles/billing-flow.css'
@@ -424,6 +425,7 @@ function CheckoutReviewScreen({
   planName,
   billingCycle,
   formattedPrice,
+  planWarning,
   method,
   acceptRecurring,
   onAcceptRecurring,
@@ -440,6 +442,8 @@ function CheckoutReviewScreen({
           <h1>{copy.reviewHeading}</h1>
           <p>{copy.reviewIntro}</p>
         </div>
+
+        {planWarning && <FormAlert tone="info">{planWarning}</FormAlert>}
 
         <dl className="billing-flow__summary">
           <div><dt>{copy.plan}</dt><dd>{planName}</dd></div>
@@ -468,7 +472,7 @@ function CheckoutReviewScreen({
         <div className="billing-flow__review-actions">
           <Button variant="secondary" onClick={onBack}>{copy.backToPayment}</Button>
           <Button onClick={onConfirm} disabled={busy || (!isFreePlan && !acceptRecurring)}>
-            {busy ? copy.processing : isFreePlan ? copy.activateFree : `${copy.payNow} · ${formattedPrice}`}
+            {busy ? copy.processing : isFreePlan ? copy.activateFree : copy.payNow}
           </Button>
         </div>
       </section>
@@ -553,7 +557,20 @@ export default function PaymentFlowScreen(props) {
   let screen = null
   if (props.step === 'methods') screen = <PaymentMethodsScreen {...props} />
   if (props.step === 'add-card') screen = <AddPaymentMethodScreen {...props} />
-  if (props.step === 'edit-card') screen = <EditPaymentMethodScreen {...props} />
+  if (props.step === 'edit-card') {
+    screen = (
+      <EditPaymentMethodScreen
+        method={props.editingMethod}
+        form={props.editForm}
+        onChange={props.onEditChange}
+        onSubmit={props.onSubmitEdit}
+        onCancel={props.onCancelEdit}
+        copy={props.copy}
+        busy={props.busy}
+        error={props.error}
+      />
+    )
+  }
   if (props.step === 'review') screen = <CheckoutReviewScreen {...props} />
   if (props.step === 'success') screen = <ResultScreen {...props} isSuccess />
   if (props.step === 'failure') screen = <ResultScreen {...props} isSuccess={false} />

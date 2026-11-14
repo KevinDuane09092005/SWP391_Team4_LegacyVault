@@ -21,6 +21,7 @@ import OwnerLayout from '../../components/vault/OwnerLayout.jsx'
 import PageHeader from '../../components/vault/PageHeader.jsx'
 import { LoadingState } from '../../components/vault/PageStates.jsx'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
+import { getPlanLimitMessage } from '../../services/planLimitService.js'
 import {
   createContactApi,
   deleteContactApi,
@@ -429,7 +430,8 @@ export default function ContactsPage() {
 
       console.error('Lỗi khi lưu liên hệ:', err)
       setModalError(
-        err.data?.error ||
+        getPlanLimitMessage(err, language) ||
+          err.data?.error ||
           err.data?.message ||
           err.message ||
           (isVi

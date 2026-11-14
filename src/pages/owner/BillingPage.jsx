@@ -10,7 +10,11 @@ import PageHeader from '../../components/vault/PageHeader.jsx'
 import { ErrorState, LoadingState } from '../../components/vault/PageStates.jsx'
 import { pricingContent } from '../../data/pricingContent.js'
 import { useLanguage } from '../../i18n/LanguageContext.jsx'
+import { useAuth } from '../../auth/AuthContext.jsx'
 import useAsync from '../../hooks/useAsync.js'
+import { getAssetsListApi } from '../../services/vaultService.js'
+import { getContactsApi } from '../../services/contactService.js'
+import { countOwnedVaults } from '../../mocks/mockVaultStore.js'
 import { fetchPlans } from '../../services/pricingService.js'
 import {
   addPaymentMethod,
@@ -51,14 +55,51 @@ function identifyCardBrand(number) {
   return 'OTHER'
 }
 
-async function loadBillingSnapshot() {
-  const [plans, subscription, methods, transactionPage] = await Promise.all([
+function attachmentCount(asset) {
+  const attachmentUrl = asset?.attachmentUrl ?? asset?.attachment_url
+  if (typeof attachmentUrl === 'string' && attachmentUrl.trim()) {
+    return attachmentUrl.split(',').filter((item) => item.trim()).length
+  }
+  const documents = asset?.documents ?? asset?.relatedDocuments
+  return Array.isArray(documents) ? documents.length : 0
+}
+
+async function loadBillingSnapshot(ownerId) {
+  const [plans, subscription, methods, transactionPage, assetsResult, contactsResult] = await Promise.all([
     fetchPlans(),
     getSubscription(),
     listPaymentMethods(),
     listTransactions({ page: 0, size: 20 }),
+    getAssetsListApi().then((assets) => ({ ok: true, assets })).catch(() => ({ ok: false, assets: null })),
+    getContactsApi().then((contacts) => ({ ok: true, contacts })).catch(() => ({ ok: false, contacts: null })),
   ])
-  return { plans, subscription, methods, transactions: transactionPage.transactions || [] }
+  const assets = Array.isArray(assetsResult.assets) ? assetsResult.assets : null
+  return {
+    plans,
+    subscription,
+    methods,
+    transactions: transactionPage.transactions || [],
+    usage: {
+      collections: Number.isFinite(ownerId) || typeof ownerId === 'string' ? countOwnedVaults(ownerId) : null,
+      records: assets?.length ?? null,
+      trustedContacts: contactsResult.ok ? contactsResult.contacts.length : null,
+      attachmentsPerRecord: assets ? Math.max(0, ...assets.map(attachmentCount)) : null,
+    },
+  }
+}
+
+function planOverageWarning(plan, usage, isVietnamese) {
+  if (!plan?.limits || !usage) return null
+  const labels = isVietnamese
+    ? { collections: 'bộ sưu tập', records: 'hồ sơ', trustedContacts: 'người liên hệ tin cậy', attachmentsPerRecord: 'tài liệu đính kèm trên một hồ sơ' }
+    : { collections: 'collections', records: 'records', trustedContacts: 'trusted contacts', attachmentsPerRecord: 'attachments on a single record' }
+  const overages = Object.keys(labels)
+    .filter((metric) => usage[metric] != null && Number(usage[metric]) > Number(plan.limits[metric]))
+    .map((metric) => `${usage[metric]} ${labels[metric]} (limit ${plan.limits[metric]})`)
+  if (overages.length === 0) return null
+  return isVietnamese
+    ? `Mức sử dụng hiện tại vượt quá giới hạn của gói này: ${overages.join(', ')}. Hãy nâng cấp hoặc giảm mức sử dụng trong 7 ngày. Nội dung hiện có sẽ không tự động bị xóa; việc thêm nội dung mới sẽ bị giới hạn theo gói.`
+    : `Your current usage exceeds this plan: ${overages.join(', ')}. Upgrade or reduce your usage within 7 days. Existing data will not be deleted automatically; adding more will be blocked by the plan limits.`
 }
 
 function localDate(value, language) {
@@ -72,6 +113,7 @@ function localDate(value, language) {
 }
 
 export default function BillingPage() {
+  const { user } = useAuth()
   const { language } = useLanguage()
   const [searchParams] = useSearchParams()
   const requestedPlan = searchParams.get('plan')
@@ -97,27 +139,27 @@ export default function BillingPage() {
         choose: 'Chọn gói',
         chooseIntro: 'Ba lựa chọn rõ ràng cho cá nhân, gia đình và người cần thêm dung lượng lưu trữ.',
         backToPlans: 'Quay lại chọn gói',
-        checkoutTitle: 'Thanh toán an toàn',
-        demoProvider: 'Cổng thanh toán mô phỏng',
-        providerHint: 'Bước này mô phỏng việc chuyển sang nhà cung cấp thanh toán. Không có dữ liệu thẻ thật nào được gửi.',
+        checkoutTitle: 'Xác nhận gói dịch vụ',
+        demoProvider: 'Thông tin thanh toán',
+        providerHint: 'Số thẻ và mã bảo mật không được lưu vào tài khoản hoặc gửi đến LegacyVault.',
         selectedPlan: 'Gói đã chọn',
         billingCycle: 'Chu kỳ thanh toán',
         totalDue: 'Tổng tiền hôm nay',
-        payNow: 'Thanh toán mô phỏng',
+        payNow: 'Xác nhận đăng ký',
         activateFree: 'Kích hoạt gói miễn phí',
-        addMethodHint: 'Thêm phương thức mô phỏng ở mục bên dưới rồi quay lại đây.',
+        addMethodHint: 'Thêm phương thức thanh toán bên dưới rồi quay lại đây.',
         monthly: 'Hàng tháng',
         yearly: 'Hàng năm',
         paymentMethod: 'Phương thức thanh toán',
         noMethods: 'Chưa có phương thức thanh toán nào được lưu.',
-        addMethod: 'Thêm phương thức thử nghiệm',
-        cardholder: 'Tên chủ thẻ (mô phỏng)',
+        addMethod: 'Thêm phương thức thanh toán',
+        cardholder: 'Tên chủ thẻ',
         brand: 'Loại thẻ',
-        lastFour: '4 số cuối giả lập',
+        lastFour: '4 số cuối',
         expiryMonth: 'Tháng hết hạn',
         expiryYear: 'Năm hết hạn',
         makeDefault: 'Thêm và đặt làm phương thức mặc định',
-        decline: 'Mô phỏng giao dịch bị từ chối',
+        decline: 'Không thể hoàn tất thanh toán',
         consent: 'Tôi đồng ý với khoản thanh toán định kỳ theo chu kỳ đã chọn.',
         transactions: 'Lịch sử giao dịch',
         noTransactions: 'Chưa có giao dịch.',
@@ -127,10 +169,10 @@ export default function BillingPage() {
         result: 'Kết quả',
         loading: 'Đang tải thông tin thanh toán…',
         retry: 'Thử lại',
-        saved: 'Đã lưu phương thức thanh toán mô phỏng.',
-        checkedOut: 'Đã xử lý yêu cầu gói dịch vụ.',
+        saved: 'Đã lưu phương thức thanh toán.',
+        checkedOut: 'Đã cập nhật gói dịch vụ.',
         canceled: 'Đã tắt tự động gia hạn.',
-        missingMethod: 'Hãy thêm và chọn một phương thức thanh toán mô phỏng trước.',
+        missingMethod: 'Hãy thêm và chọn phương thức thanh toán trước.',
         missingConsent: 'Vui lòng xác nhận đồng ý thanh toán định kỳ.',
         success: 'Thành công',
         failed: 'Thất bại',
@@ -160,7 +202,7 @@ export default function BillingPage() {
         addCardHeading: 'Thêm phương thức thanh toán',
         addCardIntro: 'Thêm thẻ để thanh toán an toàn và không gián đoạn.',
         cardNumber: 'Số thẻ',
-        cardNumberFormat: 'Nhập 16 chữ số thử nghiệm, ví dụ 4242 4242 4242 4242.',
+        cardNumberFormat: 'Nhập số thẻ gồm 16 chữ số.',
         useSavedCard: 'Hoặc dùng thẻ đã lưu',
         expiry: 'Ngày hết hạn',
         expiryFormat: 'Nhập theo định dạng MM / YYYY.',
@@ -171,26 +213,26 @@ export default function BillingPage() {
         cancelCard: 'Hủy',
         saveCard: 'Lưu thẻ',
         savingCard: 'Đang lưu…',
-        paymentDataNote: 'Bản demo: số thẻ đầy đủ và CVV chỉ ở trong trình duyệt, không được lưu hoặc gửi đi.',
+        paymentDataNote: 'Số thẻ và mã bảo mật chỉ dùng để nhận diện thẻ; không được lưu hoặc gửi đến LegacyVault.',
         reviewHeading: 'Xác nhận gói dịch vụ',
         reviewIntro: 'Kiểm tra thông tin trước khi xác nhận.',
         backToPayment: 'Quay lại',
-        demoReviewNote: 'Đây là giao dịch mô phỏng. Không có khoản tiền thật nào được thu.',
-        demoOnlyNote: 'Bản demo học tập — không có khoản tiền thật nào được thu hoặc email nào được gửi.',
+        demoReviewNote: 'Trang này chưa thu tiền. Gói sẽ được cập nhật sau khi bạn xác nhận.',
+        demoOnlyNote: 'Gói dịch vụ sẽ được cập nhật sau khi xác nhận; trang này chưa thu tiền.',
         processing: 'Đang xử lý…',
-        secureBilling: 'Thanh toán an toàn',
-        amountPaid: 'Số tiền đã thanh toán',
+        secureBilling: 'Thông tin thanh toán',
+        amountPaid: 'Giá gói dịch vụ',
         transactionId: 'Mã giao dịch',
-        downloadReceipt: 'Tải biên nhận',
-        successTitle: 'Thanh toán thành công',
-        successIntro: 'Thanh toán của bạn đã hoàn tất. Cảm ơn bạn đã bảo vệ di sản số của mình.',
-        demoSuccessNote: 'Bản demo thành công. Không có khoản tiền thật hoặc email biên nhận nào được gửi.',
-        failureTitle: 'Thanh toán thất bại',
-        failureIntro: 'Cổng thanh toán mô phỏng đã từ chối giao dịch. Kiểm tra thông tin thẻ thử nghiệm hoặc chọn thẻ khác.',
-        paymentAmount: 'Số tiền thanh toán',
+        downloadReceipt: 'Tải tóm tắt thanh toán',
+        successTitle: 'Đã kích hoạt gói dịch vụ',
+        successIntro: 'Gói dịch vụ bạn chọn hiện đã được áp dụng.',
+        demoSuccessNote: 'Gói dịch vụ đã được cập nhật. Chưa có khoản thanh toán nào được thu.',
+        failureTitle: 'Chưa thể hoàn tất thanh toán',
+        failureIntro: 'Yêu cầu thanh toán chưa hoàn tất. Gói hiện tại của bạn không thay đổi.',
+        paymentAmount: 'Giá gói dịch vụ',
         tryAgain: 'Thử lại',
         useDifferentCard: 'Dùng thẻ khác',
-        notCharged: 'Bạn chưa bị tính phí. Đây chỉ là kết quả mô phỏng.',
+        notCharged: 'Chưa có khoản thanh toán nào được thu.',
         noPaymentRequired: 'Không cần thanh toán',
         active: 'Đang hoạt động',
         yes: 'Có',
@@ -213,27 +255,27 @@ export default function BillingPage() {
         choose: 'Choose a plan',
         chooseIntro: 'Compare the options for individuals, families, and larger digital estates.',
         backToPlans: 'Back to plan selection',
-        checkoutTitle: 'Secure checkout',
-        demoProvider: 'Simulated payment provider',
-        providerHint: 'This step imitates handing off to a payment provider. No real card details are sent.',
+        checkoutTitle: 'Confirm your plan',
+        demoProvider: 'Payment details',
+        providerHint: 'Your card number and security code are not stored in your account or sent to LegacyVault.',
         selectedPlan: 'Selected plan',
         billingCycle: 'Billing cycle',
         totalDue: 'Total due today',
-        payNow: 'Pay (simulation)',
+        payNow: 'Confirm subscription',
         activateFree: 'Activate free plan',
-        addMethodHint: 'Add a simulated method in the section below, then return here.',
+        addMethodHint: 'Add a payment method below, then return here.',
         monthly: 'Monthly',
         yearly: 'Yearly',
         paymentMethod: 'Payment method',
         noMethods: 'No payment methods saved yet.',
-        addMethod: 'Add a test payment method',
-        cardholder: 'Cardholder name (simulated)',
+        addMethod: 'Add a payment method',
+        cardholder: 'Cardholder name',
         brand: 'Card brand',
-        lastFour: 'Fake last four digits',
+        lastFour: 'Last four digits',
         expiryMonth: 'Expiry month',
         expiryYear: 'Expiry year',
         makeDefault: 'Add and set as default',
-        decline: 'Simulate a declined transaction',
+        decline: 'Unable to complete payment',
         consent: 'I agree to the recurring charge for the selected billing cycle.',
         transactions: 'Transactions',
         noTransactions: 'No transactions yet.',
@@ -243,10 +285,10 @@ export default function BillingPage() {
         result: 'Result',
         loading: 'Loading billing information…',
         retry: 'Try again',
-        saved: 'Simulated payment method saved.',
-        checkedOut: 'Plan request processed.',
+        saved: 'Payment method saved.',
+        checkedOut: 'Your subscription has been updated.',
         canceled: 'Auto-renewal has been turned off.',
-        missingMethod: 'Add and select a simulated payment method first.',
+        missingMethod: 'Add and select a payment method first.',
         missingConsent: 'Please confirm recurring billing consent.',
         success: 'Succeeded',
         failed: 'Failed',
@@ -276,7 +318,7 @@ export default function BillingPage() {
         addCardHeading: 'Add Payment Method',
         addCardIntro: 'Add a card for secure, uninterrupted billing.',
         cardNumber: 'Card Number',
-        cardNumberFormat: 'Enter 16 demo digits, such as 4242 4242 4242 4242.',
+        cardNumberFormat: 'Enter a 16-digit card number.',
         useSavedCard: 'Or use saved card',
         expiry: 'Expiry',
         expiryFormat: 'Enter the date as MM / YYYY.',
@@ -287,33 +329,36 @@ export default function BillingPage() {
         cancelCard: 'Cancel',
         saveCard: 'Save Card',
         savingCard: 'Saving…',
-        paymentDataNote: 'Demo only — the full card number and CVV stay in this browser and are never stored or sent.',
+        paymentDataNote: 'Your card number and security code are used only to identify the card; they are not stored or sent to LegacyVault.',
         reviewHeading: 'Review your plan',
         reviewIntro: 'Check the details before you confirm.',
         backToPayment: 'Back',
-        demoReviewNote: 'This is a simulated transaction. No real payment will be made.',
-        demoOnlyNote: 'Student-project demo — no real payment or receipt email is sent.',
+        demoReviewNote: 'No payment will be collected from this page. Your plan updates after confirmation.',
+        demoOnlyNote: 'Your plan updates after confirmation; no payment is collected from this page.',
         processing: 'Processing…',
-        secureBilling: 'Secure billing',
-        amountPaid: 'Amount paid',
+        secureBilling: 'Billing details',
+        amountPaid: 'Plan amount',
         transactionId: 'Transaction ID',
-        downloadReceipt: 'Download Receipt',
-        successTitle: 'Payment Successful',
-        successIntro: 'Your payment is complete. Thank you for keeping your digital legacy protected.',
-        demoSuccessNote: 'Demo successful. No real charge or receipt email was made.',
-        failureTitle: 'Payment Failed',
-        failureIntro: 'The simulated payment gateway declined the transaction. Check your test card details or choose another card.',
-        paymentAmount: 'Payment amount',
+        downloadReceipt: 'Download billing summary',
+        successTitle: 'Subscription activated',
+        successIntro: 'Your selected plan is now active.',
+        demoSuccessNote: 'Your plan has been updated. No payment was collected.',
+        failureTitle: 'Payment not completed',
+        failureIntro: 'We could not complete this billing request. Your current plan has not changed.',
+        paymentAmount: 'Plan amount',
         tryAgain: 'Try Again',
         useDifferentCard: 'Use a Different Card',
-        notCharged: 'You have not been charged. This is a simulated result.',
+        notCharged: 'No payment was collected.',
         noPaymentRequired: 'No payment required',
         active: 'Active',
         yes: 'Yes',
         no: 'No',
       }
 
-  const { status, data, error: loadError, reload } = useAsync(loadBillingSnapshot, 'owner-billing')
+  const { status, data, error: loadError, reload } = useAsync(
+    () => loadBillingSnapshot(user?.id),
+    `${user?.id}-owner-billing`,
+  )
   const plans = data?.plans || []
   const subscription = data?.subscription
   const [methodsOverride, setMethodsOverride] = useState(null)
@@ -572,6 +617,7 @@ export default function BillingPage() {
     : '—'
 
   const chosenPlanName = planText[chosenPlan?.id]?.name || chosenPlan?.id || '—'
+  const downgradeWarning = planOverageWarning(chosenPlan, data?.usage, isVietnamese)
   const activeCheckoutMethod = checkoutMethod || methods.find((method) => method.paymentMethodId === selectedMethodId) || null
   const checkoutMethods = activeCheckoutMethod && !methods.some((method) => method.paymentMethodId === activeCheckoutMethod.paymentMethodId)
     ? [activeCheckoutMethod, ...methods]
@@ -591,18 +637,18 @@ export default function BillingPage() {
   const downloadReceipt = () => {
     const transaction = checkoutOutcome?.transaction
     const receipt = [
-      'LegacyVault — DEMO RECEIPT',
+      'LegacyVault — BILLING SUMMARY',
       `Plan: ${chosenPlanName}`,
       `Billing cycle: ${billingCycle === 'YEARLY' ? copy.yearly : copy.monthly}`,
-      `Amount: ${formattedSelectedPrice}`,
+      `Plan amount: ${formattedSelectedPrice}`,
       `Payment method: ${activeCheckoutMethod ? `${activeCheckoutMethod.brand} ending in ${activeCheckoutMethod.lastFour}` : copy.noPaymentRequired}`,
-      `Transaction: ${transaction?.transactionId || 'No payment required'}`,
-      'No real payment was taken.',
+      `Reference: ${transaction?.transactionId || 'No payment required'}`,
+      'Payment collected: No',
     ].join('\n')
     const url = URL.createObjectURL(new Blob([receipt], { type: 'text/plain;charset=utf-8' }))
     const link = document.createElement('a')
     link.href = url
-    link.download = 'legacyvault-demo-receipt.txt'
+    link.download = 'legacyvault-billing-summary.txt'
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -614,6 +660,7 @@ export default function BillingPage() {
     planName: chosenPlanName,
     billingCycle,
     formattedPrice: formattedSelectedPrice,
+    planWarning: checkoutStep === 'review' ? downgradeWarning : null,
     language,
     methods: checkoutMethods,
     selectedMethodId: activeCheckoutMethod?.paymentMethodId || '',
